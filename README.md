@@ -1,6 +1,6 @@
 # CoralConsole
 
-CoralConsole is a colorful operations console for discovering, organizing, and administering actors in a [Coral Sequencer](https://www.coralsequencer.com/) distributed system.
+CoralConsole is a colorful operations console for discovering, organizing, and administering actors in a [Coral Sequencer](https://www.coralblocks.com/coralsequencer) distributed system.
 
 ![CoralConsole topology overview](public/og-v2.png)
 
