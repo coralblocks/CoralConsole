@@ -63,6 +63,13 @@ Browser calls go through `app/api/actor/route.ts` so local usage is not blocked 
 Use the existing npm lockfile and package manager. Keep Cloudflare Worker compatibility: route handlers should rely on web-standard APIs rather than Node-only modules.
 After adding or changing a client dependency, restart the development server so Vite re-optimizes the lockfile before relying on hot reload. Verify that both `/` and the transformed `/app/page.tsx` development module return successfully.
 
+## Git workflow
+
+- Work directly on `main` and push completed changes to `origin/main` after validation.
+- Do not create pull requests or temporary `agent/*` branches unless the user explicitly requests them for a specific change.
+- Before committing, inspect the exact diff and avoid staging unrelated or sensitive files.
+- Use short, descriptive commit messages and keep the working tree clean after pushing.
+
 ## UI conventions
 
 - The topology is the product's primary view; do not turn it into generic dashboard chrome.
