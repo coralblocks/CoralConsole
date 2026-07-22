@@ -23,15 +23,28 @@ Requirements: Docker Engine with Docker Compose and network access from the Dock
 ```bash
 git clone https://github.com/coralblocks/CoralConsole.git
 cd CoralConsole
-cp .env.example .env
-docker compose up -d --build
+./scripts/docker-start.sh
 ```
 
 Open [http://localhost:3000](http://localhost:3000), choose a topology name and workspace color, then add actors.
 
 By default the container binds only to `127.0.0.1`. To make it reachable on a private LAN, set `CORAL_BIND_ADDRESS` in `.env` to the server's private IP (or `0.0.0.0` when a firewall or reverse proxy controls access). See [DEPLOYMENT.md](./DEPLOYMENT.md) before exposing the service to other users.
 
-The Compose volume `coralconsole-data` holds `/data/coralconsole.db`. It survives container recreation and upgrades.
+The Compose volume `coralconsole-data` holds `/data/coralconsole.db`. It survives Docker restarts, container recreation, application upgrades, and image removal. The volume—not the image—is what preserves actors and settings.
+
+Useful lifecycle commands:
+
+```bash
+./scripts/docker-start.sh  # builds once if needed, then starts without rebuilding
+./scripts/docker-stop.sh   # stops the app and preserves the database volume
+npm run docker:restart  # restarts the existing container
+npm run docker:status   # shows container and health status
+npm run docker:logs     # follows application logs; Ctrl-C stops following only
+```
+
+The `npm run docker:*` commands are convenient aliases for developers who already have Node.js. The start and stop shell scripts require only Docker Compose.
+
+After the first successful image build, `docker:start` can run without internet access as long as Docker still has the image and its base layers locally.
 
 ## Local development
 

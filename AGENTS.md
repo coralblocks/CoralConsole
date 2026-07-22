@@ -82,6 +82,9 @@ Actors receive JSON shaped as:
 - `npm run lint` — run ESLint.
 - `npm run db:generate` — generate a migration after an intentional schema change.
 - `npm run db:migrate` — migrate the configured local database.
+- `npm run docker:start` / `npm run docker:stop` — start or stop the reference container while preserving its named volume.
+- `npm run docker:build` — intentionally rebuild the local image after code changes.
+- `npm run docker:status` / `npm run docker:logs` — inspect the reference container.
 
 Use the existing npm lockfile. Commit schema changes and their generated migration together. Validate with `npm run lint` and `npm test`; smoke-test Docker when deployment files or native dependencies change.
 
@@ -109,6 +112,7 @@ Use the existing npm lockfile. Commit schema changes and their generated migrati
 
 - This version has no application authentication or roles. Network reachability equals full operator access.
 - Default Docker binding is localhost. Document private LAN, VPN, firewall, TLS, and authenticated reverse-proxy requirements; never imply that public exposure is safe.
+- Lifecycle helpers must preserve `coralconsole-data` by default. Never put `down -v`, `volume rm`, or volume pruning in ordinary start/stop scripts.
 - Enable `CORAL_TRUST_PROXY` only behind a trusted proxy that overwrites forwarding headers.
 - Maintain baseline security headers and confirmation for destructive UI actions.
 - Avoid logging database contents, admin payloads, actor output, tokens, or secrets to process logs.

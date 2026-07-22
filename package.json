@@ -12,7 +12,13 @@
     "test": "npm run build && node --test tests/*.test.mjs",
     "lint": "eslint . --ignore-pattern dist --ignore-pattern .next",
     "db:generate": "drizzle-kit generate",
-    "db:migrate": "node scripts/migrate.mjs"
+    "db:migrate": "node scripts/migrate.mjs",
+    "docker:build": "docker compose build",
+    "docker:start": "sh scripts/docker-start.sh",
+    "docker:stop": "sh scripts/docker-stop.sh",
+    "docker:restart": "docker compose restart coralconsole",
+    "docker:status": "docker compose ps coralconsole",
+    "docker:logs": "docker compose logs -f coralconsole"
   },
   "dependencies": {
     "better-sqlite3": "^13.0.1",

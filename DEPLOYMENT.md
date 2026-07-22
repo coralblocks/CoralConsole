@@ -18,16 +18,28 @@ CoralConsole does not send topology or command data to an external service.
 ## Docker Compose
 
 ```bash
-cp .env.example .env
-docker compose up -d --build
-docker compose ps
+./scripts/docker-start.sh
+docker compose ps coralconsole
 ```
+
+On the first run, the start script copies `.env.example` to the ignored `.env` file and builds `coralconsole:local`. Subsequent starts use that local image without rebuilding, which supports disconnected/offline testing. Run `npm run docker:build` intentionally after pulling or editing application code, followed by `npm run docker:start`.
 
 The health endpoint is `GET /api/health`. View logs with:
 
 ```bash
 docker compose logs -f coralconsole
 ```
+
+The project also provides:
+
+```bash
+npm run docker:stop
+npm run docker:restart
+npm run docker:status
+npm run docker:logs
+```
+
+`./scripts/docker-stop.sh` and `docker:stop` use `docker compose stop`, which leaves both the container and named volume intact. The shell scripts require only Docker Compose; the `npm run` aliases additionally require Node.js.
 
 For direct private-LAN access, use the server's private address in `.env`:
 
@@ -41,6 +53,30 @@ For a reverse proxy on the same host, retain `127.0.0.1`. Set `CORAL_TRUST_PROXY
 ## Persistence and backup
 
 The Compose volume `coralconsole-data` mounts at `/data`; SQLite uses WAL mode and stores its main file at `/data/coralconsole.db`.
+
+Docker images and volumes are independent. These operations preserve the database:
+
+- quitting and restarting Docker Desktop or the Docker service;
+- `./scripts/docker-stop.sh` followed by `./scripts/docker-start.sh`;
+- `docker compose down` followed by `npm run docker:start`;
+- removing/rebuilding the `coralconsole:local` image;
+- removing and recreating the CoralConsole container.
+
+These operations delete or can delete the database and must not be used unless data loss is intentional:
+
+- `docker compose down -v`;
+- `docker volume rm` targeting this project's `coralconsole-data` volume;
+- `docker system prune --volumes` when the volume is considered unused;
+- Docker Desktop **Reset to factory defaults** or equivalent storage reset.
+
+Compose normally prefixes the physical volume with the project/directory name. If the checkout directory or `COMPOSE_PROJECT_NAME` changes, Docker may create a new empty volume; the original database normally still exists in the old volume.
+
+To confirm the active database and volume:
+
+```bash
+docker compose exec coralconsole ls -lh /data/coralconsole.db
+docker volume ls --filter label=com.docker.compose.volume=coralconsole-data
+```
 
 For a consistent online backup, use SQLite's backup command inside the running container and copy the result out:
 
@@ -57,7 +93,7 @@ To restore, stop CoralConsole, replace the database file in `/data`, preserve ow
 
 1. Create a database backup.
 2. Pull the desired tagged release.
-3. Run `docker compose up -d --build`.
+3. Run `docker compose build`, followed by `./scripts/docker-start.sh`.
 4. Confirm `docker compose ps` reports a healthy service and open `/api/health`.
 
 Migrations run automatically on container startup. Do not run multiple CoralConsole containers against the same SQLite file.
