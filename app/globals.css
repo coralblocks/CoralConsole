@@ -34,7 +34,12 @@ button, input, select { font: inherit; }
 button, a { -webkit-tap-highlight-color: transparent; }
 button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible { outline: 3px solid rgba(36, 200, 192, 0.38); outline-offset: 2px; }
 
-.console-shell { min-height: 100vh; overflow: hidden; }
+.console-shell {
+  background:
+    linear-gradient(color-mix(in srgb, var(--topology-color, var(--paper)) 16%, transparent), transparent 34rem);
+  min-height: 100vh;
+  overflow: hidden;
+}
 .topbar {
   align-items: center;
   backdrop-filter: blur(18px);
@@ -61,6 +66,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .environment i { background: var(--lime); border-radius: 50%; box-shadow: 0 0 0 4px var(--lime-soft); height: 7px; width: 7px; }
 .intro-toggle { background: transparent; border: 0; border-radius: 8px; color: var(--muted); cursor: pointer; font-family: var(--font-plex-mono), monospace; font-size: 9px; font-weight: 600; padding: 10px 8px; text-transform: uppercase; }
 .intro-toggle:hover { background: rgba(255, 255, 255, .7); color: var(--ink); }
+.nav-link { align-items: center; display: inline-flex; text-decoration: none; }
 .button { align-items: center; border: 0; border-radius: 10px; cursor: pointer; display: inline-flex; font-size: 13px; font-weight: 800; gap: 9px; justify-content: center; min-height: 44px; padding: 0 17px; transition: transform .2s ease, box-shadow .2s ease, background .2s ease; }
 .button:hover:not(:disabled) { transform: translateY(-2px); }
 .button:disabled { cursor: not-allowed; opacity: .48; }
@@ -113,6 +119,8 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .section-heading { align-items: center; border-bottom: 1px solid var(--line); display: flex; gap: 20px; justify-content: space-between; padding: 24px 27px; }
 .section-heading .eyebrow { margin-bottom: 5px; }
 .section-heading h2 { font-size: 23px; letter-spacing: -.04em; margin: 0; }
+.topology-actions { align-items: center; display: flex; gap: 10px; }
+.refresh-button { min-height: 36px; padding-inline: 12px; }
 .filters { background: #ecebe4; border-radius: 9px; display: flex; gap: 2px; padding: 3px; }
 .filters button { background: transparent; border: 0; border-radius: 7px; color: var(--muted); cursor: pointer; font-family: var(--font-plex-mono), monospace; font-size: 9px; font-weight: 600; padding: 8px 10px; text-transform: capitalize; }
 .filters button.active { background: white; box-shadow: 0 2px 9px rgba(16,43,38,.1); color: var(--ink); }
@@ -217,6 +225,17 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .actor-detail-panel .admin-block { padding: 30px 28px 26px; }
 .actor-detail-panel .admin-heading h2 { font-size: 19px; }
 .actor-detail-panel .admin-block input, .actor-detail-panel .admin-block select { height: 48px; }
+.actor-detail-layout { display: grid; gap: 22px; margin: 0 auto; max-width: 980px; }
+.actor-audit-panel { background: rgba(255, 254, 249, .8); border: 1px solid rgba(16, 43, 38, .1); border-radius: 22px; overflow: hidden; }
+.actor-audit-panel .section-heading { padding-block: 20px; }
+.actor-audit-list { display: grid; gap: 1px; background: var(--line); }
+.actor-audit-list article { align-items: start; background: var(--panel); display: grid; gap: 14px; grid-template-columns: 70px minmax(150px, .7fr) minmax(0, 1.3fr); padding: 16px 26px; }
+.actor-audit-list article > div { display: grid; }
+.actor-audit-list article small { color: var(--muted); font-family: var(--font-plex-mono), monospace; font-size: 8px; margin-top: 4px; }
+.actor-audit-list pre { color: #40504c; font-family: var(--font-plex-mono), monospace; font-size: 8px; line-height: 1.5; margin: 0; max-height: 64px; overflow: auto; white-space: pre-wrap; }
+.audit-outcome { align-self: start; background: var(--lime-soft); border-radius: 999px; color: #587318; display: inline-flex; font-family: var(--font-plex-mono), monospace; font-size: 8px; justify-content: center; padding: 6px 8px; text-transform: uppercase; }
+.audit-outcome.failure { background: var(--coral-soft); color: #9a3d36; }
+.empty-audit { color: var(--muted); margin: 0; padding: 42px 24px; text-align: center; }
 .detail-back { min-height: 40px; }
 .actor-detail-empty { background: rgba(255, 254, 249, .8); border: 1px solid var(--line); border-radius: 22px; margin: 0 auto; max-width: 680px; padding: 46px; text-align: center; }
 .actor-detail-empty .eyebrow { margin-bottom: 10px; }
@@ -246,6 +265,43 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .privacy-note strong { color: var(--ink); font-size: 10px; }
 .actor-type-list { display: flex; flex-wrap: wrap; gap: 6px; margin: -8px 0 12px; }
 .actor-type-list span { background: #f0f1ec; border: 1px solid #e0e3dc; border-radius: 999px; color: var(--muted); font-family: var(--font-plex-mono), monospace; font-size: 7px; padding: 5px 7px; }
+.settings-modal { max-width: 560px; }
+.settings-grid { display: grid; gap: 12px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.settings-grid > div { display: grid; }
+.color-input { align-items: center; display: grid; gap: 12px; grid-template-columns: 72px 1fr; }
+.color-input input[type="color"] { cursor: pointer; padding: 5px; width: 72px; }
+.color-input code { align-items: center; display: flex; height: 48px; padding-inline: 14px; }
+.import-banner { align-items: center; background: color-mix(in srgb, var(--cyan-soft) 72%, white); border: 1px solid color-mix(in srgb, var(--cyan) 35%, var(--line)); border-radius: 14px; display: flex; gap: 20px; justify-content: space-between; margin: -4px auto 24px; max-width: calc(1600px - 2 * clamp(24px, 5vw, 80px)); padding: 14px 18px; }
+.hero[hidden] ~ .import-banner { margin-top: 24px; }
+.import-banner > div { display: grid; }
+.import-banner strong { font-size: 12px; }
+.import-banner span { color: var(--muted); font-size: 10px; margin-top: 3px; }
+.button.compact { min-height: 37px; white-space: nowrap; width: auto; }
+.page-alert { background: var(--coral-soft); border: 1px solid color-mix(in srgb, var(--coral) 28%, var(--line)); border-radius: 10px; color: #8d3a33; font-size: 11px; margin: 0 auto 18px; max-width: calc(1600px - 2 * clamp(24px, 5vw, 80px)); padding: 11px 14px; }
+.page-alert.embedded { border-radius: 0; margin: 0; max-width: none; }
+.workspace-loading { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; color: var(--muted); margin: 0 0 14px; padding: 14px; text-align: center; }
+
+.audit-main { margin: 0 auto; max-width: 1600px; padding: 64px clamp(24px, 5vw, 80px) 80px; }
+.audit-title { align-items: end; display: flex; gap: 24px; justify-content: space-between; margin-bottom: 28px; }
+.audit-title h1 { font-size: clamp(42px, 5vw, 68px); letter-spacing: -.06em; line-height: 1; margin: 0; }
+.audit-title > div > p:last-child { color: var(--muted); line-height: 1.6; margin: 15px 0 0; max-width: 740px; }
+.remove-button.standalone { border: 1px solid color-mix(in srgb, var(--coral) 30%, var(--line)); border-radius: 9px; padding: 12px 14px; width: auto; }
+.remove-button.standalone:disabled { cursor: not-allowed; opacity: .45; }
+.audit-controls { align-items: end; background: rgba(255, 254, 249, .82); border: 1px solid var(--line); border-radius: 16px; display: grid; gap: 12px; grid-template-columns: minmax(260px, 1fr) auto auto; margin-bottom: 18px; padding: 17px; }
+.audit-controls > label { display: none; }
+.audit-controls > div:first-of-type { display: grid; gap: 8px; grid-template-columns: 1fr auto; }
+.audit-controls input { background: white; border: 1px solid var(--line); border-radius: 9px; height: 44px; padding: 0 13px; width: 100%; }
+.audit-controls .button-dark { min-height: 44px; width: auto; }
+.actor-scope { background: var(--violet-soft); border: 0; border-radius: 999px; color: #5a429c; cursor: pointer; font-family: var(--font-plex-mono), monospace; font-size: 8px; min-height: 36px; padding: 0 12px; }
+.audit-table-wrap { background: rgba(255, 254, 249, .82); border: 1px solid var(--line); border-radius: 18px; overflow-x: auto; }
+.audit-table { border-collapse: collapse; min-width: 1100px; width: 100%; }
+.audit-table th { color: var(--muted); font-family: var(--font-plex-mono), monospace; font-size: 8px; letter-spacing: .08em; padding: 13px 14px; text-align: left; text-transform: uppercase; }
+.audit-table td { border-top: 1px solid var(--line); font-size: 10px; max-width: 330px; padding: 14px; vertical-align: top; }
+.audit-table td:nth-child(1), .audit-table td:nth-child(6) { white-space: nowrap; }
+.audit-table td:nth-child(2) { display: grid; }
+.audit-table td small { color: var(--muted); font-family: var(--font-plex-mono), monospace; font-size: 8px; margin-top: 4px; }
+.audit-table code, .audit-table pre { font-family: var(--font-plex-mono), monospace; font-size: 8px; }
+.audit-table pre { line-height: 1.5; margin: 0; max-height: 110px; overflow: auto; white-space: pre-wrap; }
 @keyframes modal-in { from { opacity: 0; transform: translateY(12px) scale(.98); } }
 
 @media (max-width: 1180px) {
@@ -280,6 +336,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   .actor-detail-panel .detail-grid div { padding: 14px 18px; }
   .actor-detail-panel .admin-block { padding: 24px 20px 20px; }
   .section-heading { align-items: start; flex-direction: column; padding: 20px; }
+  .topology-actions { align-items: stretch; flex-direction: column; width: 100%; }
   .filters { overflow-x: auto; width: 100%; }
   .sequencer-groups { grid-template-columns: 1fr; }
   .filters button { flex: 1; white-space: nowrap; }
@@ -287,6 +344,12 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   .actor-groups, .group-cards { grid-template-columns: 1fr; }
   .console-footer { align-items: start; flex-direction: column; gap: 12px; margin: 0 20px; }
   .add-modal { border-radius: 18px; padding: 28px 22px; }
+  .import-banner { align-items: stretch; flex-direction: column; margin-inline: 14px; }
+  .settings-grid { grid-template-columns: 1fr; }
+  .actor-audit-list article { grid-template-columns: 1fr; padding: 16px 20px; }
+  .audit-main { padding: 38px 14px 54px; }
+  .audit-title { align-items: start; flex-direction: column; }
+  .audit-controls { align-items: stretch; grid-template-columns: 1fr; }
 }
 
 @media (prefers-reduced-motion: reduce) {

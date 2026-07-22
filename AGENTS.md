@@ -2,31 +2,59 @@
 
 ## Purpose
 
-This repository is the local-first web console for Coral Sequencer deployments. Treat the sequencer as the centralized source of truth and every surrounding process as an actor with a REST admin endpoint. The interface should help an operator understand topology, health, identity, and available admin actions at a glance.
+This repository is the shared internal web console for Coral Sequencer deployments. Treat the Sequencer as the centralized source of truth and every surrounding process as an actor with a REST admin endpoint. The interface should help an operator understand topology, health, identity, and available admin actions at a glance.
 
-Keep this file current whenever the architecture, scripts, discovery rules, persistence model, or testing expectations change.
-
-The approved future shared-persistence and internal Docker deployment design is saved in [INTERNAL_DEPLOYMENT_PLAN.md](./INTERNAL_DEPLOYMENT_PLAN.md). Keep the current local-first implementation stable until that plan is explicitly resumed.
+Keep this file current whenever the architecture, scripts, discovery rules, persistence model, deployment model, or testing expectations change.
 
 ## Product model and actor types
 
-- Sequencer: the single active source of truth that orders and timestamps the system's messages. A deployment may have zero or one active Sequencer.
-- Backup Sequencer: a standby source-of-truth actor that can take over during failover. A deployment may have any number of Backup Sequencers.
-- Replayer: may run in a cluster; catches nodes up from persisted messages.
+- Sequencer: the single active source of truth. A deployment may have zero or one active Sequencer.
+- Backup Sequencer: a standby actor for failover. A deployment may have any number.
+- Replayer: may run in a cluster and catches nodes up from persisted messages.
 - Bridge, Dispatcher, Link, and MultiMqApp: transport and fan-out actors.
 - Archiver and Logger: persistence, audit, and observability actors.
 - Application and Node: customer-built actors that publish and consume messages.
-- Every actor is identified initially by a host/IP and REST admin port.
+- Every actor is initially identified by a host/IP and REST admin port.
 
-The exact supported actor types are Sequencer, Backup Sequencer, Replayer, Archiver, Logger, Bridge, Dispatcher, Node, Application, Link, and MultiMqApp. Use this title casing in the interface; do not display the type names as all-uppercase labels.
+The supported actor types are Sequencer, Backup Sequencer, Replayer, Archiver, Logger, Bridge, Dispatcher, Node, Application, Link, and MultiMqApp. Use this title casing in the interface.
 
-Actors expose the same admin commands available over telnet through HTTP POST. Discovery begins with `list`, then calls `list` with the first non-`VM` scope returned by the actor. The UI derives a role, name, class hint, and command list from those responses. For a Sequencer or Backup Sequencer with a `status` action, discovery also calls `<scope> status` to determine Primary/Backup state and the active session. Classify a standby or failover sequencer as Backup Sequencer while preserving a graceful Node fallback for unfamiliar/custom actor types.
+Discovery begins with `list`, then calls `list` with the first non-`VM` scope. For a Sequencer with a `status` action, discovery also calls `<scope> status` to determine Primary/Backup state and session metadata. Session identifiers normally use `YYMMDDHHmm`; show both the raw identifier and a readable start time. Prefer an explicit start time returned by the actor.
 
-Sequencer session identifiers normally use `YYMMDDHHmm`, for example `2607171725`. Decode that identifier as the session start time and display both the raw session and a readable timestamp. Prefer an explicit start time returned by the Sequencer when the REST response provides one.
+## Runtime architecture
 
-## REST admin contract
+- Next.js 16 standalone Node.js server, React 19, and TypeScript.
+- Node.js 22 is the minimum supported runtime.
+- SQLite with `better-sqlite3`, Drizzle schema, generated SQL migrations, WAL mode, foreign keys, and a five-second busy timeout.
+- One installation owns one topology and one SQLite file. Never run multiple application processes against the same file.
+- `Dockerfile` is the canonical release package; `docker-compose.yml` is the reference private deployment.
+- The persistent database is `/data/coralconsole.db` in Docker and `.data/coralconsole.db` in local development unless `DATABASE_PATH` overrides it.
+- Migrations run both through `scripts/migrate.mjs` at container startup and defensively when the application opens the database.
+- Demo data is off by default and enabled only by `CORAL_DEMO_MODE=true`.
 
-Send JSON with this shape to the actor's REST admin root:
+## Data ownership and persistence
+
+- `topology_settings` stores the singleton shared name, color, poll interval, retention, and first-run status.
+- `actors` stores endpoint, discovered identity, type, actions, cached health/session data, and timestamps. Host plus port is unique.
+- `command_audit` stores the actor snapshot, scoped command, parameters, plain-text output, result, error, duration, timestamp, source IP (when trusted), and truncation state. Actor deletion retains audit rows with a null actor reference.
+- Audit parameters are capped at 8 KiB and output at 256 KiB. Older rows are purged according to the shared retention setting.
+- `localStorage` is device-specific only: `coral-console-intro` stores intro visibility. `coral-console-actors` is a legacy import source and must not become the canonical topology again.
+- Never send topology, actor, command, or audit data to an external service.
+
+## API and REST admin contract
+
+The same-origin API surface is:
+
+- `GET/PATCH /api/settings`
+- `GET/POST /api/actors`
+- `GET/DELETE /api/actors/<id>`
+- `POST /api/actors/refresh`
+- `POST /api/actors/<id>/commands`
+- `GET/DELETE /api/audit`
+- `GET /api/health`
+
+Commands accept an actor ID, command name, and parameters. The server must resolve the stored actor endpoint; never reintroduce a client-supplied arbitrary relay route. Validate same-origin mutations, keep the actor timeout at 6.5 seconds, and render actor results only as plain text.
+
+Actors receive JSON shaped as:
 
 ```json
 {
@@ -35,64 +63,53 @@ Send JSON with this shape to the actor's REST admin root:
 }
 ```
 
-A normal response includes `result`, `adminCommand`, `params`, and `results`. Error responses may contain only `error`. Treat `results` as plain text and never render it as HTML.
+## Code structure
 
-Browser calls go through `app/api/actor/route.ts` so local usage is not blocked by actor CORS settings. Keep the relay narrowly scoped to a user-supplied HTTP(S) host and numeric port, maintain a short timeout, and never log admin payloads or actor output. Do not add cloud persistence or transmit topology data outside the local console without an explicit product decision.
+- `app/page.tsx` owns the shared topology UI, first-run settings, refresh polling, add-actor flow, and one-time browser migration.
+- `app/actor-ui.tsx` owns shared actor labels, icons, and UI metadata.
+- `app/actor/[id]/` loads direct actor details from SQLite and runs audited commands in a dedicated tab.
+- `app/audit/` renders searchable global command history.
+- `app/api/` contains the same-origin server API.
+- `lib/actor-server.ts` owns actor endpoint validation, REST calls, and discovery.
+- `lib/repository.ts` owns SQLite reads/writes and audit retention.
+- `db/schema.ts` is the schema source; `drizzle/` contains committed migrations.
 
-## Stack and structure
+## Commands and validation
 
-- Vinext/Vite with the Next-compatible `app` directory.
-- React 19 and TypeScript.
-- Plain global CSS in `app/globals.css`; Tailwind is available but the product does not depend on utility classes.
-- `app/page.tsx` owns the topology, local state, and actor discovery.
-- `app/actor-ui.tsx` owns shared actor types, icon metadata, REST calls, and per-actor detail snapshots.
-- `app/actor/[id]/` renders the dedicated actor detail tab and owns the command runner.
-- `app/api/actor/route.ts` is the local REST relay.
-- User-added actors persist in `localStorage` under `coral-console-actors`.
-- Actor cards save a current per-actor snapshot under `coral-console-actor:<id>` so the detail route can load in a separate same-origin browser tab.
-- Intro visibility persists in `localStorage` under `coral-console-intro`.
-- Demo actors are static fixtures and must remain clearly labeled; their commands are simulated. Keep representative Sequencer, Backup Sequencer, Replayer, Bridge, Dispatcher, Archiver, Logger, Application, and Node examples.
+- `npm run dev` — run the Next.js development server.
+- `npm run build` — produce the standalone Node.js build.
+- `npm test` — build, start the standalone server with a temporary SQLite database, exercise APIs, restart, and verify persistence.
+- `npm run lint` — run ESLint.
+- `npm run db:generate` — generate a migration after an intentional schema change.
+- `npm run db:migrate` — migrate the configured local database.
 
-## Commands
-
-- `npm run dev` — run the local console.
-- `npm run build` — produce the deployable worker build.
-- `npm test` — build, then run rendered-output and repository guard tests.
-- `npm run lint` — run ESLint when code changes warrant it.
-
-Use the existing npm lockfile and package manager. Keep Cloudflare Worker compatibility: route handlers should rely on web-standard APIs rather than Node-only modules.
-After adding or changing a client dependency, restart the development server so Vite re-optimizes the lockfile before relying on hot reload. Verify that both `/` and the transformed `/app/page.tsx` development module return successfully.
+Use the existing npm lockfile. Commit schema changes and their generated migration together. Validate with `npm run lint` and `npm test`; smoke-test Docker when deployment files or native dependencies change.
 
 ## Git workflow
 
 - Work directly on `main` and push completed changes to `origin/main` after validation.
-- Do not create pull requests or temporary `agent/*` branches unless the user explicitly requests them for a specific change.
+- Do not create pull requests or temporary branches unless the user explicitly requests them for a specific change.
+- The current internal-deployment work uses `feature/internal-deployment` because the user explicitly requested a new branch.
 - Before committing, inspect the exact diff and avoid staging unrelated or sensitive files.
 - Use short, descriptive commit messages and keep the working tree clean after pushing.
 
 ## UI conventions
 
-- The topology is the product's primary view; do not turn it into generic dashboard chrome.
-- Split the **Sequencer Fabric** into separate **Primary Sequencer** and **Backup Sequencers** panels. Use a visibly darker coral for the Primary and a visibly lighter coral for Backups.
-- Use **Replayer Fabric / Replayers**, **Transport layer / Bridge · Dispatcher · MultiMqApp**, **Persistence & audit / Archiver · Logger**, and **Application Layer / Nodes · Applications** for the remaining groups. Keep Link supported by discovery but hidden from the topology and summary for now; render Node cards before Application cards.
-- Use role colors consistently: darker coral for Sequencer, lighter coral for Backup Sequencer, cyan for Replayer, blue/green/pink for transport actors, amber/slate for persistence actors, and violet for Application and Node.
-- Keep the header brand mark square and perfectly aligned; do not rotate or skew it.
-- The introductory hero must remain optional through a persistent Hide intro / Show intro control.
-- Keep the operational summary outside the optional hero so hiding the intro never hides System Pulse, actor counts, health totals, or the active session.
-- Align the operational summary and Actor Map to the same responsive outer gutters.
-- Order summary counts as Sequencer, Backup Sequencers, Replayers, Archivers, Loggers, Bridges, Dispatchers, Nodes, Applications, and MultiMqApps. Never show Links in the summary; always show MultiMqApps, including at zero. Use the singular Sequencer label and plural labels for every other summary category.
-- Use the established pictorial icon component for every actor type in summary tiles, actor cards, and the inspector. Do not fall back to two-letter abbreviations. Sequencer and Backup Sequencer share the same central-hub icon but retain different role colors; Bridge uses a connected-points icon and Dispatcher uses a shared-memory icon.
-- Give Replayer, Transport, Persistence, and Application topology groups subtle backgrounds and borders derived from their role colors, matching the treatment of Sequencer Fabric without reducing card contrast.
-- Health must never rely on color alone; include text, status labels, and clear disabled states.
-- Keep the topology full-width without an inline actor inspector. Actor cards are normal links that open `/actor/<id>` in a new browser tab; do not use scripted popups. Admin actions belong in that dedicated detail view. Always show the exact target actor and return result text in a bounded monospace area.
-- The actor inspector must inherit the selected actor type's color; do not hard-code the Sequencer/coral color on the inspector.
-- Preserve responsive behavior down to 320 px, keyboard focus visibility, reduced-motion support, and semantic labels.
-- Prefer CSS shapes, typography, and the installed Lucide icon system over decorative asset files. Do not add model-authored inline SVG artwork.
+- The topology is the primary view; do not turn it into generic dashboard chrome.
+- Split Sequencers into **Primary Sequencer** and **Backup Sequencers** panels, using a darker coral for Primary and a lighter coral for Backups.
+- Use **Replayer Fabric / Replayers**, **Transport layer / Bridge · Dispatcher · MultiMqApp**, **Persistence & audit / Archiver · Logger**, and **Application Layer / Nodes · Applications**. Keep Link supported by discovery but hidden from the topology and summary for now; render Node before Application.
+- Keep the header brand square and aligned. Keep the hero optional through the persistent Hide intro / Show intro control.
+- Keep summary and Actor Map on the same responsive gutters. Order summary counts as Sequencer, Backup Sequencers, Replayers, Archivers, Loggers, Bridges, Dispatchers, Nodes, Applications, and MultiMqApps. Never show Links; always show MultiMqApps, including at zero.
+- Use pictorial Lucide icons, consistent role colors, readable status text, keyboard focus, reduced-motion support, and responsive behavior down to 320 px.
+- Actor cards are links that open `/actor/<id>` in a new browser tab. Do not use scripted popups or browser-local actor snapshots.
+- Admin output belongs in a bounded monospace area. Actor details show recent audit entries and the global Audit page supports search and outcome filtering.
+- Shared topology name, color, polling, and retention changes belong in Settings, not browser storage.
 
-## Change expectations
+## Security and deployment expectations
 
-- Do not discard existing local actor configuration during ordinary UI updates.
-- Keep discovery tolerant of new admin scopes and class names.
-- If command scoping rules change, update both discovery and execution paths together.
-- Validate with `npm run build` after implementation changes. Update tests when intentional product copy or structure changes.
-- When adding server-side persistence later, document migrations, data ownership, and the local-to-hosted transition here before implementation.
+- This version has no application authentication or roles. Network reachability equals full operator access.
+- Default Docker binding is localhost. Document private LAN, VPN, firewall, TLS, and authenticated reverse-proxy requirements; never imply that public exposure is safe.
+- Enable `CORAL_TRUST_PROXY` only behind a trusted proxy that overwrites forwarding headers.
+- Maintain baseline security headers and confirmation for destructive UI actions.
+- Avoid logging database contents, admin payloads, actor output, tokens, or secrets to process logs.
+- Keep `/api/health` minimal; do not expose database paths or sensitive configuration.

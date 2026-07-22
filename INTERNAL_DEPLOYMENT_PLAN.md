@@ -1,8 +1,10 @@
 # CoralConsole Shared Internal Deployment Plan
 
+> **Implementation status (22 July 2026):** the baseline described here is implemented on `feature/internal-deployment`. This document remains the architectural rationale and validation checklist; operational instructions live in [DEPLOYMENT.md](./DEPLOYMENT.md).
+
 ## Summary
 
-- The current prototype is not yet shared: actors live in each browser's `localStorage`, and the production build targets Cloudflare.
+- Replace the browser-local prototype with shared SQLite persistence and a conventional internal Node.js deployment.
 - Make a self-contained Docker deployment the canonical distribution: one installation, one topology, one SQLite database, and one configurable internal port.
 - Run the container on a server that can reach the actors' REST ports. The customer's firewall, VPN, or reverse proxy prevents internet access.
 - Two topologies use two installations with separate ports, data volumes, names, and colors.

@@ -1,0 +1,17 @@
+services:
+  coralconsole:
+    build: .
+    image: coralconsole:local
+    init: true
+    restart: unless-stopped
+    environment:
+      DATABASE_PATH: /data/coralconsole.db
+      CORAL_DEMO_MODE: ${CORAL_DEMO_MODE:-false}
+      CORAL_TRUST_PROXY: ${CORAL_TRUST_PROXY:-false}
+    ports:
+      - "${CORAL_BIND_ADDRESS:-127.0.0.1}:${CORAL_PORT:-3000}:3000"
+    volumes:
+      - coralconsole-data:/data
+
+volumes:
+  coralconsole-data:
