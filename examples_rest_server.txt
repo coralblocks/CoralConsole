@@ -1,0 +1,95 @@
+Below the docs for the REST admin port.
+
+- new REST admin, see API details below:
+
+To unable you do:
+
+   VM addAdmin telnet, rest 1
+
+That will add in addition to the telnet admin, the new rest admin. The default port is 30000 + offset, in that case 30001.
+
+I suggest you use the Insomnia app to test. Postman requires registration. Postwoman does not work for localhost (changes POST to OPTIONS).
+
+NOTE: The rest admin works exactly like the telnet admin, but through an HTTP Rest API.
+
+Every request must be a POST with the following JSON body:
+
+    {
+        "adminCommand": "Hi",
+        "params": ""
+    }
+
+The response will be a JSON in the following body:
+
+    {
+        "result": true,
+        "adminCommand": "Hi",
+        "params": "",
+        "results": "Hi There!"
+    }
+
+result => True if the admin command was executed successfully, false otherwise.
+adminCommand => echoes back the adminCommand sent
+params => echoes back the params sent
+results => the output containing the result of the adminCommand execution
+
+A request can produce an error response:
+
+    {
+       "error": "Cannot parse admin command: lissdt NODE1-NetworkMessageReceiver-224.0.0.0:40001"
+    }
+
+See some examples below:
+
+Request:
+{
+"adminCommand": "list",
+"params": ""
+}
+
+Response:
+{
+  "result": true,
+  "adminCommand": "list",
+  "params": "",
+  "results": "VM\nSEQ\n"
+}
+
+Request:
+{
+"adminCommand": "list",
+"params": "SEQ"
+}
+
+Response:
+{
+  "result": true,
+  "adminCommand": "list",
+  "params": "SEQ",
+  "results": "SEQ open\nSEQ close\nSEQ status\nSEQ setSession\nSEQ endSession\nSEQ setSessionAuto\nSEQ rollSession\nSEQ rollSessionAuto\nSEQ setStore\nSEQ activate\nSEQ addAccount\nSEQ removeAccount\nSEQ resetAccount\nSEQ showAccounts\nSEQ sendMessage\nSEQ setThrottleMaxCommands\nSEQ setThrottleWindow\nSEQ setWarnOnThrottle\n\nSEQ-CommandReceiver-0.0.0.0:40002\nSEQ-SequencerMoldPublisher-224.0.0.0:40040\nSEQ-CircularStore-2004241744\n"
+}
+
+Request:
+{
+"adminCommand": "NODE1 warmup",
+"params": "10 16"
+}
+
+Response:
+{
+  "result": true,
+  "adminCommand": "NODE1 warmup",
+  "params": "10 16",
+  "results": "warmUp(10) called!"
+}
+
+Request:
+{
+"adminCommand": "listAAA",
+"params": "NODE1-NetworkMessageReceiver-224.0.0.0:40001"
+}
+
+Response:
+{
+  "error": "Cannot parse admin command: listAAA NODE1-NetworkMessageReceiver-224.0.0.0:40001"
+}
