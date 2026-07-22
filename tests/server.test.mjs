@@ -120,7 +120,7 @@ test("standalone server persists settings, actors, and command audit in SQLite",
 });
 
 test("deployment and UI conventions stay explicit", async () => {
-  const [page, actorDetail, guide, compose, dockerfile, dockerStart, dockerStop] = await Promise.all([
+  const [page, actorDetail, guide, compose, dockerfile, dockerStart, dockerStop, dockerBackup] = await Promise.all([
     readFile(join(projectRoot, "app/page.tsx"), "utf8"),
     readFile(join(projectRoot, "app/actor/[id]/actor-detail.tsx"), "utf8"),
     readFile(join(projectRoot, "AGENTS.md"), "utf8"),
@@ -128,6 +128,7 @@ test("deployment and UI conventions stay explicit", async () => {
     readFile(join(projectRoot, "Dockerfile"), "utf8"),
     readFile(join(projectRoot, "scripts/docker-start.sh"), "utf8"),
     readFile(join(projectRoot, "scripts/docker-stop.sh"), "utf8"),
+    readFile(join(projectRoot, "scripts/docker-backup.sh"), "utf8"),
   ]);
   assert.match(page, /target="_blank"/);
   assert.match(page, /\/api\/actors\/refresh/);
@@ -140,4 +141,8 @@ test("deployment and UI conventions stay explicit", async () => {
   assert.match(dockerStart, /docker compose up -d --no-build/);
   assert.match(dockerStop, /docker compose stop/);
   assert.doesNotMatch(`${dockerStart}\n${dockerStop}`, /down\s+-v|volume\s+rm|prune/);
+  assert.match(dockerBackup, /source\.backup/);
+  assert.match(dockerBackup, /quick_check/);
+  assert.match(dockerBackup, /chmod 600/);
+  assert.doesNotMatch(dockerBackup, /down\s+-v|volume\s+rm|prune/);
 });

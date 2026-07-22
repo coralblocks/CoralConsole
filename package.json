@@ -14,6 +14,7 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "node scripts/migrate.mjs",
     "docker:build": "docker compose build",
+    "docker:backup": "sh scripts/docker-backup.sh",
     "docker:start": "sh scripts/docker-start.sh",
     "docker:stop": "sh scripts/docker-stop.sh",
     "docker:restart": "docker compose restart coralconsole",

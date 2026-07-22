@@ -36,13 +36,22 @@ Useful lifecycle commands:
 
 ```bash
 ./scripts/docker-start.sh  # builds once if needed, then starts without rebuilding
-./scripts/docker-stop.sh   # stops the app and preserves the database volume
-npm run docker:restart  # restarts the existing container
-npm run docker:status   # shows container and health status
-npm run docker:logs     # follows application logs; Ctrl-C stops following only
+./scripts/docker-stop.sh    # stops the app and preserves the database volume
+./scripts/docker-backup.sh  # creates a verified timestamped backup in backups/
+npm run docker:restart      # restarts the existing container
+npm run docker:status       # shows container and health status
+npm run docker:logs         # follows application logs; Ctrl-C stops following only
 ```
 
 The `npm run docker:*` commands are convenient aliases for developers who already have Node.js. The start and stop shell scripts require only Docker Compose.
+
+Create an online database backup at any time while CoralConsole is running:
+
+```bash
+./scripts/docker-backup.sh
+```
+
+Pass a directory to save it elsewhere, for example `./scripts/docker-backup.sh /Volumes/CompanyBackups`. Backup files contain operational configuration and command history, so store them securely.
 
 After the first successful image build, `docker:start` can run without internet access as long as Docker still has the image and its base layers locally.
 

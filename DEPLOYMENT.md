@@ -34,6 +34,7 @@ The project also provides:
 
 ```bash
 npm run docker:stop
+npm run docker:backup
 npm run docker:restart
 npm run docker:status
 npm run docker:logs
@@ -78,14 +79,19 @@ docker compose exec coralconsole ls -lh /data/coralconsole.db
 docker volume ls --filter label=com.docker.compose.volume=coralconsole-data
 ```
 
-For a consistent online backup, use SQLite's backup command inside the running container and copy the result out:
+For a consistent online backup while CoralConsole remains available, run:
 
 ```bash
-docker compose exec coralconsole node -e "const D=require('better-sqlite3'); const db=new D('/data/coralconsole.db'); db.backup('/data/coralconsole-backup.db').then(()=>db.close())"
-docker compose cp coralconsole:/data/coralconsole-backup.db ./coralconsole-backup.db
+./scripts/docker-backup.sh
 ```
 
-Store backups according to the customer's retention and security policy. Audit records contain command parameters and returned output and may therefore contain operationally sensitive data.
+The script uses SQLite's online backup API, runs an integrity check, copies a timestamped database into the ignored local `backups/` directory, restricts the file to the current user, and removes its temporary container copy. Provide a destination directory as the first argument when needed:
+
+```bash
+./scripts/docker-backup.sh /secure/company/backup/location
+```
+
+Store backups according to the customer's retention and security policy. Audit records contain command parameters and returned output and may therefore contain operationally sensitive data. The script never automatically deletes older backups.
 
 To restore, stop CoralConsole, replace the database file in `/data`, preserve ownership for the container user (`uid 1001`), and restart. Always retain a copy of the current volume before restoration.
 
