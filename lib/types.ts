@@ -1,15 +1,18 @@
-export type ActorKind =
-  | "sequencer"
-  | "backup-sequencer"
-  | "replayer"
-  | "bridge"
-  | "dispatcher"
-  | "archiver"
-  | "application"
-  | "node"
-  | "logger"
-  | "link"
-  | "multimqapp";
+export const SUMMARY_ACTOR_KINDS = [
+  "sequencer",
+  "backup-sequencer",
+  "replayer",
+  "archiver",
+  "logger",
+  "bridge",
+  "dispatcher",
+  "node",
+  "application",
+  "multimqapp",
+] as const;
+
+export type SummaryActorKind = typeof SUMMARY_ACTOR_KINDS[number];
+export type ActorKind = SummaryActorKind | "link";
 
 export type ActorStatus = "online" | "standby" | "warning" | "offline";
 
@@ -45,6 +48,7 @@ export type TopologySettings = {
   backgroundColor: string;
   pollIntervalSeconds: number;
   auditRetentionDays: number;
+  summaryActorKinds: SummaryActorKind[];
   setupComplete: boolean;
 };
 

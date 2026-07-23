@@ -91,7 +91,7 @@ The REST admin request and response format is documented in [examples_rest_serve
 | `CORAL_DEMO_MODE` | `false` | Adds clearly marked, simulated sample actors when `true`. |
 | `CORAL_TRUST_PROXY` | `false` | Trusts proxy client-IP headers for audit entries when `true`. |
 
-Topology name, workspace color, refresh interval, and audit retention are shared settings editable in the UI.
+Topology name, workspace color, refresh interval, audit retention, and which actor types appear in the summary count panel are shared settings editable in the UI and persisted in SQLite.
 
 ## Development checks
 

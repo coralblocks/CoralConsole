@@ -1,0 +1,1 @@
+ALTER TABLE `topology_settings` ADD `summary_actor_kinds` text DEFAULT '["sequencer","backup-sequencer","replayer","archiver","logger","bridge","dispatcher","node","application","multimqapp"]' NOT NULL;

@@ -34,7 +34,7 @@ Discovery begins with `list`, then calls `list` with the first non-`VM` scope. F
 
 ## Data ownership and persistence
 
-- `topology_settings` stores the singleton shared name, color, poll interval, retention, and first-run status.
+- `topology_settings` stores the singleton shared name, color, poll interval, retention, summary-count visibility, and first-run status.
 - `actors` stores endpoint, discovered identity, type, actions, cached health/session data, and timestamps. Host plus port is unique.
 - `command_audit` stores the actor snapshot, scoped command, parameters, plain-text output, result, error, duration, timestamp, source IP (when trusted), and truncation state. Actor deletion retains audit rows with a null actor reference.
 - Audit parameters are capped at 8 KiB and output at 256 KiB. Older rows are purged according to the shared retention setting.
@@ -105,11 +105,11 @@ Use the existing npm lockfile. Commit schema changes and their generated migrati
 - Split Sequencers into **Primary Sequencer** and **Backup Sequencers** panels, using a darker coral for Primary and a lighter coral for Backups.
 - Use **Replayer Fabric / Replayers**, **Transport layer / Bridge · Dispatcher · MultiMqApp**, **Persistence & audit / Archiver · Logger**, and **Application Layer / Nodes · Applications**. Keep Link supported by discovery but hidden from the topology and summary for now; render Node before Application.
 - Keep the header brand square and aligned. Keep the hero optional through the persistent Hide intro / Show intro control.
-- Keep summary and Actor Map on the same responsive gutters. Order summary counts as Sequencer, Backup Sequencers, Replayers, Archivers, Loggers, Bridges, Dispatchers, Nodes, Applications, and MultiMqApps. Never show Links; always show MultiMqApps, including at zero.
+- Keep summary and Actor Map on the same responsive gutters. Order summary counts as Sequencer, Backup Sequencers, Replayers, Archivers, Loggers, Bridges, Dispatchers, Nodes, Applications, and MultiMqApps. Never show Links. Show all other actor types, including MultiMqApps at zero, by default; Settings may independently hide any of these counts without changing actor visibility elsewhere.
 - Use pictorial Lucide icons, consistent role colors, readable status text, keyboard focus, reduced-motion support, and responsive behavior down to 320 px.
 - Actor cards are links that open `/actor/<id>` in a new browser tab. Do not use scripted popups or browser-local actor snapshots.
 - Admin output belongs in a bounded monospace area. Actor details show recent audit entries and the global Audit page supports search and outcome filtering.
-- Shared topology name, color, polling, and retention changes belong in Settings, not browser storage.
+- Shared topology name, color, polling, retention, and summary-count visibility changes belong in Settings and SQLite, not browser storage.
 
 ## Security and deployment expectations
 

@@ -10,10 +10,10 @@ import {
   type ActorKind,
   type ActorStatus,
 } from "./actor-ui";
-import type { TopologySettings } from "@/lib/types";
+import { SUMMARY_ACTOR_KINDS, type SummaryActorKind, type TopologySettings } from "@/lib/types";
 
-const SUMMARY_KINDS = ACTOR_KINDS.filter((kind) => kind !== "link");
 const LEGACY_ACTORS_KEY = "coral-console-actors";
+const BrandIcon = ACTOR_META.sequencer.icon;
 
 const GROUPS: { id: string; kinds: ActorKind[]; eyebrow: string; title: string }[] = [
   { id: "replayer", kinds: ["replayer"], eyebrow: "Replayer Fabric", title: "Replayers" },
@@ -32,6 +32,7 @@ const DEFAULT_SETTINGS: TopologySettings = {
   backgroundColor: "#f4f1e9",
   pollIntervalSeconds: 30,
   auditRetentionDays: 90,
+  summaryActorKinds: [...SUMMARY_ACTOR_KINDS],
   setupComplete: false,
 };
 
@@ -192,6 +193,19 @@ export default function Home() {
   const backupSequencers = visibleActors.filter((actor) => actor.kind === "backup-sequencer");
   const activeSequencer = actors.find((actor) => actor.kind === "sequencer" && actor.status === "online")
     || actors.find((actor) => actor.kind === "sequencer");
+  const visibleSummaryKinds = SUMMARY_ACTOR_KINDS.filter((kind) => settings.summaryActorKinds.includes(kind));
+
+  function toggleSummaryActorKind(kind: SummaryActorKind) {
+    setSettingsDraft((current) => {
+      const selected = new Set(current.summaryActorKinds);
+      if (selected.has(kind)) selected.delete(kind);
+      else selected.add(kind);
+      return {
+        ...current,
+        summaryActorKinds: SUMMARY_ACTOR_KINDS.filter((candidate) => selected.has(candidate)),
+      };
+    });
+  }
 
   function toggleIntro() {
     setIntroVisible((current) => {
@@ -278,8 +292,8 @@ export default function Home() {
     <main className="console-shell" style={themeStyle}>
       <header className="topbar">
         <a className="brand" href="#topology" aria-label="CoralConsole home">
-          <span className="brand-mark" aria-hidden="true"><i /><i /><i /></span>
-          <span><strong>CoralConsole</strong><small>Operations console</small></span>
+          <span className="brand-mark" aria-hidden="true"><BrandIcon /></span>
+          <span><strong>CoralConsole</strong><small>The Ops Console for CoralSequencer</small></span>
         </a>
         <div className="topbar-actions">
           <span className="environment" title="Shared topology"><i /> {settings.topologyName}</span>
@@ -288,7 +302,7 @@ export default function Home() {
           <button className="intro-toggle" type="button" onClick={toggleIntro} aria-expanded={introVisible} aria-controls="console-intro">
             {introVisible ? "Hide intro" : "Show intro"}
           </button>
-          <button className="button button-primary" type="button" onClick={() => setAddOpen(true)}><span aria-hidden="true">＋</span> Add actor</button>
+          <button className="button button-primary" type="button" onClick={() => setAddOpen(true)}><span aria-hidden="true">＋</span><span className="button-label">Add actor</span></button>
         </div>
       </header>
 
@@ -309,9 +323,13 @@ export default function Home() {
 
       {pageError && <p className="page-alert" role="alert">{pageError}</p>}
 
-      <section className="system-overview" aria-label="System summary">
-        <div className="actor-summary" aria-label="Actor type counts">
-          {SUMMARY_KINDS.map((kind) => {
+      <section className={`system-overview${visibleSummaryKinds.length ? "" : " summary-counts-hidden"}`} aria-label="System summary">
+        {visibleSummaryKinds.length > 0 && <div
+          className="actor-summary"
+          aria-label="Actor type counts"
+          style={{ "--summary-columns": Math.min(5, visibleSummaryKinds.length) } as CSSProperties}
+        >
+          {visibleSummaryKinds.map((kind) => {
             const count = actors.filter((actor) => actor.kind === kind).length;
             const Icon = ACTOR_META[kind].icon;
             return (
@@ -321,7 +339,7 @@ export default function Home() {
               </div>
             );
           })}
-        </div>
+        </div>}
         <aside className="pulse-panel" aria-label="System Pulse">
           <div className="pulse-heading">
             <div className="health-orbit" aria-hidden="true"><span /><span /><span /></div>
@@ -376,7 +394,7 @@ export default function Home() {
         </div>
       </section>
 
-      <footer className="console-footer"><p><span className="brand-mark mini" aria-hidden="true"><i /><i /><i /></span> CoralConsole</p><p>Shared topology · Persisted in SQLite</p></footer>
+      <footer className="console-footer"><p><span className="brand-mark mini" aria-hidden="true"><BrandIcon /></span> CoralConsole</p><p>Shared topology · Persisted in SQLite</p></footer>
 
       {addOpen && (
         <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setAddOpen(false); }}>
@@ -409,6 +427,22 @@ export default function Home() {
                 <div><label htmlFor="poll-interval">Refresh interval (seconds)</label><input id="poll-interval" type="number" min="10" max="300" value={settingsDraft.pollIntervalSeconds} onChange={(event) => setSettingsDraft((current) => ({ ...current, pollIntervalSeconds: Number(event.target.value) }))} /></div>
                 <div><label htmlFor="audit-retention">Audit retention (days)</label><input id="audit-retention" type="number" min="1" max="3650" value={settingsDraft.auditRetentionDays} onChange={(event) => setSettingsDraft((current) => ({ ...current, auditRetentionDays: Number(event.target.value) }))} /></div>
               </div>
+              <fieldset className="summary-settings">
+                <legend>Summary counts</legend>
+                <p>Choose which actor types appear in the count panel. Actors remain visible everywhere else.</p>
+                <div className="summary-kind-options">
+                  {SUMMARY_ACTOR_KINDS.map((kind) => (
+                    <label key={kind}>
+                      <input
+                        type="checkbox"
+                        checked={settingsDraft.summaryActorKinds.includes(kind)}
+                        onChange={() => toggleSummaryActorKind(kind)}
+                      />
+                      <span>{ACTOR_META[kind].summaryLabel}</span>
+                    </label>
+                  ))}
+                </div>
+              </fieldset>
               {settingsError && <p className="form-error" role="alert">{settingsError}</p>}
               <div className="modal-actions">{settings.setupComplete && <button className="button button-ghost" type="button" onClick={() => setSettingsOpen(false)}>Cancel</button>}<button className="button button-primary" type="submit" disabled={savingSettings}>{savingSettings ? "Saving…" : settings.setupComplete ? "Save settings" : "Start CoralConsole"}</button></div>
             </form>

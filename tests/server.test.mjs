@@ -87,10 +87,12 @@ test("standalone server persists settings, actors, and command audit in SQLite",
         backgroundColor: "#e8f2ed",
         pollIntervalSeconds: 30,
         auditRetentionDays: 90,
+        summaryActorKinds: ["sequencer", "replayer", "application"],
         setupComplete: true,
       }),
     });
     assert.equal(saved.settings.topologyName, "Test Topology");
+    assert.deepEqual(saved.settings.summaryActorKinds, ["sequencer", "replayer", "application"]);
 
     const actorPayload = await json(server.baseUrl, "/api/actors");
     assert.equal(actorPayload.actors.length, 12);
@@ -112,6 +114,7 @@ test("standalone server persists settings, actors, and command audit in SQLite",
     const persistedSettings = await json(server.baseUrl, "/api/settings");
     const persistedAudit = await json(server.baseUrl, "/api/audit?actorId=demo-seq-01&limit=20");
     assert.equal(persistedSettings.settings.topologyName, "Test Topology");
+    assert.deepEqual(persistedSettings.settings.summaryActorKinds, ["sequencer", "replayer", "application"]);
     assert.equal(persistedAudit.entries.length, 1);
   } finally {
     if (server) await stopServer(server.child);

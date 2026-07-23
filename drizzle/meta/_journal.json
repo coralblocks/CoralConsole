@@ -8,6 +8,13 @@
       "when": 1784727960091,
       "tag": "0000_oval_ender_wiggin",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1784835391470,
+      "tag": "0001_rapid_masque",
+      "breakpoints": true
     }
   ]
 }

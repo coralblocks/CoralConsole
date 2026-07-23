@@ -2,7 +2,15 @@ import { and, desc, eq, like, or, type SQL } from "drizzle-orm";
 import { getDb, getSqlite } from "@/db";
 import { actors, commandAudit, topologySettings, type ActorRow } from "@/db/schema";
 import { DEMO_ACTORS } from "./demo-actors";
-import type { Actor, ActorKind, ActorStatus, AuditEntry, TopologySettings } from "./types";
+import {
+  SUMMARY_ACTOR_KINDS,
+  type Actor,
+  type ActorKind,
+  type ActorStatus,
+  type AuditEntry,
+  type SummaryActorKind,
+  type TopologySettings,
+} from "./types";
 
 const ACTOR_KINDS: ActorKind[] = [
   "sequencer", "backup-sequencer", "replayer", "bridge", "dispatcher", "archiver",
@@ -43,6 +51,12 @@ function validStatus(value: string): ActorStatus {
   return ACTOR_STATUSES.includes(value as ActorStatus) ? value as ActorStatus : "offline";
 }
 
+function validSummaryActorKinds(value: unknown): SummaryActorKind[] {
+  if (!Array.isArray(value)) return [...SUMMARY_ACTOR_KINDS];
+  const selected = new Set(value);
+  return SUMMARY_ACTOR_KINDS.filter((kind) => selected.has(kind));
+}
+
 export function rowToActor(row: ActorRow): Actor {
   return {
     id: row.id,
@@ -72,6 +86,7 @@ export function getSettings(): TopologySettings {
     backgroundColor: row.backgroundColor,
     pollIntervalSeconds: row.pollIntervalSeconds,
     auditRetentionDays: row.auditRetentionDays,
+    summaryActorKinds: validSummaryActorKinds(row.summaryActorKinds),
     setupComplete: row.setupComplete,
   };
 }
