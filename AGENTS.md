@@ -27,6 +27,7 @@ Discovery begins with `list`, then calls `list` with the first non-`VM` scope. F
 - SQLite with `better-sqlite3`, Drizzle schema, generated SQL migrations, WAL mode, foreign keys, and a five-second busy timeout.
 - One installation owns one topology and one SQLite file. Never run multiple application processes against the same file.
 - `Dockerfile` is the canonical release package; `docker-compose.yml` is the reference private deployment.
+- `better-sqlite3` may compile from source on Linux ARM64. Keep Python 3, `make`, and `g++` in the Docker dependency-build stage only; do not add compilers to the final runtime stage. Keep all Docker stages on Debian Trixie so the runtime provides the glibc and libstdc++ versions required by the packaged ARM64 native module.
 - The persistent database is `/data/coralconsole.db` in Docker and `.data/coralconsole.db` in local development unless `DATABASE_PATH` overrides it.
 - Migrations run both through `scripts/migrate.mjs` at container startup and defensively when the application opens the database.
 - Demo data is off by default and enabled only by `CORAL_DEMO_MODE=true`.

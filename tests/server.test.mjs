@@ -138,6 +138,9 @@ test("deployment and UI conventions stay explicit", async () => {
   assert.match(guide, /Keep this file current/);
   assert.match(compose, /coralconsole-data:\/data/);
   assert.match(dockerfile, /HEALTHCHECK/);
+  assert.match(dockerfile, /node:22-trixie-slim/);
+  assert.match(dockerfile, /python3 make g\+\+/);
+  assert.match(dockerfile, /node_modules\/drizzle-orm/);
   assert.match(dockerStart, /docker compose up -d --no-build/);
   assert.match(dockerStop, /docker compose stop/);
   assert.doesNotMatch(`${dockerStart}\n${dockerStop}`, /down\s+-v|volume\s+rm|prune/);
