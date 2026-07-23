@@ -1,0 +1,12 @@
+.git
+.gitignore
+.next
+.vinext
+.wrangler
+.data
+dist
+node_modules
+npm-debug.log*
+.env*
+Dockerfile*
+docker-compose*.yml
