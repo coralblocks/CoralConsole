@@ -109,6 +109,14 @@ npm run db:generate
 npm run db:migrate
 ```
 
+When work on an explicitly requested feature branch is complete, merge it directly into `main` without opening a pull request:
+
+```bash
+./scripts/git-merge-to-main.sh
+```
+
+Run the helper while checked out on the feature branch. It requires a clean working tree, asks for confirmation, updates local `main` from `origin/main`, creates a merge commit, and pushes `main`. It never force-pushes.
+
 Product architecture and contribution conventions live in [AGENTS.md](./AGENTS.md).
 
 ## License

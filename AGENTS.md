@@ -87,6 +87,7 @@ Actors receive JSON shaped as:
 - `npm run docker:build` — intentionally rebuild the local image after code changes.
 - `npm run docker:backup` — create and verify a timestamped online SQLite backup without stopping the application.
 - `npm run docker:status` / `npm run docker:logs` — inspect the reference container.
+- `./scripts/git-merge-to-main.sh` — interactively merge the current clean feature branch into an up-to-date `main` and push `origin/main`; never run this helper unless the user explicitly asks for the merge.
 
 Use the existing npm lockfile. Commit schema changes and their generated migration together. Validate with `npm run lint` and `npm test`; smoke-test Docker when deployment files or native dependencies change.
 
