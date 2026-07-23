@@ -18,7 +18,7 @@ Keep this file current whenever the architecture, scripts, discovery rules, pers
 
 The supported actor types are Sequencer, Backup Sequencer, Replayer, Archiver, Logger, Bridge, Dispatcher, Node, Application, Link, and MultiMqApp. Use this title casing in the interface.
 
-Discovery begins with `list`, then calls `list` with the first non-`VM` scope. For a Sequencer with a `status` action, discovery also calls `<scope> status` to determine Primary/Backup state and session metadata. Session identifiers normally use `YYMMDDHHmm`; show both the raw identifier and a readable start time. Prefer an explicit start time returned by the actor.
+Discovery begins with `list`, then calls `list` with the first non-`VM` scope. For any actor with a `status` action, discovery also calls `<scope> status`; use its explicit type, class, account, open/active state, and session metadata when available. An inactive Sequencer is a Backup Sequencer. Session identifiers normally use `YYMMDDHHmm`; show both the raw identifier and a readable start time. Prefer an explicit start time returned by the actor. Coral REST servers may return a non-standard timezone name in the HTTP `Date` header and literal tabs inside JSON strings, so actor calls use Node's tolerant HTTP parser and narrowly repair unescaped JSON control characters.
 
 ## Runtime architecture
 

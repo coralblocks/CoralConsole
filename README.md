@@ -74,7 +74,7 @@ Open [http://localhost:3000](http://localhost:3000). The development database de
 
 1. Select **Add actor**.
 2. Enter the actor's IP address or hostname and REST admin port.
-3. The server sends `list`, follows the first discovered non-`VM` scope, and derives the actor's name, role, class hint, and available commands.
+3. The server sends `list`, follows the first discovered non-`VM` scope, and runs `<scope> status` when available to derive the actor's role, class, account, state, session, and available commands.
 4. CoralConsole saves the actor in SQLite. Other users see it on their next refresh.
 
 Existing prototype users receive a one-time option to re-discover and move browser-local actors into the shared topology. Only successfully imported entries are removed from browser storage.

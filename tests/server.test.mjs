@@ -20,6 +20,78 @@ async function availablePort() {
   });
 }
 
+async function startMockActorServer() {
+  const requests = [];
+  const server = createServer((socket) => {
+    let received = Buffer.alloc(0);
+    let handled = false;
+    socket.on("data", (chunk) => {
+      if (handled) return;
+      received = Buffer.concat([received, chunk]);
+      const headerEnd = received.indexOf("\r\n\r\n");
+      if (headerEnd < 0) return;
+      const headers = received.subarray(0, headerEnd).toString("utf8").split("\r\n");
+      const contentLength = Number(headers.find((line) => line.toLowerCase().startsWith("content-length:"))?.split(":")[1] || 0);
+      const bodyStart = headerEnd + 4;
+      if (received.length < bodyStart + contentLength) return;
+      handled = true;
+      const input = JSON.parse(received.subarray(bodyStart, bodyStart + contentLength).toString("utf8"));
+      requests.push(input);
+
+      let results = "";
+      if (input.adminCommand === "list" && input.params === "") {
+        results = "VM\nSEQ\n";
+      } else if (input.adminCommand === "list" && input.params === "SEQ") {
+        results = [
+          "SEQ open",
+          "SEQ close",
+          "SEQ status",
+          "",
+          "SEQ-CommandReceiver-0.0.0.0:40002",
+          "SEQ-SequencerMoldPublisher-224.0.0.0:40040",
+          "SEQ-CircularStore-2607232154-1048576",
+          "",
+        ].join("\n");
+      } else if (input.adminCommand === "SEQ status" && input.params === "") {
+        results = [
+          "actor type:\tSEQUENCER",
+          "actor class:\tcom.coralblocks.coralsequencer.mq.PassThroughSequencer",
+          "sequencer name:\tSEQ",
+          "sequencer account:\tTRADING",
+          "sequencer active:\ttrue",
+          "sequencer open:\ttrue",
+          "sequencer session:\t2607232154",
+          "publisher pending replays:\t0",
+          "",
+        ].join("\n");
+      }
+
+      const responseBody = JSON.stringify({
+        result: true,
+        adminCommand: input.adminCommand,
+        params: input.params,
+        results,
+      }).replaceAll("\\t", "\t");
+      socket.end([
+        "HTTP/1.1 200 OK",
+        "Content-Type: application/json",
+        "Date: Thu, 23 Jul 2026 21:59:06 Europe/Stockholm",
+        `Content-Length: ${Buffer.byteLength(responseBody)}`,
+        "Connection: close",
+        "",
+        responseBody,
+      ].join("\r\n"));
+    });
+  });
+  await new Promise((resolveListen, reject) => {
+    server.once("error", reject);
+    server.listen(0, "127.0.0.1", resolveListen);
+  });
+  const address = server.address();
+  if (!address || typeof address === "string") throw new Error("Mock actor server did not bind to a TCP port.");
+  return { server, port: address.port, requests };
+}
+
 async function startServer(databasePath, port) {
   const child = spawn(process.execPath, [join(projectRoot, ".next/standalone/server.js")], {
     cwd: projectRoot,
@@ -71,7 +143,9 @@ test("standalone server persists settings, actors, and command audit in SQLite",
   const databasePath = join(directory, "coralconsole.db");
   const port = await availablePort();
   let server;
+  let actorServer;
   try {
+    actorServer = await startMockActorServer();
     server = await startServer(databasePath, port);
     const health = await json(server.baseUrl, "/api/health");
     assert.equal(health.status, "ok");
@@ -98,6 +172,24 @@ test("standalone server persists settings, actors, and command audit in SQLite",
     assert.equal(actorPayload.actors.length, 12);
     assert.equal(actorPayload.actors[0].demo, true);
 
+    const discovered = await json(server.baseUrl, "/api/actors", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ host: "127.0.0.1", port: actorServer.port }),
+    });
+    assert.equal(discovered.actor.name, "SEQ");
+    assert.equal(discovered.actor.kind, "sequencer");
+    assert.equal(discovered.actor.className, "PassThroughSequencer");
+    assert.equal(discovered.actor.account, "TRADING");
+    assert.equal(discovered.actor.status, "online");
+    assert.equal(discovered.actor.session, "2607232154");
+    assert.equal(discovered.actor.sessionStarted, "23 Jul 2026 · 21:54");
+    assert.deepEqual(actorServer.requests, [
+      { adminCommand: "list", params: "" },
+      { adminCommand: "list", params: "SEQ" },
+      { adminCommand: "SEQ status", params: "" },
+    ]);
+
     const command = await json(server.baseUrl, "/api/actors/demo-seq-01/commands", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -113,11 +205,14 @@ test("standalone server persists settings, actors, and command audit in SQLite",
     server = await startServer(databasePath, port);
     const persistedSettings = await json(server.baseUrl, "/api/settings");
     const persistedAudit = await json(server.baseUrl, "/api/audit?actorId=demo-seq-01&limit=20");
+    const persistedActors = await json(server.baseUrl, "/api/actors");
     assert.equal(persistedSettings.settings.topologyName, "Test Topology");
     assert.deepEqual(persistedSettings.settings.summaryActorKinds, ["sequencer", "replayer", "application"]);
     assert.equal(persistedAudit.entries.length, 1);
+    assert.equal(persistedActors.actors.some((actor) => actor.host === "127.0.0.1" && actor.port === actorServer.port), true);
   } finally {
     if (server) await stopServer(server.child);
+    if (actorServer) await new Promise((resolveClose) => actorServer.server.close(resolveClose));
     await rm(directory, { recursive: true, force: true });
   }
 });
