@@ -7,6 +7,7 @@
   --panel: #fffef9;
   --line: #d9ddd4;
   --coral: #ff695c;
+  --coral-light: #ff8d84;
   --coral-soft: #ffe0da;
   --cyan: #24c8c0;
   --cyan-soft: #d6f7f3;
@@ -57,7 +58,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .brand > span:last-child { display: grid; line-height: 1.1; }
 .brand strong { font-size: 18px; letter-spacing: -0.045em; }
 .brand small { color: var(--muted); font-family: var(--font-plex-mono), monospace; font-size: 8px; letter-spacing: .055em; margin-top: 4px; white-space: nowrap; }
-.brand-mark { align-items: center; background: var(--ink); border-radius: 10px; color: var(--coral); display: flex; flex: 0 0 40px; height: 40px; justify-content: center; width: 40px; }
+.brand-mark { align-items: center; background: var(--ink); border-radius: 10px; color: var(--coral-light); display: flex; flex: 0 0 40px; height: 40px; justify-content: center; width: 40px; }
 .brand-mark svg { height: 25px; stroke-width: 2; width: 25px; }
 .topbar-actions { align-items: center; display: flex; gap: 14px; }
 .environment { align-items: center; background: rgba(255,255,255,.62); border: 1px solid var(--line); border-radius: 999px; color: var(--muted); display: flex; font-family: var(--font-plex-mono), monospace; font-size: 11px; gap: 8px; padding: 10px 14px; text-transform: uppercase; }
@@ -68,8 +69,8 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .button { align-items: center; border: 0; border-radius: 10px; cursor: pointer; display: inline-flex; font-size: 13px; font-weight: 800; gap: 9px; justify-content: center; min-height: 44px; padding: 0 17px; transition: transform .2s ease, box-shadow .2s ease, background .2s ease; }
 .button:hover:not(:disabled) { transform: translateY(-2px); }
 .button:disabled { cursor: not-allowed; opacity: .48; }
-.button-primary { background: var(--coral); box-shadow: 0 9px 24px rgba(255, 105, 92, .24); color: #211c1b; }
-.button-primary:hover:not(:disabled) { box-shadow: 0 13px 28px rgba(255, 105, 92, .32); }
+.button-primary { background: var(--coral-light); box-shadow: 0 9px 24px rgba(255, 141, 132, .26); color: #211c1b; }
+.button-primary:hover:not(:disabled) { box-shadow: 0 13px 28px rgba(255, 141, 132, .34); }
 .button-dark { background: var(--ink); color: white; justify-content: space-between; width: 100%; }
 .button-ghost { background: transparent; border: 1px solid var(--line); color: var(--ink); }
 
