@@ -227,8 +227,17 @@ export async function callActorEndpoint(
     } catch {
       throw new ActorCallError(`Actor returned a non-JSON response (${upstream.status}).`, 502);
     }
-    if (upstream.status < 200 || upstream.status >= 300 || payload.error) {
-      throw new ActorCallError(payload.error ? adminActionError(payload.error) : `Actor returned HTTP ${upstream.status}.`, upstream.status >= 200 && upstream.status < 300 ? 400 : upstream.status, payload);
+    if (upstream.status < 200 || upstream.status >= 300) {
+      throw new ActorCallError(payload.error ? adminActionError(payload.error) : `Actor returned HTTP ${upstream.status}.`, upstream.status, payload);
+    }
+    if (payload.error) {
+      throw new ActorCallError(adminActionError(payload.error), 400, payload);
+    }
+    if (payload.result === false) {
+      throw new ActorCallError("Actor reported that the admin action failed.", 400, payload);
+    }
+    if (payload.result !== true) {
+      throw new ActorCallError("Actor response is missing the required boolean result.", 502, payload);
     }
     return payload;
   } catch (error) {

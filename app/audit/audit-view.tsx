@@ -11,6 +11,10 @@ async function apiRequest<T>(url: string, init?: RequestInit): Promise<T> {
   return payload;
 }
 
+function auditOutput(entry: AuditEntry) {
+  return [entry.error, entry.output].filter(Boolean).join("\n\n") || "No output";
+}
+
 export default function AuditView() {
   const [entries, setEntries] = useState<AuditEntry[]>([]);
   const [query, setQuery] = useState("");
@@ -92,7 +96,7 @@ export default function AuditView() {
                 <td><code>{entry.params || "—"}</code></td>
                 <td><span className={`audit-outcome ${entry.success ? "success" : "failure"}`}>{entry.success ? "Success" : "Failed"}</span></td>
                 <td>{entry.durationMs} ms</td>
-                <td><pre>{entry.error || entry.output || "No output"}{entry.truncated ? "\n[truncated]" : ""}</pre></td>
+                <td><pre>{auditOutput(entry)}{entry.truncated ? "\n[truncated]" : ""}</pre></td>
               </tr>)}</tbody>
             </table>
           )}

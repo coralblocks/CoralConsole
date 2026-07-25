@@ -57,6 +57,8 @@ The same-origin API surface is:
 
 Admin actions accept an actor ID, action name, and parameters. The server must resolve the stored actor endpoint; never reintroduce a client-supplied arbitrary relay route. Validate same-origin mutations, keep the actor timeout at 6.5 seconds, and render actor results only as plain text.
 
+The singular boolean `result` in an actor reply is authoritative: only `result: true` is a successful admin action. Treat `result: false`, a missing result, or a non-boolean result as failure and record a failed audit entry. The plural `results` field is output text only and must never determine the outcome.
+
 Actors receive JSON shaped as:
 
 ```json

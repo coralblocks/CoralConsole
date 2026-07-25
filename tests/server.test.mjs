@@ -53,6 +53,7 @@ async function startMockActorServer() {
             "SEQ open",
             "SEQ close",
             "SEQ status",
+            "SEQ rollSessionAuto",
             "",
             "SEQ-CommandReceiver-0.0.0.0:40002",
             "SEQ-SequencerMoldPublisher-224.0.0.0:40040",
@@ -71,10 +72,12 @@ async function startMockActorServer() {
             "publisher pending replays:\t0",
             "",
           ].join("\n");
+        } else if (input.adminCommand === "SEQ rollSessionAuto" && input.params === "") {
+          results = "As a safeguard, pass 'true' to indicate you really want to do this!";
         }
 
         const responseBody = JSON.stringify({
-          result: true,
+          result: input.adminCommand !== "SEQ rollSessionAuto",
           adminCommand: input.adminCommand,
           params: input.params,
           results,
@@ -244,6 +247,20 @@ test("standalone server persists settings, actors, and admin action audit in SQL
       body: JSON.stringify({ action: "status", params: "" }),
     });
     assert.notEqual(actorServer.requestConnections.at(-1), persistentConnection);
+
+    const failedResponse = await fetch(`${server.baseUrl}/api/actors/${discovered.actor.id}/actions`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "rollSessionAuto", params: "" }),
+    });
+    const failedPayload = await failedResponse.json();
+    assert.equal(failedResponse.ok, false);
+    assert.match(failedPayload.error, /admin action failed/i);
+    const failedAudit = await json(server.baseUrl, `/api/audit?actorId=${discovered.actor.id}&query=rollSessionAuto&limit=20`);
+    assert.equal(failedAudit.entries.length, 1);
+    assert.equal(failedAudit.entries[0].action, "SEQ rollSessionAuto");
+    assert.equal(failedAudit.entries[0].success, false);
+    assert.match(failedAudit.entries[0].output, /safeguard/);
 
     assert.equal(actorServer.closeConnection(persistentConnection), true);
     let disconnectedActor;
