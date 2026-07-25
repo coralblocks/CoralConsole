@@ -3,6 +3,7 @@ import { getDb, getSqlite } from "@/db";
 import { actors, adminActionAudit, topologySettings, type ActorRow } from "@/db/schema";
 import { DEMO_ACTORS } from "./demo-actors";
 import {
+  BASELINE_ADMIN_ACTIONS,
   SUMMARY_ACTOR_KINDS,
   type Actor,
   type ActorKind,
@@ -17,7 +18,7 @@ const ACTOR_KINDS: ActorKind[] = [
   "sequencer", "backup-sequencer", "replayer", "bridge", "dispatcher", "archiver",
   "application", "node", "logger", "link", "multimqapp",
 ];
-const ACTOR_STATUSES: ActorStatus[] = ["online", "standby", "warning", "offline"];
+const ACTOR_STATUSES: ActorStatus[] = ["healthy", "unhealthy"];
 let demoModeSynced = false;
 
 function syncDemoMode() {
@@ -49,13 +50,20 @@ function validKind(value: string): ActorKind {
 }
 
 function validStatus(value: string): ActorStatus {
-  return ACTOR_STATUSES.includes(value as ActorStatus) ? value as ActorStatus : "offline";
+  if (ACTOR_STATUSES.includes(value as ActorStatus)) return value as ActorStatus;
+  if (value === "online" || value === "standby") return "healthy";
+  return "unhealthy";
 }
 
 function validSummaryActorKinds(value: unknown): SummaryActorKind[] {
   if (!Array.isArray(value)) return [...SUMMARY_ACTOR_KINDS];
   const selected = new Set(value);
   return SUMMARY_ACTOR_KINDS.filter((kind) => selected.has(kind));
+}
+
+function validActions(value: unknown) {
+  const stored = Array.isArray(value) ? value.filter((action): action is string => typeof action === "string") : [];
+  return [...new Set([...BASELINE_ADMIN_ACTIONS, ...stored])];
 }
 
 export function rowToActor(row: ActorRow): Actor {
@@ -74,7 +82,7 @@ export function rowToActor(row: ActorRow): Actor {
     session: row.session,
     sessionStarted: row.sessionStarted || undefined,
     lastSeen: row.lastSeen,
-    actions: Array.isArray(row.actions) ? row.actions : [],
+    actions: validActions(row.actions),
     demo: row.demo || undefined,
   };
 }
@@ -155,9 +163,9 @@ export function updateActor(actor: Actor, lastError: string | null = null) {
   return getActor(actor.id);
 }
 
-export function markActorOffline(actor: Actor, error: string) {
+export function markActorUnhealthy(actor: Actor, error: string) {
   getDb().update(actors).set({
-    status: "offline",
+    status: "unhealthy",
     lastSeen: actor.lastSeen === "just now" ? "unreachable" : actor.lastSeen,
     lastError: error,
     updatedAt: new Date().toISOString(),

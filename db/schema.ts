@@ -24,7 +24,7 @@ export const actors = sqliteTable("actors", {
   id: text("id").primaryKey(),
   name: text("name").notNull(),
   kind: text("kind").notNull(),
-  status: text("status").notNull().default("offline"),
+  status: text("status").notNull().default("unhealthy"),
   host: text("host").notNull(),
   port: integer("port").notNull(),
   account: text("account").notNull(),

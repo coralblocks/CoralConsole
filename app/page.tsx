@@ -58,7 +58,7 @@ function normalizeSavedActors(value: unknown): Actor[] {
   if (!Array.isArray(value)) return [];
   return value.flatMap((entry) => {
     if (!entry || typeof entry !== "object") return [];
-    const legacy = entry as Omit<Actor, "kind" | "actions"> & { actions?: string[]; commands?: string[]; kind: string };
+    const legacy = entry as Omit<Actor, "kind" | "status" | "actions"> & { actions?: string[]; commands?: string[]; kind: string; status: string };
     if (typeof legacy.name !== "string" || typeof legacy.host !== "string" || !Number.isInteger(Number(legacy.port))) return [];
     const wasBackup = legacy.kind === "backup"
       || legacy.kind === "backup-sequencer"
@@ -72,7 +72,9 @@ function normalizeSavedActors(value: unknown): Actor[] {
       commands: undefined,
       kind,
       port: Number(legacy.port),
-      status: wasBackup ? "standby" : legacy.status,
+      status: legacy.status === "online" || legacy.status === "standby" || legacy.status === "healthy"
+        ? "healthy"
+        : "unhealthy",
       sequencerRole: kind === "sequencer" ? "Primary" : kind === "backup-sequencer" ? "Backup" : undefined,
       sessionStarted: legacy.sessionStarted || sessionStartFromId(legacy.session),
     }];
@@ -210,14 +212,13 @@ export default function Home() {
 
   const visibleActors = useMemo(() => {
     if (filter === "all") return actors;
-    if (filter === "online") return actors.filter((actor) => actor.status === "online" || actor.status === "standby");
     return actors.filter((actor) => actor.status === filter);
   }, [actors, filter]);
-  const onlineCount = actors.filter((actor) => actor.status === "online" || actor.status === "standby").length;
-  const unhealthyCount = actors.filter((actor) => actor.status === "warning" || actor.status === "offline").length;
+  const healthyCount = actors.filter((actor) => actor.status === "healthy").length;
+  const unhealthyCount = actors.filter((actor) => actor.status === "unhealthy").length;
   const primarySequencers = visibleActors.filter((actor) => actor.kind === "sequencer");
   const backupSequencers = visibleActors.filter((actor) => actor.kind === "backup-sequencer");
-  const activeSequencer = actors.find((actor) => actor.kind === "sequencer" && actor.status === "online")
+  const activeSequencer = actors.find((actor) => actor.kind === "sequencer" && actor.status === "healthy")
     || actors.find((actor) => actor.kind === "sequencer");
   const visibleSummaryKinds = SUMMARY_ACTOR_KINDS.filter((kind) => settings.summaryActorKinds.includes(kind));
 
@@ -369,10 +370,10 @@ export default function Home() {
         <aside className="pulse-panel" aria-label="System Pulse">
           <div className="pulse-heading">
             <div className="health-orbit" aria-hidden="true"><span /><span /><span /></div>
-            <div><small>System Pulse</small><strong>{unhealthyCount ? "Attention needed" : actors.length ? "All systems nominal" : "Waiting for actors"}</strong><span>{onlineCount} of {actors.length} actors responding</span></div>
+            <div><small>System Pulse</small><strong>{unhealthyCount ? "Attention needed" : actors.length ? "All systems nominal" : "Waiting for actors"}</strong><span>{healthyCount} of {actors.length} actors healthy</span></div>
           </div>
           <div className="health-counts">
-            <div className="health-count healthy"><i /><p><strong>{onlineCount}</strong><small>Healthy</small></p></div>
+            <div className="health-count healthy"><i /><p><strong>{healthyCount}</strong><small>Healthy</small></p></div>
             <div className="health-count unhealthy"><i /><p><strong>{unhealthyCount}</strong><small>Unhealthy</small></p></div>
           </div>
           <div className="pulse-session"><small>Active session</small><strong>{activeSequencer?.session || "Not discovered"}</strong><span>{activeSequencer?.sessionStarted ? `Started ${activeSequencer.sessionStarted}` : "Start time not reported"}</span></div>
@@ -386,8 +387,8 @@ export default function Home() {
             <div className="topology-actions">
               <button className="button button-ghost refresh-button" type="button" onClick={() => void refreshActors(true)} disabled={refreshing || !actors.length}>{refreshing ? "Refreshing…" : "Refresh now"}</button>
               <div className="filters" aria-label="Filter actors">
-                {(["all", "online", "warning", "offline"] as const).map((value) => (
-                  <button key={value} type="button" className={filter === value ? "active" : ""} onClick={() => setFilter(value)}>{value === "all" ? "All actors" : value}</button>
+                {(["all", "healthy", "unhealthy"] as const).map((value) => (
+                  <button key={value} type="button" className={filter === value ? "active" : ""} onClick={() => setFilter(value)}>{value === "all" ? "All actors" : statusLabel(value)}</button>
                 ))}
               </div>
             </div>

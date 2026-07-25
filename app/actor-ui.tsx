@@ -44,5 +44,5 @@ export const ACTOR_META: Record<ActorKind, { label: string; summaryLabel: string
 };
 
 export function statusLabel(status: ActorStatus) {
-  return status === "standby" ? "ready" : status;
+  return status === "healthy" ? "Healthy" : "Unhealthy";
 }

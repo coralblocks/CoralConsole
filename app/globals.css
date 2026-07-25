@@ -162,10 +162,8 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .actor-heading strong { font-size: 10px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .actor-heading small { color: var(--muted); font-family: var(--font-plex-mono), monospace; font-size: 7px; margin-top: 3px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .status-dot { border: 2px solid var(--panel); border-radius: 50%; box-shadow: 0 0 0 1px rgba(16,43,38,.12); flex: 0 0 9px; height: 9px; margin-left: auto; width: 9px; }
-.status-online { background: var(--lime); }
-.status-standby { background: var(--cyan); }
-.status-warning { background: var(--amber); }
-.status-offline { background: #b3bbb8; }
+.status-healthy { background: var(--lime); }
+.status-unhealthy { background: var(--coral); }
 .actor-data { display: grid; gap: 7px; grid-template-columns: minmax(0, 1.3fr) minmax(0, .7fr); margin: 14px 0; }
 .actor-data > span { font-family: var(--font-plex-mono), monospace; font-size: 8px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .actor-data small { color: var(--muted); display: block; font-size: 6px; letter-spacing: .08em; margin-bottom: 3px; }
@@ -180,9 +178,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .inspector-head h1, .inspector-head h2 { font-size: 16px; margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .status-badge { align-items: center; background: var(--lime-soft); border-radius: 999px; color: #587318; display: flex; font-family: var(--font-plex-mono), monospace; font-size: 7px; gap: 5px; margin-left: auto; padding: 7px 8px; text-transform: uppercase; }
 .status-badge i { background: currentColor; border-radius: 50%; height: 5px; width: 5px; }
-.status-badge.status-warning { background: #fff0ce; color: #8c6211; }
-.status-badge.status-offline { background: #eceeeb; color: #68716e; }
-.status-badge.status-standby { background: var(--cyan-soft); color: #176e6a; }
+.status-badge.status-unhealthy { background: var(--coral-soft); color: #9a3f38; }
 .detail-grid { border-bottom: 1px solid var(--line); border-top: 1px solid var(--line); display: grid; grid-template-columns: 1fr 1fr; margin: 0; }
 .detail-grid div { border-bottom: 1px solid var(--line); min-width: 0; padding: 13px 19px; }
 .detail-grid div:nth-last-child(-n+2) { border-bottom: 0; }

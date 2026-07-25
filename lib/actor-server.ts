@@ -1,7 +1,7 @@
 import { Agent as HttpAgent, request as requestHttp } from "node:http";
 import { Agent as HttpsAgent, request as requestHttps } from "node:https";
 import type { Socket } from "node:net";
-import type { Actor, ActorKind, ActorStatus, AdminActionReply, AuditOutcome } from "./types";
+import { BASELINE_ADMIN_ACTIONS, type Actor, type ActorKind, type ActorStatus, type AdminActionReply, type AuditOutcome } from "./types";
 
 const ACTOR_TIMEOUT_MS = 6500;
 const STATUS_CONNECTION_LOST = "The persistent status connection was lost.";
@@ -276,10 +276,14 @@ export function kindFromDiscovery(scope: string, details: string): ActorKind {
 
 export function actionsFromDiscovery(scope: string, details: string) {
   const prefix = `${scope} `;
-  return details.split(/\r?\n/)
+  const discovered = details.split(/\r?\n/)
     .filter((line) => line.startsWith(prefix))
     .map((line) => line.slice(prefix.length).trim())
     .filter(Boolean);
+  return [...new Set([
+    ...BASELINE_ADMIN_ACTIONS,
+    ...discovered.filter((action) => !BASELINE_ADMIN_ACTIONS.includes(action as typeof BASELINE_ADMIN_ACTIONS[number])),
+  ])];
 }
 
 export function classFromDiscovery(scope: string, details: string, kind: ActorKind) {
@@ -335,7 +339,6 @@ function actorFromStatus(actor: Actor, statusDetails: string): Actor {
   const kind = reportedKind || actor.kind;
   const isSequencer = kind === "sequencer" || kind === "backup-sequencer";
   const sequencerActive = statusBoolean(statusDetails, "sequencer active");
-  const actorOpen = statusBoolean(statusDetails, isSequencer ? "sequencer open" : "actor open");
   const isBackup = isSequencer && (
     reportedKind === "backup-sequencer"
     || sequencerActive === false
@@ -348,7 +351,7 @@ function actorFromStatus(actor: Actor, statusDetails: string): Actor {
   return {
     ...actor,
     kind: discoveredKind,
-    status: actorOpen === false ? "offline" : isBackup ? "standby" : "online",
+    status: actor.status,
     account: statusValue(statusDetails, isSequencer ? "sequencer account" : "actor account") || actor.account,
     className: classFromStatus(statusDetails) || actor.className,
     sequencerRole: isSequencer ? (isBackup ? "Backup" : "Primary") : undefined,
@@ -395,8 +398,7 @@ export type ActorHealthCheck = {
   error: string | null;
 };
 
-export async function checkActorHealth(actor: Actor, onDisconnect: StatusDisconnectHandler): Promise<ActorHealthCheck | null> {
-  if (!actor.actions.includes("healthCheck")) return null;
+export async function checkActorHealth(actor: Actor, onDisconnect: StatusDisconnectHandler): Promise<ActorHealthCheck> {
   try {
     const reply = await callActorEndpoint(
       actor.host,
@@ -407,26 +409,27 @@ export async function checkActorHealth(actor: Actor, onDisconnect: StatusDisconn
     );
     if (!(reply.results || "").startsWith("ALIVE")) {
       return {
-        status: actor.status === "offline" ? "offline" : "warning",
+        status: "unhealthy",
         latency: "health check failed",
         lastSeen: "just now",
         error: "Actor health check response does not start with ALIVE.",
       };
     }
-    const recoveredStatus = actor.kind === "backup-sequencer" ? "standby" : "online";
     return {
-      status: actor.status === "warning" ? recoveredStatus : actor.status,
+      status: "healthy",
       latency: "connected",
       lastSeen: "just now",
       error: null,
     };
   } catch (error) {
-    if (!(error instanceof ActorCallError) || error.outcome === "unreachable") throw error;
+    const unreachable = error instanceof ActorCallError && error.outcome === "unreachable";
     return {
-      status: actor.status === "offline" ? "offline" : "warning",
-      latency: "health check failed",
-      lastSeen: "just now",
-      error: error.message,
+      status: "unhealthy",
+      latency: unreachable ? "unreachable" : "health check failed",
+      lastSeen: unreachable
+        ? actor.lastSeen === "just now" ? "unreachable" : actor.lastSeen
+        : "just now",
+      error: error instanceof Error ? error.message : "Actor health check failed.",
     };
   }
 }
@@ -455,7 +458,6 @@ export async function discoverActor(host: string, port: number, id = crypto.rand
   const kind = kindFromStatus(statusDetails) || kindFromDiscovery(scope, details);
   const isSequencer = kind === "sequencer" || kind === "backup-sequencer";
   const sequencerActive = statusBoolean(statusDetails, "sequencer active");
-  const actorOpen = statusBoolean(statusDetails, isSequencer ? "sequencer open" : "actor open");
   const isBackup = isSequencer && (
     kind === "backup-sequencer"
     || sequencerActive === false
@@ -467,7 +469,7 @@ export async function discoverActor(host: string, port: number, id = crypto.rand
     id,
     name: scope,
     kind: discoveredKind,
-    status: actorOpen === false ? "offline" : isBackup ? "standby" : "online",
+    status: "healthy",
     host,
     port,
     account: statusValue(statusDetails, isSequencer ? "sequencer account" : "actor account") || scope,
@@ -477,6 +479,6 @@ export async function discoverActor(host: string, port: number, id = crypto.rand
     session,
     sessionStarted: sessionStartFromStatus(statusDetails, session),
     lastSeen: "just now",
-    actions: actions.length ? actions : ["list", "status"],
+    actions,
   };
 }

@@ -1,5 +1,5 @@
-import { checkActorHealth, closeAllActorStatusConnections, refreshActorStatus } from "./actor-server";
-import { getActor, getSettings, listActors, markActorOffline, recordActorHeartbeat, updateActor } from "./repository";
+import { ActorCallError, checkActorHealth, closeAllActorStatusConnections, refreshActorStatus } from "./actor-server";
+import { getActor, getSettings, listActors, markActorUnhealthy, recordActorHeartbeat, updateActor } from "./repository";
 import { hasRecentViewer } from "./viewer-presence";
 
 let refreshPromise: Promise<ReturnType<typeof listActors>> | null = null;
@@ -58,7 +58,7 @@ async function runScheduledActorOperation(actorId: string, operation: () => Prom
 function disconnectHandler(actorId: string) {
   return (message: string) => {
     const current = getActor(actorId);
-    if (current && !current.demo) markActorOffline(current, message);
+    if (current && !current.demo) markActorUnhealthy(current, message);
   };
 }
 
@@ -68,7 +68,12 @@ async function refreshOneActor(actorId: string) {
   try {
     updateActor(await refreshActorStatus(actor, disconnectHandler(actorId)));
   } catch (error) {
-    markActorOffline(actor, error instanceof Error ? error.message : "Actor refresh failed.");
+    const message = error instanceof Error ? error.message : "Actor refresh failed.";
+    if (error instanceof ActorCallError && error.outcome !== "unreachable") {
+      updateActor(actor, message);
+    } else {
+      markActorUnhealthy(actor, message);
+    }
   }
 }
 
@@ -77,9 +82,9 @@ async function healthCheckOneActor(actorId: string) {
   if (!actor || actor.demo) return;
   try {
     const heartbeat = await checkActorHealth(actor, disconnectHandler(actorId));
-    if (heartbeat) recordActorHeartbeat(actor.id, heartbeat);
+    recordActorHeartbeat(actor.id, heartbeat);
   } catch (error) {
-    markActorOffline(actor, error instanceof Error ? error.message : "Actor health check failed.");
+    markActorUnhealthy(actor, error instanceof Error ? error.message : "Actor health check failed.");
   }
 }
 

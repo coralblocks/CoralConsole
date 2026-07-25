@@ -5,6 +5,7 @@ import { join, resolve } from "node:path";
 import { spawn } from "node:child_process";
 import { createServer } from "node:net";
 import test from "node:test";
+import Database from "better-sqlite3";
 
 const projectRoot = resolve(import.meta.dirname, "..");
 
@@ -48,6 +49,7 @@ async function startMockActorServer() {
         requestConnections.push(connectionId);
 
         let results = "";
+        let resultOverride;
         if (input.adminCommand === "list" && input.params === "") {
           results = "VM\nSEQ\n";
         } else if (input.adminCommand === "list" && input.params === "SEQ") {
@@ -88,14 +90,16 @@ async function startMockActorServer() {
           results = healthCheckCount === 2 ? "NOT HEALTHY"
             : healthCheckCount === 3 ? "ALIVE but CLOSED"
               : "ALIVE and OPEN";
+          if (healthCheckCount === 4) resultOverride = false;
+          if (healthCheckCount === 5) resultOverride = "invalid";
         } else if (input.adminCommand === "SEQ dropConnection" && input.params === "") {
           socket.destroy();
           return;
         }
 
-        const actionResult = input.adminCommand === "SEQ invalidResult"
+        const actionResult = resultOverride ?? (input.adminCommand === "SEQ invalidResult"
           ? "invalid"
-          : input.adminCommand !== "SEQ rollSessionAuto";
+          : input.adminCommand !== "SEQ rollSessionAuto");
         const responseBody = JSON.stringify({
           result: actionResult,
           adminCommand: input.adminCommand,
@@ -247,11 +251,11 @@ test("standalone server persists settings, actors, and admin action audit in SQL
     assert.equal(discovered.actor.kind, "sequencer");
     assert.equal(discovered.actor.className, "PassThroughSequencer");
     assert.equal(discovered.actor.account, "TRADING");
-    assert.equal(discovered.actor.status, "online");
+    assert.equal(discovered.actor.status, "healthy");
     assert.equal(discovered.actor.session, "2607232154");
     assert.equal(discovered.actor.sessionStarted, "23 Jul 2026 · 21:54");
     assert.equal(discovered.actor.actions.includes("status"), true);
-    assert.equal(discovered.actor.actions.includes("healthCheck"), false);
+    assert.equal(discovered.actor.actions.includes("healthCheck"), true);
     assert.equal("commands" in discovered.actor, false);
     assert.deepEqual(actorServer.requests, [
       { adminCommand: "list", params: "" },
@@ -266,7 +270,7 @@ test("standalone server persists settings, actors, and admin action audit in SQL
       body: JSON.stringify({ force: true }),
     });
     const firstRefreshedActor = firstRefresh.actors.find((actor) => actor.id === discovered.actor.id);
-    assert.equal(firstRefreshedActor?.status, "online");
+    assert.equal(firstRefreshedActor?.status, "healthy");
     assert.equal(firstRefreshedActor?.actions.includes("healthCheck"), true);
     const persistentConnection = actorServer.requestConnections.at(-1);
     assert.deepEqual(actorServer.requests.slice(-2), [
@@ -288,7 +292,7 @@ test("standalone server persists settings, actors, and admin action audit in SQL
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ force: true }),
     });
-    assert.equal(failedHealthCheck.actors.find((actor) => actor.id === discovered.actor.id)?.status, "warning");
+    assert.equal(failedHealthCheck.actors.find((actor) => actor.id === discovered.actor.id)?.status, "unhealthy");
     assert.equal(actorServer.requestConnections.at(-1), persistentConnection);
 
     const recoveredHealthCheck = await json(server.baseUrl, "/api/actors/health", {
@@ -296,8 +300,29 @@ test("standalone server persists settings, actors, and admin action audit in SQL
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ force: true }),
     });
-    assert.equal(recoveredHealthCheck.actors.find((actor) => actor.id === discovered.actor.id)?.status, "online");
+    assert.equal(recoveredHealthCheck.actors.find((actor) => actor.id === discovered.actor.id)?.status, "healthy");
     assert.equal(actorServer.requestConnections.at(-1), persistentConnection);
+
+    const falseHealthCheck = await json(server.baseUrl, "/api/actors/health", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ force: true }),
+    });
+    assert.equal(falseHealthCheck.actors.find((actor) => actor.id === discovered.actor.id)?.status, "unhealthy");
+
+    const invalidHealthCheck = await json(server.baseUrl, "/api/actors/health", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ force: true }),
+    });
+    assert.equal(invalidHealthCheck.actors.find((actor) => actor.id === discovered.actor.id)?.status, "unhealthy");
+
+    const validHealthCheck = await json(server.baseUrl, "/api/actors/health", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ force: true }),
+    });
+    assert.equal(validHealthCheck.actors.find((actor) => actor.id === discovered.actor.id)?.status, "healthy");
 
     await json(server.baseUrl, "/api/actors/refresh", {
       method: "POST",
@@ -409,19 +434,25 @@ test("standalone server persists settings, actors, and admin action audit in SQL
     for (let attempt = 0; attempt < 50; attempt += 1) {
       const payload = await json(server.baseUrl, "/api/actors");
       disconnectedActor = payload.actors.find((actor) => actor.id === discovered.actor.id);
-      if (disconnectedActor?.status === "offline") break;
+      if (disconnectedActor?.status === "unhealthy") break;
       await new Promise((resolveWait) => setTimeout(resolveWait, 20));
     }
-    assert.equal(disconnectedActor?.status, "offline");
+    assert.equal(disconnectedActor?.status, "unhealthy");
 
     const reconnected = await json(server.baseUrl, "/api/actors/refresh", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ force: true }),
     });
-    assert.equal(reconnected.actors.find((actor) => actor.id === discovered.actor.id)?.status, "online");
+    assert.equal(reconnected.actors.find((actor) => actor.id === discovered.actor.id)?.status, "unhealthy");
     assert.notEqual(actorServer.requestConnections.at(-1), persistentConnection);
     assert.equal(actorServer.requestConnections.at(-2), actorServer.requestConnections.at(-1));
+    const healthyAgain = await json(server.baseUrl, "/api/actors/health", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ force: true }),
+    });
+    assert.equal(healthyAgain.actors.find((actor) => actor.id === discovered.actor.id)?.status, "healthy");
 
     const action = await json(server.baseUrl, "/api/actors/demo-seq-01/actions", {
       method: "POST",
@@ -507,6 +538,47 @@ test("standalone server persists settings, actors, and admin action audit in SQL
     if (server) await stopServer(server.child);
     if (actorServer) await new Promise((resolveClose) => actorServer.server.close(resolveClose));
     await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test("health-state migration preserves actors and their audit references", async () => {
+  const database = new Database(":memory:");
+  database.pragma("foreign_keys = ON");
+  try {
+    const migrationNames = [
+      "0000_oval_ender_wiggin",
+      "0001_rapid_masque",
+      "0002_huge_donald_blake",
+      "0003_large_changeling",
+      "0004_handy_thunderbolts",
+      "0005_outgoing_invaders",
+    ];
+    for (const [index, name] of migrationNames.entries()) {
+      if (index === 5) {
+        const insertActor = database.prepare(
+          "INSERT INTO actors (id, name, kind, status, host, port, account, class_name, commands) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        );
+        for (const [id, status] of [["a", "online"], ["b", "standby"], ["c", "warning"], ["d", "offline"]]) {
+          insertActor.run(id, id, "node", status, id, 30001, id, "Node", "[]");
+        }
+        database.prepare(
+          "INSERT INTO command_audit (actor_id, actor_name, actor_endpoint, command, output, duration_ms) VALUES (?, ?, ?, ?, ?, ?)",
+        ).run("a", "a", "a:30001", "status", "ok", 1);
+      }
+      const sql = await readFile(join(projectRoot, "drizzle", `${name}.sql`), "utf8");
+      const statements = sql.split("--> statement-breakpoint").map((statement) => statement.trim()).filter(Boolean);
+      database.transaction(() => statements.forEach((statement) => database.exec(statement)))();
+    }
+    assert.deepEqual(database.prepare("SELECT id, status FROM actors ORDER BY id").all(), [
+      { id: "a", status: "healthy" },
+      { id: "b", status: "healthy" },
+      { id: "c", status: "unhealthy" },
+      { id: "d", status: "unhealthy" },
+    ]);
+    assert.deepEqual(database.prepare("SELECT actor_id AS actorId FROM command_audit").get(), { actorId: "a" });
+    assert.deepEqual(database.pragma("foreign_key_check"), []);
+  } finally {
+    database.close();
   }
 });
 

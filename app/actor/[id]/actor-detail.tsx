@@ -185,7 +185,7 @@ export default function ActorDetail({ actorId }: { actorId: string }) {
                   <label htmlFor="action">Admin action</label>
                   <div className="select-wrap"><select id="action" value={action} onChange={(event) => setAction(event.target.value)}>{actor.actions.map((available) => <option value={available} key={available}>{available}</option>)}</select></div>
                   <label htmlFor="params">Parameters <span>optional</span></label><input id="params" value={params} onChange={(event) => setParams(event.target.value)} placeholder="e.g. 10 16" />
-                  <button className="button button-dark" type="submit" disabled={running || actor.status === "offline" || !actor.actions.length}>{running ? "Running…" : "Run action"}<span aria-hidden="true">→</span></button>
+                  <button className="button button-dark" type="submit" disabled={running || !actor.actions.length}>{running ? "Running…" : "Run action"}<span aria-hidden="true">→</span></button>
                 </form>
                 {reply && <div className={`action-result ${reply.result ? "success" : "failure"}`} role="status"><div><strong>{reply.result ? "Action complete" : "Action failed"}</strong><span>{reply.adminCommand || action}</span></div><pre>{reply.error || reply.results || "No output returned."}</pre></div>}
               </div>

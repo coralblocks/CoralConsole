@@ -14,7 +14,9 @@ export const SUMMARY_ACTOR_KINDS = [
 export type SummaryActorKind = typeof SUMMARY_ACTOR_KINDS[number];
 export type ActorKind = SummaryActorKind | "link";
 
-export type ActorStatus = "online" | "standby" | "warning" | "offline";
+export type ActorStatus = "healthy" | "unhealthy";
+
+export const BASELINE_ADMIN_ACTIONS = ["list", "status", "healthCheck"] as const;
 
 export type Actor = {
   id: string;
