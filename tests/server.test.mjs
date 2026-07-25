@@ -654,9 +654,10 @@ test("actor migrations preserve audit references and initialize status metadata"
 });
 
 test("deployment and UI conventions stay explicit", async () => {
-  const [page, actorDetail, layout, viewerPresence, guide, compose, dockerfile, dockerStart, dockerStop, dockerBackup, gitMergeToMain] = await Promise.all([
+  const [page, actorDetail, styles, layout, viewerPresence, guide, compose, dockerfile, dockerStart, dockerStop, dockerBackup, gitMergeToMain] = await Promise.all([
     readFile(join(projectRoot, "app/page.tsx"), "utf8"),
     readFile(join(projectRoot, "app/actor/[id]/actor-detail.tsx"), "utf8"),
+    readFile(join(projectRoot, "app/globals.css"), "utf8"),
     readFile(join(projectRoot, "app/layout.tsx"), "utf8"),
     readFile(join(projectRoot, "app/viewer-presence.tsx"), "utf8"),
     readFile(join(projectRoot, "AGENTS.md"), "utf8"),
@@ -675,6 +676,9 @@ test("deployment and UI conventions stay explicit", async () => {
   assert.match(page, /actor\.kind === "sequencer"/);
   assert.match(page, /\["all", "online", "offline"\]/);
   assert.match(page, /actors online/);
+  assert.match(page, /<small>ONLINE<\/small>/);
+  assert.match(page, /<small>OFFLINE<\/small>/);
+  assert.match(page, /Immediately poll status and list for every actor/);
   assert.match(page, /<small>SESSION<\/small>[\s\S]*<small>SEQUENCE<\/small>[\s\S]*<small>ACCOUNTS<\/small>[\s\S]*<small>CLOCK TICK<\/small>/);
   assert.match(page, /Shared topology · Persisted in SQLite/);
   assert.match(actorDetail, /\/actions/);
@@ -688,6 +692,11 @@ test("deployment and UI conventions stay explicit", async () => {
   assert.match(actorDetail, /\/api\/actors\/\$\{encodeURIComponent\(actor\.id\)\}\/refresh/);
   assert.match(actorDetail, /formatLastStatusResponse\(actor\.statusRespondedAt\)/);
   assert.match(actorDetail, /<dt>Session<\/dt>[\s\S]*<dt>Sequence<\/dt>[\s\S]*<dt>Accounts<\/dt>[\s\S]*<dt>Clock Tick<\/dt>/);
+  assert.doesNotMatch(actorDetail, /Back to topology/);
+  assert.match(styles, /\.status-refresh-button \{[^}]*background: color-mix/);
+  for (const state of ["active", "inactive", "closed", "rewinding", "disconnected"]) {
+    assert.match(styles, new RegExp(`\\.actor-state-badge\\.state-${state} \\{`));
+  }
   assert.match(layout, /ViewerPresence/);
   assert.match(viewerPresence, /\/api\/presence/);
   assert.match(viewerPresence, /crypto\.randomUUID/);

@@ -392,8 +392,8 @@ export default function Home() {
             <div><small>System Pulse</small><strong>{offlineCount ? `${offlineCount} actor${offlineCount === 1 ? "" : "s"} offline` : actors.length ? "All actors online" : "Waiting for actors"}</strong><span>{onlineCount} of {actors.length} actors online</span></div>
           </div>
           <div className="connectivity-counts">
-            <div className="connectivity-count online"><i /><p><strong>{onlineCount}</strong><small>Online</small></p></div>
-            <div className="connectivity-count offline"><i /><p><strong>{offlineCount}</strong><small>Offline</small></p></div>
+            <div className="connectivity-count online"><i /><p><strong>{onlineCount}</strong><small>ONLINE</small></p></div>
+            <div className="connectivity-count offline"><i /><p><strong>{offlineCount}</strong><small>OFFLINE</small></p></div>
           </div>
           <div className="pulse-session"><small>Active session</small><strong>{sessionSequencer?.session || "Not discovered"}</strong><span>{sessionSequencer?.sessionStarted ? `Started ${sessionSequencer.sessionStarted}` : "Start time not reported"}</span></div>
         </aside>
@@ -404,7 +404,15 @@ export default function Home() {
           <div className="section-heading">
             <div><p className="eyebrow">Topology</p><h2>Actor map</h2></div>
             <div className="topology-actions">
-              <button className="button button-ghost refresh-button" type="button" onClick={() => void refreshActors(true)} disabled={refreshing || !actors.length}>{refreshing ? "Refreshing…" : "Refresh now"}</button>
+              <button
+                className="button button-ghost refresh-button"
+                type="button"
+                onClick={() => void refreshActors(true)}
+                disabled={refreshing || !actors.length}
+                title="Immediately poll status and list for every actor"
+              >
+                {refreshing ? "Refreshing…" : "Refresh now"}
+              </button>
               <div className="filters" aria-label="Filter actors">
                 {(["all", "online", "offline"] as const).map((value) => (
                   <button key={value} type="button" className={filter === value ? "active" : ""} onClick={() => setFilter(value)}>{value === "all" ? "All actors" : statusLabel(value)}</button>

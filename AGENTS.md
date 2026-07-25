@@ -118,10 +118,12 @@ Use the existing npm lockfile. Commit schema changes and their generated migrati
 - Keep summary and Actor Map on the same responsive gutters. Order summary counts as Sequencer, Backup Sequencers, Replayers, Archivers, Loggers, Bridges, Dispatchers, Nodes, Applications, and MultiMqApps. Never show Links. Show all other actor types, including MultiMqApps at zero, by default; Settings may independently hide any of these counts without changing actor visibility elsewhere.
 - Use pictorial Lucide icons, consistent role colors, readable status text, keyboard focus, reduced-motion support, and responsive behavior down to 320 px.
 - Actor cards are links that open `/actor/<id>` in a new browser tab. Do not use scripted popups or browser-local actor snapshots.
+- Because actor details open in a dedicated tab, their header does not include a redundant Back to topology link.
 - The Primary Sequencer card shows only Session, Sequence, Accounts, and Clock Tick from its cached status response beneath the actor name; omit its REST endpoint, generic signal, redundant Primary label, and footer session.
 - Sequencer details show REST Endpoint, Class, Last Response, Session, Sequence, Accounts, and Clock Tick. Last Response is an absolute timestamp updated only after a successful `status` admin action; health checks and list calls must not change it. Omit the redundant singular Account field.
-- Every actor detail header provides a compact Refresh status control beside the actor name. It runs an immediate coordinated `status`/`list` poll for only that actor with `shouldLog: false`, updates the cached actor, and does not create an audit row.
-- Every actor detail header shows its operational-state badge immediately to the left of its separate Online/Offline connectivity badge.
+- Every actor detail header provides a compact, lightly actor-tinted Refresh status control beside the actor name. It runs an immediate coordinated `status`/`list` poll for only that actor with `shouldLog: false`, updates the cached actor, and does not create an audit row.
+- Every actor detail header shows its operational-state badge immediately to the left of its separate Online/Offline connectivity badge. Give Active, Inactive, Closed, Rewinding, and Disconnected distinct cyan, neutral gray, coral, violet, and amber treatments respectively.
+- System Pulse count labels use uppercase `ONLINE` and `OFFLINE`. Actor Map's Refresh now control immediately polls `status` and scoped `list` for every actor, bypassing the normal interval without running `healthCheck` or creating audit rows.
 - Admin output belongs in a bounded monospace area. Actor details show recent audit entries and the global Audit page supports search and outcome filtering.
 - Shared topology name, color, status and health-check polling, idle-polling policy, viewer grace period, retention, and summary-count visibility changes belong in Settings and SQLite, not browser storage.
 

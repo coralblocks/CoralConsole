@@ -178,7 +178,7 @@ export default function ActorDetail({ actorId }: { actorId: string }) {
           <span className="brand-mark" aria-hidden="true"><BrandIcon /></span>
           <span><strong>CoralConsole</strong><small>Actor detail</small></span>
         </Link>
-        <div className="topbar-actions"><Link className="intro-toggle nav-link" href="/audit">Audit</Link><Link className="button button-ghost detail-back" href="/">← Back to topology</Link></div>
+        <div className="topbar-actions"><Link className="intro-toggle nav-link" href="/audit">Audit</Link></div>
       </header>
 
       <section className="actor-detail-main" aria-live="polite">

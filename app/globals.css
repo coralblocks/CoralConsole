@@ -227,8 +227,8 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .actor-detail-panel .actor-detail-identity { flex: 1; }
 .actor-title-row { align-items: center; display: flex; gap: 12px; min-width: 0; }
 .actor-title-row h1 { min-width: 0; }
-.status-refresh-button { align-items: center; background: transparent; border: 1px solid var(--line); border-radius: 999px; color: var(--muted); cursor: pointer; display: inline-flex; flex: 0 0 auto; font-family: var(--font-plex-mono), monospace; font-size: 8px; gap: 6px; min-height: 30px; padding: 6px 10px; }
-.status-refresh-button:hover { border-color: var(--ink); color: var(--ink); }
+.status-refresh-button { align-items: center; background: color-mix(in srgb, var(--actor-soft) 62%, white); border: 1px solid color-mix(in srgb, var(--actor-color) 18%, var(--line)); border-radius: 999px; color: color-mix(in srgb, var(--actor-color) 42%, var(--muted)); cursor: pointer; display: inline-flex; flex: 0 0 auto; font-family: var(--font-plex-mono), monospace; font-size: 8px; gap: 6px; min-height: 30px; padding: 6px 10px; }
+.status-refresh-button:hover { background: color-mix(in srgb, var(--actor-soft) 82%, white); border-color: color-mix(in srgb, var(--actor-color) 35%, var(--line)); color: color-mix(in srgb, var(--actor-color) 68%, var(--ink)); }
 .status-refresh-button:disabled { cursor: wait; opacity: .55; }
 .status-refresh-button svg { height: 12px; width: 12px; }
 .status-refresh-button:disabled svg { animation: status-refresh-spin .8s linear infinite; }
