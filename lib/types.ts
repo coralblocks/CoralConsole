@@ -31,11 +31,11 @@ export type Actor = {
   session: string;
   sessionStarted?: string;
   lastSeen: string;
-  commands: string[];
+  actions: string[];
   demo?: boolean;
 };
 
-export type AdminReply = {
+export type AdminActionReply = {
   result?: boolean;
   adminCommand?: string;
   params?: string;
@@ -57,7 +57,7 @@ export type AuditEntry = {
   actorId: string | null;
   actorName: string;
   actorEndpoint: string;
-  command: string;
+  action: string;
   params: string;
   output: string;
   success: boolean;

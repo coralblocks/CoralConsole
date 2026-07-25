@@ -1,7 +1,7 @@
 import { Agent as HttpAgent, request as requestHttp } from "node:http";
 import { Agent as HttpsAgent, request as requestHttps } from "node:https";
 import type { Socket } from "node:net";
-import type { Actor, ActorKind, AdminReply } from "./types";
+import type { Actor, ActorKind, AdminActionReply } from "./types";
 
 const ACTOR_TIMEOUT_MS = 6500;
 const STATUS_CONNECTION_LOST = "The persistent status connection was lost.";
@@ -22,7 +22,7 @@ type StatusConnection = {
 const statusConnections = new Map<string, StatusConnection>();
 
 export class ActorCallError extends Error {
-  constructor(message: string, public status = 502, public reply?: AdminReply) {
+  constructor(message: string, public status = 502, public reply?: AdminActionReply) {
     super(message);
   }
 }
@@ -196,35 +196,39 @@ function escapeUnescapedJsonControlCharacters(value: string) {
   return sanitized;
 }
 
-function parseAdminReply(text: string) {
+function parseAdminActionReply(text: string) {
   try {
-    return JSON.parse(text) as AdminReply;
+    return JSON.parse(text) as AdminActionReply;
   } catch {
     // Status output from some Coral REST servers contains literal tabs inside
     // the JSON results string. Escape only control characters inside strings.
-    return JSON.parse(escapeUnescapedJsonControlCharacters(text)) as AdminReply;
+    return JSON.parse(escapeUnescapedJsonControlCharacters(text)) as AdminActionReply;
   }
+}
+
+function adminActionError(message: string) {
+  return message.replace(/\badmin\s+commands?\b/gi, (term) => term.toLowerCase().endsWith("s") ? "admin actions" : "admin action");
 }
 
 export async function callActorEndpoint(
   host: string,
   port: number,
-  adminCommand: string,
+  adminAction: string,
   params = "",
   persistentStatus?: { actorId: string; onDisconnect: StatusDisconnectHandler },
 ) {
   const target = actorUrl(host, port);
 
   try {
-    const upstream = await postActorRequest(target, JSON.stringify({ adminCommand, params }), persistentStatus);
-    let payload: AdminReply;
+    const upstream = await postActorRequest(target, JSON.stringify({ adminCommand: adminAction, params }), persistentStatus);
+    let payload: AdminActionReply;
     try {
-      payload = parseAdminReply(upstream.text);
+      payload = parseAdminActionReply(upstream.text);
     } catch {
       throw new ActorCallError(`Actor returned a non-JSON response (${upstream.status}).`, 502);
     }
     if (upstream.status < 200 || upstream.status >= 300 || payload.error) {
-      throw new ActorCallError(payload.error || `Actor returned HTTP ${upstream.status}.`, upstream.status >= 200 && upstream.status < 300 ? 400 : upstream.status, payload);
+      throw new ActorCallError(payload.error ? adminActionError(payload.error) : `Actor returned HTTP ${upstream.status}.`, upstream.status >= 200 && upstream.status < 300 ? 400 : upstream.status, payload);
     }
     return payload;
   } catch (error) {
@@ -252,7 +256,7 @@ export function kindFromDiscovery(scope: string, details: string): ActorKind {
   return "node";
 }
 
-export function commandsFromDiscovery(scope: string, details: string) {
+export function actionsFromDiscovery(scope: string, details: string) {
   const prefix = `${scope} `;
   return details.split(/\r?\n/)
     .filter((line) => line.startsWith(prefix))
@@ -359,9 +363,9 @@ export async function discoverActor(host: string, port: number, id = crypto.rand
     // A root-only list still provides enough information for a useful actor.
   }
 
-  const commands = commandsFromDiscovery(scope, details);
+  const actions = actionsFromDiscovery(scope, details);
   let statusDetails = "";
-  if (commands.includes("status")) {
+  if (actions.includes("status")) {
     try {
       statusDetails = (await callActorEndpoint(host, port, `${scope} status`)).results || "";
     } catch {
@@ -394,6 +398,6 @@ export async function discoverActor(host: string, port: number, id = crypto.rand
     session,
     sessionStarted: sessionStartFromStatus(statusDetails, session),
     lastSeen: "just now",
-    commands: commands.length ? commands : ["list", "status"],
+    actions: actions.length ? actions : ["list", "status"],
   };
 }

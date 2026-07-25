@@ -4,7 +4,7 @@ CoralConsole is designed as one Node.js process, one SQLite database, and one to
 
 ## Security boundary
 
-CoralConsole intentionally has no login or role system in this version. Any person who can reach the URL can add or remove actors and execute the admin commands exposed by those actors. Treat network access as full operator access.
+CoralConsole intentionally has no login or role system in this version. Any person who can reach the URL can add or remove actors and execute the admin actions exposed by those actors. Treat network access as full operator access.
 
 - Keep the service on a private LAN, VPN, or zero-trust network.
 - Do not publish port 3000 directly to the public internet.
@@ -13,7 +13,7 @@ CoralConsole intentionally has no login or role system in this version. Any pers
 - Terminate HTTPS at the reverse proxy if traffic crosses an untrusted segment.
 - The host/container must be able to reach every configured actor's REST admin port.
 
-CoralConsole does not send topology or command data to an external service.
+CoralConsole does not send topology or admin action data to an external service.
 
 ## Docker Compose
 
@@ -91,7 +91,7 @@ The script uses SQLite's online backup API, runs an integrity check, copies a ti
 ./scripts/docker-backup.sh /secure/company/backup/location
 ```
 
-Store backups according to the customer's retention and security policy. Audit records contain command parameters and returned output and may therefore contain operationally sensitive data. The script never automatically deletes older backups.
+Store backups according to the customer's retention and security policy. Audit records contain admin action parameters and returned output and may therefore contain operationally sensitive data. The script never automatically deletes older backups.
 
 To restore, stop CoralConsole, replace the database file in `/data`, preserve ownership for the container user (`uid 1001`), and restart. Always retain a copy of the current volume before restoration.
 

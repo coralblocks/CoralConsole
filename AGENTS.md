@@ -20,7 +20,7 @@ The supported actor types are Sequencer, Backup Sequencer, Replayer, Archiver, L
 
 Discovery begins with `list`, then calls `list` with the first non-`VM` scope. For any actor with a `status` action, discovery also calls `<scope> status`; use its explicit type, class, account, open/active state, and session metadata when available. An inactive Sequencer is a Backup Sequencer. Session identifiers normally use `YYMMDDHHmm`; show both the raw identifier and a readable start time. Prefer an explicit start time returned by the actor. Coral REST servers may return a non-standard timezone name in the HTTP `Date` header and literal tabs inside JSON strings, so actor calls use Node's tolerant HTTP parser and narrowly repair unescaped JSON control characters.
 
-Scheduled health refreshes send only `<scope> status` over one dedicated persistent HTTP/HTTPS connection per actor. That connection has no client-side idle expiry and is reused across the configured polling interval; a socket close, socket error, or request failure marks the actor offline, and the next scheduled refresh may establish its replacement. Discovery calls and operator-triggered admin commands use new one-shot connections and close them after each response.
+Scheduled health refreshes send only `<scope> status` over one dedicated persistent HTTP/HTTPS connection per actor. That connection has no client-side idle expiry and is reused across the configured polling interval; a socket close, socket error, or request failure marks the actor offline, and the next scheduled refresh may establish its replacement. Discovery calls and operator-triggered admin actions use new one-shot connections and close them after each response.
 
 ## Runtime architecture
 
@@ -38,10 +38,10 @@ Scheduled health refreshes send only `<scope> status` over one dedicated persist
 
 - `topology_settings` stores the singleton shared name, color, poll interval, retention, summary-count visibility, and first-run status.
 - `actors` stores endpoint, discovered identity, type, actions, cached health/session data, and timestamps. Host plus port is unique.
-- `command_audit` stores the actor snapshot, scoped command, parameters, plain-text output, result, error, duration, timestamp, source IP (when trusted), and truncation state. Actor deletion retains audit rows with a null actor reference.
+- The legacy-named `command_audit` table stores the actor snapshot, scoped admin action, parameters, plain-text output, result, error, duration, timestamp, source IP (when trusted), and truncation state. Actor deletion retains audit rows with a null actor reference.
 - Audit parameters are capped at 8 KiB and output at 256 KiB. Older rows are purged according to the shared retention setting.
 - `localStorage` is device-specific only: `coral-console-intro` stores intro visibility. `coral-console-actors` is a legacy import source and must not become the canonical topology again.
-- Never send topology, actor, command, or audit data to an external service.
+- Never send topology, actor, admin action, or audit data to an external service.
 
 ## API and REST admin contract
 
@@ -51,11 +51,11 @@ The same-origin API surface is:
 - `GET/POST /api/actors`
 - `GET/DELETE /api/actors/<id>`
 - `POST /api/actors/refresh`
-- `POST /api/actors/<id>/commands`
+- `POST /api/actors/<id>/actions`
 - `GET/DELETE /api/audit`
 - `GET /api/health`
 
-Commands accept an actor ID, command name, and parameters. The server must resolve the stored actor endpoint; never reintroduce a client-supplied arbitrary relay route. Validate same-origin mutations, keep the actor timeout at 6.5 seconds, and render actor results only as plain text.
+Admin actions accept an actor ID, action name, and parameters. The server must resolve the stored actor endpoint; never reintroduce a client-supplied arbitrary relay route. Validate same-origin mutations, keep the actor timeout at 6.5 seconds, and render actor results only as plain text.
 
 Actors receive JSON shaped as:
 
@@ -70,8 +70,8 @@ Actors receive JSON shaped as:
 
 - `app/page.tsx` owns the shared topology UI, first-run settings, refresh polling, add-actor flow, and one-time browser migration.
 - `app/actor-ui.tsx` owns shared actor labels, icons, and UI metadata.
-- `app/actor/[id]/` loads direct actor details from SQLite and runs audited commands in a dedicated tab.
-- `app/audit/` renders searchable global command history.
+- `app/actor/[id]/` loads direct actor details from SQLite and runs audited admin actions in a dedicated tab.
+- `app/audit/` renders searchable global admin action history.
 - `app/api/` contains the same-origin server API.
 - `lib/actor-server.ts` owns actor endpoint validation, REST calls, and discovery.
 - `lib/repository.ts` owns SQLite reads/writes and audit retention.

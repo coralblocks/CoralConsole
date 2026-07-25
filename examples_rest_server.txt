@@ -28,15 +28,15 @@ The response will be a JSON in the following body:
         "results": "Hi There!"
     }
 
-result => True if the admin command was executed successfully, false otherwise.
+result => True if the admin action was executed successfully, false otherwise.
 adminCommand => echoes back the adminCommand sent
 params => echoes back the params sent
-results => the output containing the result of the adminCommand execution
+results => the output containing the result of the admin action execution
 
 A request can produce an error response:
 
     {
-       "error": "Cannot parse admin command: lissdt NODE1-NetworkMessageReceiver-224.0.0.0:40001"
+       "error": "Cannot parse admin action: lissdt NODE1-NetworkMessageReceiver-224.0.0.0:40001"
     }
 
 See some examples below:
@@ -91,5 +91,5 @@ Request:
 
 Response:
 {
-  "error": "Cannot parse admin command: listAAA NODE1-NetworkMessageReceiver-224.0.0.0:40001"
+  "error": "Cannot parse admin action: listAAA NODE1-NetworkMessageReceiver-224.0.0.0:40001"
 }

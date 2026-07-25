@@ -1,6 +1,6 @@
 import { and, desc, eq, like, or, type SQL } from "drizzle-orm";
 import { getDb, getSqlite } from "@/db";
-import { actors, commandAudit, topologySettings, type ActorRow } from "@/db/schema";
+import { actors, adminActionAudit, topologySettings, type ActorRow } from "@/db/schema";
 import { DEMO_ACTORS } from "./demo-actors";
 import {
   SUMMARY_ACTOR_KINDS,
@@ -73,7 +73,7 @@ export function rowToActor(row: ActorRow): Actor {
     session: row.session,
     sessionStarted: row.sessionStarted || undefined,
     lastSeen: row.lastSeen,
-    commands: Array.isArray(row.commands) ? row.commands : [],
+    actions: Array.isArray(row.actions) ? row.actions : [],
     demo: row.demo || undefined,
   };
 }
@@ -144,7 +144,7 @@ export function updateActor(actor: Actor, lastError: string | null = null) {
     lastSeen: actor.lastSeen,
     lastSeenAt: lastError ? undefined : now,
     lastError,
-    commands: actor.commands,
+    actions: actor.actions,
     demo: Boolean(actor.demo),
     updatedAt: now,
   }).where(eq(actors.id, actor.id)).run();
@@ -165,29 +165,29 @@ export function deleteActor(id: string) {
 }
 
 export function recordAudit(entry: Omit<AuditEntry, "id" | "createdAt">) {
-  return getDb().insert(commandAudit).values(entry).run().lastInsertRowid;
+  return getDb().insert(adminActionAudit).values(entry).run().lastInsertRowid;
 }
 
 export function listAudit(options: { actorId?: string; query?: string; outcome?: "success" | "failure"; limit?: number }) {
   const clauses: SQL[] = [];
-  if (options.actorId) clauses.push(eq(commandAudit.actorId, options.actorId));
-  if (options.outcome) clauses.push(eq(commandAudit.success, options.outcome === "success"));
+  if (options.actorId) clauses.push(eq(adminActionAudit.actorId, options.actorId));
+  if (options.outcome) clauses.push(eq(adminActionAudit.success, options.outcome === "success"));
   if (options.query) {
     const pattern = `%${options.query.replaceAll("%", "\\%").replaceAll("_", "\\_")}%`;
     const search = or(
-      like(commandAudit.command, pattern),
-      like(commandAudit.actorName, pattern),
-      like(commandAudit.actorEndpoint, pattern),
-      like(commandAudit.output, pattern),
+      like(adminActionAudit.action, pattern),
+      like(adminActionAudit.actorName, pattern),
+      like(adminActionAudit.actorEndpoint, pattern),
+      like(adminActionAudit.output, pattern),
     );
     if (search) clauses.push(search);
   }
   const where = clauses.length ? and(...clauses) : undefined;
-  return getDb().select().from(commandAudit).where(where).orderBy(desc(commandAudit.id)).limit(options.limit || 100).all();
+  return getDb().select().from(adminActionAudit).where(where).orderBy(desc(adminActionAudit.id)).limit(options.limit || 100).all();
 }
 
 export function clearAudit() {
-  return getDb().delete(commandAudit).run().changes;
+  return getDb().delete(adminActionAudit).run().changes;
 }
 
 let lastPurgeAt = 0;

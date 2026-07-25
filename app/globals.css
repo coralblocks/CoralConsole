@@ -203,12 +203,12 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .select-wrap { position: relative; }
 .select-wrap:after { color: var(--muted); content: "⌄"; font-size: 12px; pointer-events: none; position: absolute; right: 12px; top: 12px; }
 .admin-block .button { margin-top: 14px; }
-.command-result { background: #f0f2ed; border-left: 3px solid var(--lime); border-radius: 7px; margin-top: 14px; overflow: hidden; }
-.command-result.failure { border-color: var(--coral); }
-.command-result > div { align-items: center; display: flex; justify-content: space-between; padding: 10px 11px 7px; }
-.command-result strong { font-size: 8px; text-transform: uppercase; }
-.command-result span { color: var(--muted); font-family: var(--font-plex-mono), monospace; font-size: 7px; }
-.command-result pre { border-top: 1px solid #dfe3da; color: #40504c; font-family: var(--font-plex-mono), monospace; font-size: 8px; line-height: 1.6; margin: 0; max-height: 150px; overflow: auto; padding: 10px 11px; white-space: pre-wrap; }
+.action-result { background: #f0f2ed; border-left: 3px solid var(--lime); border-radius: 7px; margin-top: 14px; overflow: hidden; }
+.action-result.failure { border-color: var(--coral); }
+.action-result > div { align-items: center; display: flex; justify-content: space-between; padding: 10px 11px 7px; }
+.action-result strong { font-size: 8px; text-transform: uppercase; }
+.action-result span { color: var(--muted); font-family: var(--font-plex-mono), monospace; font-size: 7px; }
+.action-result pre { border-top: 1px solid #dfe3da; color: #40504c; font-family: var(--font-plex-mono), monospace; font-size: 8px; line-height: 1.6; margin: 0; max-height: 150px; overflow: auto; padding: 10px 11px; white-space: pre-wrap; }
 .demo-note { align-items: center; border-top: 1px solid var(--line); color: var(--muted); display: flex; font-size: 9px; gap: 7px; margin: 0; padding: 14px 20px; }
 .demo-note i { background: var(--amber); border-radius: 50%; height: 6px; width: 6px; }
 .remove-button { background: transparent; border: 0; border-top: 1px solid var(--line); color: #a0473f; cursor: pointer; font-size: 9px; padding: 15px 20px; text-align: left; width: 100%; }

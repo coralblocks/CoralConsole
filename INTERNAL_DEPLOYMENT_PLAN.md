@@ -21,29 +21,29 @@
 
 - Store singleton topology settings: name, custom `#RRGGBB` background color, 30-second refresh interval, and 90-day audit retention.
 - Require topology name and color during first-run setup. Keep the name visible in the header and use the color as a prominent environment indicator plus subtle page tint, with automatically calculated accessible contrast.
-- Store actor endpoint, discovered identity, type, commands, cached status, session, timestamps, and errors in SQLite. Enforce unique host-and-port pairs.
+- Store actor endpoint, discovered identity, type, available admin actions, cached status, session, timestamps, and errors in SQLite. Enforce unique host-and-port pairs.
 - Replace browser actor persistence and detail snapshots with database-backed loading. Keep `localStorage` only for device-specific preferences such as intro visibility.
 - Offer a one-time import for existing browser actors. Re-discover endpoints, deduplicate them, and clear only successfully imported entries.
 - Poll actors only while a dashboard is visible, with manual refresh, paused background tabs, bounded concurrency, and server-side refresh deduplication.
 - Keep sample actors available only through an explicit demo-mode deployment option.
 
-## APIs, commands, and audit
+## APIs, admin actions, and audit
 
-- Add same-origin endpoints for settings, actors, refresh, commands, audit history, and health.
-- Command requests reference an actor ID; the server resolves the stored endpoint so clients cannot supply arbitrary command-relay destinations.
+- Add same-origin endpoints for settings, actors, refresh, admin action execution, audit history, and health.
+- Admin action requests reference an actor ID; the server resolves the stored endpoint so clients cannot supply arbitrary relay destinations.
 - Preserve current discovery behavior and the 6.5-second actor timeout.
-- Store full command history: actor snapshot, command, parameters, returned output, outcome, duration, timestamp, and source IP when available.
+- Store full admin action history: actor snapshot, action, parameters, returned output, outcome, duration, timestamp, and source IP when available.
 - Cap parameters and output to documented safe sizes, mark truncation, and purge records older than 90 days daily.
 - Add a searchable global Audit page and actor-specific history in each actor detail view.
 - Enforce same-origin mutation requests, JSON validation, plain-text output rendering, security headers, and confirmation before destructive actions.
-- Do not add application login in this version. Anyone who can reach the internal URL has full configuration and command access; deployment documentation must state this clearly.
+- Do not add application login in this version. Anyone who can reach the internal URL has full configuration and admin action access; deployment documentation must state this clearly.
 
 ## Validation
 
 - Verify actors added in one browser appear in another and survive container restarts.
 - Verify direct actor-detail URLs work without browser snapshots.
 - Test migrations, endpoint uniqueness, concurrent writes, refresh throttling, actor failures, and deletion with preserved audit history.
-- Test full command recording, truncation, search, filtering, and 90-day cleanup.
+- Test full admin action recording, truncation, search, filtering, and 90-day cleanup.
 - Test first-run topology setup, arbitrary custom colors, contrast, and separate installations using distinct ports and volumes.
 - Test one-time `localStorage` migration, including duplicates and partial failures.
 - Build and smoke-test the production Docker image, health check, persistent volume, private-network relay, and restart behavior.
@@ -53,5 +53,5 @@
 - Each installation manages exactly one topology.
 - SQLite is sufficient because each topology runs as one container rather than a replicated cluster.
 - The customer controls network reachability, firewall rules, TLS termination, and reverse-proxy configuration.
-- CoralConsole sends no topology, command, or audit data to external services.
+- CoralConsole sends no topology, admin action, or audit data to external services.
 - Authentication, roles, Kubernetes, and multi-instance high availability remain out of scope for this version.

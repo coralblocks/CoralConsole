@@ -55,7 +55,7 @@ function normalizeSavedActors(value: unknown): Actor[] {
   if (!Array.isArray(value)) return [];
   return value.flatMap((entry) => {
     if (!entry || typeof entry !== "object") return [];
-    const legacy = entry as Omit<Actor, "kind"> & { kind: string };
+    const legacy = entry as Omit<Actor, "kind" | "actions"> & { actions?: string[]; commands?: string[]; kind: string };
     if (typeof legacy.name !== "string" || typeof legacy.host !== "string" || !Number.isInteger(Number(legacy.port))) return [];
     const wasBackup = legacy.kind === "backup"
       || legacy.kind === "backup-sequencer"
@@ -65,6 +65,8 @@ function normalizeSavedActors(value: unknown): Actor[] {
       : ACTOR_KINDS.includes(legacy.kind as ActorKind) ? legacy.kind as ActorKind : "node";
     return [{
       ...legacy,
+      actions: Array.isArray(legacy.actions) ? legacy.actions : Array.isArray(legacy.commands) ? legacy.commands : [],
+      commands: undefined,
       kind,
       port: Number(legacy.port),
       status: wasBackup ? "standby" : legacy.status,

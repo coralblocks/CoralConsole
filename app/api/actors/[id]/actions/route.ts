@@ -1,7 +1,7 @@
 import { ActorCallError, callActorEndpoint } from "@/lib/actor-server";
 import { apiErrorResponse, apiJson, ApiError, clientIp, mutationAllowed, readJson } from "@/lib/http";
 import { getActor, purgeExpiredAudit, recordAudit } from "@/lib/repository";
-import type { AdminReply } from "@/lib/types";
+import type { AdminActionReply } from "@/lib/types";
 
 export const runtime = "nodejs";
 
@@ -15,34 +15,34 @@ function bounded(value: string) {
 export async function POST(request: Request, { params: routeParams }: { params: Promise<{ id: string }> }) {
   const started = Date.now();
   let actor = null as ReturnType<typeof getActor>;
-  let command = "";
-  let scopedCommand = "";
-  let commandParams = "";
+  let action = "";
+  let scopedAction = "";
+  let actionParams = "";
   try {
     if (!mutationAllowed(request)) throw new ApiError("Cross-origin requests are not allowed.", 403);
     const { id } = await routeParams;
     actor = getActor(id);
     if (!actor) throw new ApiError("Actor not found.", 404);
-    const input = await readJson<{ command?: string; params?: string }>(request);
-    command = input.command?.trim() || "";
-    commandParams = input.params || "";
-    if (!actor.commands.includes(command)) throw new ApiError("That command is not available for this actor.");
-    if (commandParams.length > MAX_PARAMS) throw new ApiError("Command parameters are too long.");
+    const input = await readJson<{ action?: string; params?: string }>(request);
+    action = input.action?.trim() || "";
+    actionParams = input.params || "";
+    if (!actor.actions.includes(action)) throw new ApiError("That admin action is not available for this actor.");
+    if (actionParams.length > MAX_PARAMS) throw new ApiError("Admin action parameters are too long.");
 
-    scopedCommand = command === "list" ? "list" : `${actor.name} ${command}`;
-    let reply: AdminReply;
+    scopedAction = action === "list" ? "list" : `${actor.name} ${action}`;
+    let reply: AdminActionReply;
     if (actor.demo) {
-      reply = { result: true, adminCommand: scopedCommand, params: commandParams, results: `${command} simulated successfully on ${actor.name}` };
+      reply = { result: true, adminCommand: scopedAction, params: actionParams, results: `${action} simulated successfully on ${actor.name}` };
     } else {
-      reply = await callActorEndpoint(actor.host, actor.port, scopedCommand, commandParams);
+      reply = await callActorEndpoint(actor.host, actor.port, scopedAction, actionParams);
     }
     const output = bounded(reply.results || "");
     recordAudit({
       actorId: actor.id,
       actorName: actor.name,
       actorEndpoint: `${actor.host}:${actor.port}`,
-      command: scopedCommand,
-      params: commandParams,
+      action: scopedAction,
+      params: actionParams,
       output: output.value,
       success: true,
       error: null,
@@ -53,18 +53,18 @@ export async function POST(request: Request, { params: routeParams }: { params: 
     purgeExpiredAudit();
     return apiJson({ ...reply, results: output.value, truncated: output.truncated });
   } catch (error) {
-    if (actor && command) {
+    if (actor && action) {
       const reply = error instanceof ActorCallError ? error.reply : undefined;
       const output = bounded(reply?.results || "");
       recordAudit({
         actorId: actor.id,
         actorName: actor.name,
         actorEndpoint: `${actor.host}:${actor.port}`,
-        command: scopedCommand || command,
-        params: commandParams,
+        action: scopedAction || action,
+        params: actionParams,
         output: output.value,
         success: false,
-        error: error instanceof Error ? error.message : "Command failed.",
+        error: error instanceof Error ? error.message : "Admin action failed.",
         durationMs: Date.now() - started,
         sourceIp: clientIp(request),
         truncated: output.truncated,

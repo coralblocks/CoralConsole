@@ -4,7 +4,7 @@ CoralConsole is a colorful, shared operations console for discovering, organizin
 
 ![CoralConsole topology overview](public/og-v2.png)
 
-> **Project status:** early development. Run CoralConsole only on a trusted private network. This release has no application login; anyone who can reach its URL can change the topology and run available actor admin commands.
+> **Project status:** early development. Run CoralConsole only on a trusted private network. This release has no application login; anyone who can reach its URL can change the topology and run available actor admin actions.
 
 ## What it does
 
@@ -13,7 +13,7 @@ CoralConsole is a colorful, shared operations console for discovering, organizin
 - Stores one shared topology in SQLite, so every browser sees the same actors and configuration.
 - Refreshes actor health every 30 seconds by default, with visibility-aware polling and manual refresh.
 - Opens each actor in a dedicated browser tab for REST admin actions.
-- Records command inputs, outputs, outcome, duration, timestamp, and source IP when trusted proxy headers are enabled.
+- Records admin action inputs, outputs, outcome, duration, timestamp, and source IP when trusted proxy headers are enabled.
 - Runs as a self-contained Node.js server or Docker container without sending topology data to an external service.
 
 ## Quick start with Docker
@@ -51,7 +51,7 @@ Create an online database backup at any time while CoralConsole is running:
 ./scripts/docker-backup.sh
 ```
 
-Pass a directory to save it elsewhere, for example `./scripts/docker-backup.sh /Volumes/CompanyBackups`. Backup files contain operational configuration and command history, so store them securely.
+Pass a directory to save it elsewhere, for example `./scripts/docker-backup.sh /Volumes/CompanyBackups`. Backup files contain operational configuration and admin action history, so store them securely.
 
 After the first successful image build, `docker:start` can run without internet access as long as Docker still has the image and its base layers locally.
 
@@ -74,7 +74,7 @@ Open [http://localhost:3000](http://localhost:3000). The development database de
 
 1. Select **Add actor**.
 2. Enter the actor's IP address or hostname and REST admin port.
-3. The server sends `list`, follows the first discovered non-`VM` scope, and runs `<scope> status` when available to derive the actor's role, class, account, state, session, and available commands.
+3. The server sends `list`, follows the first discovered non-`VM` scope, and runs `<scope> status` when available to derive the actor's role, class, account, state, session, and available admin actions.
 4. CoralConsole saves the actor in SQLite. Other users see it on their next refresh.
 
 Existing prototype users receive a one-time option to re-discover and move browser-local actors into the shared topology. Only successfully imported entries are removed from browser storage.

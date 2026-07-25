@@ -34,7 +34,7 @@ export const actors = sqliteTable("actors", {
   lastSeen: text("last_seen").notNull().default("Never"),
   lastSeenAt: text("last_seen_at"),
   lastError: text("last_error"),
-  commands: text("commands", { mode: "json" }).$type<string[]>().notNull().default([]),
+  actions: text("commands", { mode: "json" }).$type<string[]>().notNull().default([]),
   demo: integer("demo", { mode: "boolean" }).notNull().default(false),
   createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
   updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
@@ -44,12 +44,12 @@ export const actors = sqliteTable("actors", {
   index("actors_status_idx").on(table.status),
 ]);
 
-export const commandAudit = sqliteTable("command_audit", {
+export const adminActionAudit = sqliteTable("command_audit", {
   id: integer("id").primaryKey({ autoIncrement: true }),
   actorId: text("actor_id").references(() => actors.id, { onDelete: "set null" }),
   actorName: text("actor_name").notNull(),
   actorEndpoint: text("actor_endpoint").notNull(),
-  command: text("command").notNull(),
+  action: text("command").notNull(),
   params: text("params").notNull().default(""),
   output: text("output").notNull().default(""),
   success: integer("success", { mode: "boolean" }).notNull(),
@@ -66,4 +66,4 @@ export const commandAudit = sqliteTable("command_audit", {
 
 export type TopologySettingsRow = typeof topologySettings.$inferSelect;
 export type ActorRow = typeof actors.$inferSelect;
-export type CommandAuditRow = typeof commandAudit.$inferSelect;
+export type AdminActionAuditRow = typeof adminActionAudit.$inferSelect;

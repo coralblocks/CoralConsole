@@ -2,7 +2,7 @@
 
 import { FormEvent, useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { ACTOR_META, statusLabel, type Actor, type AdminReply } from "../../actor-ui";
+import { ACTOR_META, statusLabel, type Actor, type AdminActionReply } from "../../actor-ui";
 import type { AuditEntry } from "@/lib/types";
 
 async function apiRequest<T>(url: string, init?: RequestInit): Promise<T> {
@@ -18,10 +18,10 @@ export default function ActorDetail({ actorId }: { actorId: string }) {
   const [ready, setReady] = useState(false);
   const [removed, setRemoved] = useState(false);
   const [error, setError] = useState("");
-  const [command, setCommand] = useState("status");
+  const [action, setAction] = useState("status");
   const [params, setParams] = useState("");
   const [running, setRunning] = useState(false);
-  const [reply, setReply] = useState<AdminReply | null>(null);
+  const [reply, setReply] = useState<AdminActionReply | null>(null);
 
   const loadAudit = useCallback(async () => {
     const payload = await apiRequest<{ entries: AuditEntry[] }>(`/api/audit?actorId=${encodeURIComponent(actorId)}&limit=20`, { cache: "no-store" });
@@ -36,7 +36,7 @@ export default function ActorDetail({ actorId }: { actorId: string }) {
     ]).then(([actorPayload, auditPayload]) => {
       if (!active) return;
       setActor(actorPayload.actor);
-      setCommand(actorPayload.actor.commands[0] || "list");
+      setAction(actorPayload.actor.actions[0] || "list");
       setAudit(auditPayload.entries);
     }).catch((requestError) => {
       if (active) setError(requestError instanceof Error ? requestError.message : "Actor details could not be loaded.");
@@ -46,20 +46,20 @@ export default function ActorDetail({ actorId }: { actorId: string }) {
     return () => { active = false; };
   }, [actorId]);
 
-  async function runCommand(event: FormEvent<HTMLFormElement>) {
+  async function runAction(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!actor) return;
     setRunning(true);
     setReply(null);
     try {
-      const result = await apiRequest<AdminReply>(`/api/actors/${encodeURIComponent(actor.id)}/commands`, {
+      const result = await apiRequest<AdminActionReply>(`/api/actors/${encodeURIComponent(actor.id)}/actions`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ command, params }),
+        body: JSON.stringify({ action, params }),
       });
       setReply(result);
     } catch (requestError) {
-      setReply({ result: false, error: requestError instanceof Error ? requestError.message : "Command failed." });
+      setReply({ result: false, error: requestError instanceof Error ? requestError.message : "Action failed." });
     } finally {
       setRunning(false);
       void loadAudit().catch(() => undefined);
@@ -115,22 +115,22 @@ export default function ActorDetail({ actorId }: { actorId: string }) {
                 <div><dt>Last response</dt><dd>{actor.lastSeen}</dd></div>
               </dl>
               <div className="admin-block">
-                <div className="admin-heading"><div><p className="eyebrow">REST admin</p><h2>Run an action</h2></div><span>{actor.commands.length} available</span></div>
-                <form onSubmit={runCommand}>
-                  <label htmlFor="command">Admin command</label>
-                  <div className="select-wrap"><select id="command" value={command} onChange={(event) => setCommand(event.target.value)}>{actor.commands.map((available) => <option value={available} key={available}>{available}</option>)}</select></div>
+                <div className="admin-heading"><div><p className="eyebrow">REST admin</p><h2>Run an action</h2></div><span>{actor.actions.length} available</span></div>
+                <form onSubmit={runAction}>
+                  <label htmlFor="action">Admin action</label>
+                  <div className="select-wrap"><select id="action" value={action} onChange={(event) => setAction(event.target.value)}>{actor.actions.map((available) => <option value={available} key={available}>{available}</option>)}</select></div>
                   <label htmlFor="params">Parameters <span>optional</span></label><input id="params" value={params} onChange={(event) => setParams(event.target.value)} placeholder="e.g. 10 16" />
-                  <button className="button button-dark" type="submit" disabled={running || actor.status === "offline" || !actor.commands.length}>{running ? "Running…" : "Run action"}<span aria-hidden="true">→</span></button>
+                  <button className="button button-dark" type="submit" disabled={running || actor.status === "offline" || !actor.actions.length}>{running ? "Running…" : "Run action"}<span aria-hidden="true">→</span></button>
                 </form>
-                {reply && <div className={`command-result ${reply.result ? "success" : "failure"}`} role="status"><div><strong>{reply.result ? "Command complete" : "Command failed"}</strong><span>{reply.adminCommand || command}</span></div><pre>{reply.error || reply.results || "No output returned."}</pre></div>}
+                {reply && <div className={`action-result ${reply.result ? "success" : "failure"}`} role="status"><div><strong>{reply.result ? "Action complete" : "Action failed"}</strong><span>{reply.adminCommand || action}</span></div><pre>{reply.error || reply.results || "No output returned."}</pre></div>}
               </div>
               {error && <p className="page-alert embedded" role="alert">{error}</p>}
               {actor.demo ? <p className="demo-note"><i /> Sample actor — actions are safely simulated.</p> : <button className="remove-button" type="button" onClick={() => void removeActor()}>Remove actor from shared topology</button>}
             </section>
 
             <section className="actor-audit-panel" aria-labelledby="actor-audit-title">
-              <div className="section-heading"><div><p className="eyebrow">Command history</p><h2 id="actor-audit-title">Recent activity</h2></div><Link className="button button-ghost" href={`/audit?actorId=${encodeURIComponent(actor.id)}`}>Open full audit</Link></div>
-              {audit.length ? <div className="actor-audit-list">{audit.map((entry) => <article key={entry.id}><span className={`audit-outcome ${entry.success ? "success" : "failure"}`}>{entry.success ? "Success" : "Failed"}</span><div><strong>{entry.command}</strong><small>{new Date(entry.createdAt).toLocaleString()} · {entry.durationMs} ms</small></div><pre>{entry.error || entry.output || "No output"}</pre></article>)}</div> : <p className="empty-audit">No commands have been run on this actor yet.</p>}
+              <div className="section-heading"><div><p className="eyebrow">Admin action history</p><h2 id="actor-audit-title">Recent activity</h2></div><Link className="button button-ghost" href={`/audit?actorId=${encodeURIComponent(actor.id)}`}>Open full audit</Link></div>
+              {audit.length ? <div className="actor-audit-list">{audit.map((entry) => <article key={entry.id}><span className={`audit-outcome ${entry.success ? "success" : "failure"}`}>{entry.success ? "Success" : "Failed"}</span><div><strong>{entry.action}</strong><small>{new Date(entry.createdAt).toLocaleString()} · {entry.durationMs} ms</small></div><pre>{entry.error || entry.output || "No output"}</pre></article>)}</div> : <p className="empty-audit">No admin actions have been run on this actor yet.</p>}
             </section>
           </div>
         )}

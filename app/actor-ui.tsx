@@ -13,7 +13,7 @@ import {
 } from "lucide-react";
 import type { ActorKind, ActorStatus } from "@/lib/types";
 
-export type { Actor, ActorKind, ActorStatus, AdminReply } from "@/lib/types";
+export type { Actor, ActorKind, ActorStatus, AdminActionReply } from "@/lib/types";
 
 export const ACTOR_KINDS: ActorKind[] = [
   "sequencer",

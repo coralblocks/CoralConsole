@@ -164,7 +164,7 @@ async function json(baseUrl, path, init) {
   return payload;
 }
 
-test("standalone server persists settings, actors, and command audit in SQLite", async () => {
+test("standalone server persists settings, actors, and admin action audit in SQLite", async () => {
   const directory = await mkdtemp(join(tmpdir(), "coralconsole-test-"));
   const databasePath = join(directory, "coralconsole.db");
   const port = await availablePort();
@@ -210,6 +210,8 @@ test("standalone server persists settings, actors, and command audit in SQLite",
     assert.equal(discovered.actor.status, "online");
     assert.equal(discovered.actor.session, "2607232154");
     assert.equal(discovered.actor.sessionStarted, "23 Jul 2026 · 21:54");
+    assert.equal(discovered.actor.actions.includes("status"), true);
+    assert.equal("commands" in discovered.actor, false);
     assert.deepEqual(actorServer.requests, [
       { adminCommand: "list", params: "" },
       { adminCommand: "list", params: "SEQ" },
@@ -236,10 +238,10 @@ test("standalone server persists settings, actors, and command audit in SQLite",
     assert.equal(actorServer.requestConnections.at(-1), persistentConnection);
     assert.equal(actorServer.connectionCount, connectionsAfterFirstRefresh);
 
-    await json(server.baseUrl, `/api/actors/${discovered.actor.id}/commands`, {
+    await json(server.baseUrl, `/api/actors/${discovered.actor.id}/actions`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ command: "status", params: "" }),
+      body: JSON.stringify({ action: "status", params: "" }),
     });
     assert.notEqual(actorServer.requestConnections.at(-1), persistentConnection);
 
@@ -261,15 +263,17 @@ test("standalone server persists settings, actors, and command audit in SQLite",
     assert.equal(reconnected.actors.find((actor) => actor.id === discovered.actor.id)?.status, "online");
     assert.notEqual(actorServer.requestConnections.at(-1), persistentConnection);
 
-    const command = await json(server.baseUrl, "/api/actors/demo-seq-01/commands", {
+    const action = await json(server.baseUrl, "/api/actors/demo-seq-01/actions", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ command: "status", params: "" }),
+      body: JSON.stringify({ action: "status", params: "" }),
     });
-    assert.equal(command.result, true);
+    assert.equal(action.result, true);
 
     const firstAudit = await json(server.baseUrl, "/api/audit?actorId=demo-seq-01&limit=20");
     assert.equal(firstAudit.entries.length, 1);
+    assert.equal(firstAudit.entries[0].action, "SEQ-NYC-01 status");
+    assert.equal("command" in firstAudit.entries[0], false);
     assert.match(firstAudit.entries[0].output, /simulated successfully/);
 
     await stopServer(server.child);
@@ -303,7 +307,7 @@ test("deployment and UI conventions stay explicit", async () => {
   assert.match(page, /target="_blank"/);
   assert.match(page, /\/api\/actors\/refresh/);
   assert.match(page, /Shared topology · Persisted in SQLite/);
-  assert.match(actorDetail, /\/commands/);
+  assert.match(actorDetail, /\/actions/);
   assert.match(actorDetail, /Recent activity/);
   assert.match(guide, /Keep this file current/);
   assert.match(compose, /coralconsole-data:\/data/);
