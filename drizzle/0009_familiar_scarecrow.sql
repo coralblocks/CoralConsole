@@ -1,0 +1,1 @@
+ALTER TABLE `actors` ADD `actor_status_fields` text DEFAULT '[]' NOT NULL;

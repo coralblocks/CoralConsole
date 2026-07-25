@@ -28,7 +28,7 @@ async function startMockActorServer() {
   let connectionCount = 0;
   let scopedListCount = 0;
   let healthCheckCount = 0;
-  let statusCount = 0;
+  let actorStatusCount = 0;
   let operationalState = { open: true, disconnected: false, rewinding: false, active: true };
   const server = createServer((socket) => {
     const connectionId = ++connectionCount;
@@ -59,6 +59,7 @@ async function startMockActorServer() {
           results = [
             "SEQ open",
             "SEQ close",
+            "SEQ actorStatus",
             "SEQ status",
             ...(scopedListCount > 1 ? ["SEQ healthCheck"] : []),
             "SEQ rollSessionAuto",
@@ -71,32 +72,29 @@ async function startMockActorServer() {
             "SEQ-CircularStore-2607232154-1048576",
             "",
           ].join("\n");
-        } else if (input.adminCommand === "SEQ status" && input.params === "") {
-          statusCount += 1;
+        } else if (input.adminCommand === "SEQ actorStatus" && input.params === "") {
+          actorStatusCount += 1;
           results = [
-            "actor type:\tSEQUENCER",
-            "actor class:\tcom.coralblocks.coralsequencer.mq.PassThroughSequencer",
-            `actor open:\t${operationalState.open}`,
-            `actor disconnected:\t${operationalState.disconnected}`,
-            `actor rewinding:\t${operationalState.rewinding}`,
-            `actor active:\t${operationalState.active}`,
-            "sequencer name:\tSEQ",
-            "sequencer account:\tTRADING",
-            "sequencer active:\ttrue",
-            "sequencer open:\ttrue",
-            "sequencer session:\t2607232154",
-            ...(statusCount === 1
+            "name:\tSEQ",
+            "type:\tSEQUENCER",
+            "class:\tPassThroughSequencer",
+            `open:\t${operationalState.open}`,
+            `rewinding:\t${operationalState.rewinding}`,
+            `active:\t${operationalState.active}`,
+            `disconnected:\t${operationalState.disconnected}`,
+            "session:\t2607232154",
+            ...(actorStatusCount === 1
               ? [
-                  "sequencer outbound sequence:\t41",
-                  "sequencer accounts:\t3",
-                  "sequencer clockTickInterval:\t1000",
+                  "sequence:\t41",
+                  "accounts:\t3",
+                  "clock tick interval:\t1000",
                 ]
               : [
-                  "outbound sequence:\t42",
+                  "sequence:\t42",
                   "accounts:\t4",
                   "clockTickInterval:\t2000",
                 ]),
-            "publisher pending replays:\t0",
+            "store implementation:\tCircularStore-1048576-1450",
             "",
           ].join("\n");
         } else if (input.adminCommand === "SEQ rollSessionAuto" && input.params === "") {
@@ -271,22 +269,27 @@ test("standalone server persists settings, actors, and admin action audit in SQL
     assert.equal(discovered.actor.name, "SEQ");
     assert.equal(discovered.actor.kind, "sequencer");
     assert.equal(discovered.actor.className, "PassThroughSequencer");
-    assert.equal(discovered.actor.account, "TRADING");
+    assert.equal(discovered.actor.account, "SEQ");
     assert.equal(discovered.actor.status, "online");
     assert.equal(discovered.actor.operationalState, "active");
     assert.equal(discovered.actor.session, "2607232154");
     assert.equal(discovered.actor.outboundSequence, "41");
     assert.equal(discovered.actor.accounts, "3");
     assert.equal(discovered.actor.clockTickInterval, "1000");
+    assert.deepEqual(discovered.actor.actorStatusFields.at(-1), {
+      label: "store implementation",
+      value: "CircularStore-1048576-1450",
+    });
     assert.equal(discovered.actor.sessionStarted, "23 Jul 2026 · 21:54");
-    assert.equal(Number.isNaN(Date.parse(discovered.actor.statusRespondedAt)), false);
+    assert.equal(Number.isNaN(Date.parse(discovered.actor.actorStatusRespondedAt)), false);
+    assert.equal(discovered.actor.actions.includes("actorStatus"), true);
     assert.equal(discovered.actor.actions.includes("status"), true);
     assert.equal(discovered.actor.actions.includes("healthCheck"), true);
     assert.equal("commands" in discovered.actor, false);
     assert.deepEqual(actorServer.requests, [
       { adminCommand: "list", params: "" },
       { adminCommand: "list", params: "SEQ" },
-      { adminCommand: "SEQ status", params: "" },
+      { adminCommand: "SEQ actorStatus", params: "" },
     ]);
     assert.deepEqual(actorServer.requestConnections, [1, 2, 3]);
 
@@ -302,10 +305,10 @@ test("standalone server persists settings, actors, and admin action audit in SQL
     assert.equal(firstRefreshedActor?.accounts, "4");
     assert.equal(firstRefreshedActor?.clockTickInterval, "2000");
     assert.equal(firstRefreshedActor?.actions.includes("healthCheck"), true);
-    assert.equal(Number.isNaN(Date.parse(firstRefreshedActor?.statusRespondedAt)), false);
+    assert.equal(Number.isNaN(Date.parse(firstRefreshedActor?.actorStatusRespondedAt)), false);
     const persistentConnection = actorServer.requestConnections.at(-1);
     assert.deepEqual(actorServer.requests.slice(-2), [
-      { adminCommand: "SEQ status", params: "", shouldLog: false },
+      { adminCommand: "SEQ actorStatus", params: "", shouldLog: false },
       { adminCommand: "list", params: "SEQ", shouldLog: false },
     ]);
     assert.equal(actorServer.requestConnections.at(-2), persistentConnection);
@@ -326,11 +329,11 @@ test("standalone server persists settings, actors, and admin action audit in SQL
       });
       assert.equal(targetedRefresh.actor.id, discovered.actor.id);
       assert.equal(targetedRefresh.actor.operationalState, expectedState);
-      assert.equal(Number.isNaN(Date.parse(targetedRefresh.actor.statusRespondedAt)), false);
+      assert.equal(Number.isNaN(Date.parse(targetedRefresh.actor.actorStatusRespondedAt)), false);
       const targetedPollRequests = actorServer.requests.slice(targetedRefreshStart)
-        .filter((request) => request.adminCommand === "SEQ status" || (request.adminCommand === "list" && request.params === "SEQ"));
+        .filter((request) => request.adminCommand === "SEQ actorStatus" || (request.adminCommand === "list" && request.params === "SEQ"));
       assert.deepEqual(targetedPollRequests, [
-        { adminCommand: "SEQ status", params: "", shouldLog: false },
+        { adminCommand: "SEQ actorStatus", params: "", shouldLog: false },
         { adminCommand: "list", params: "SEQ", shouldLog: false },
       ]);
     }
@@ -347,7 +350,7 @@ test("standalone server persists settings, actors, and admin action audit in SQL
     assert.equal(actorServer.requestConnections.at(-1), persistentConnection);
     assert.equal(actorServer.connectionCount, connectionsAfterFirstRefresh);
     const actorBeforeForcedHealth = await json(server.baseUrl, `/api/actors/${discovered.actor.id}`);
-    const statusRespondedAtBeforeHealth = actorBeforeForcedHealth.actor.statusRespondedAt;
+    const actorStatusRespondedAtBeforeHealth = actorBeforeForcedHealth.actor.actorStatusRespondedAt;
 
     const failedHealthCheck = await json(server.baseUrl, "/api/actors/health", {
       method: "POST",
@@ -356,7 +359,7 @@ test("standalone server persists settings, actors, and admin action audit in SQL
     });
     const failedHealthActor = failedHealthCheck.actors.find((actor) => actor.id === discovered.actor.id);
     assert.equal(failedHealthActor?.status, "offline");
-    assert.equal(failedHealthActor?.statusRespondedAt, statusRespondedAtBeforeHealth);
+    assert.equal(failedHealthActor?.actorStatusRespondedAt, actorStatusRespondedAtBeforeHealth);
     assert.equal(actorServer.requestConnections.at(-1), persistentConnection);
 
     const recoveredHealthCheck = await json(server.baseUrl, "/api/actors/health", {
@@ -394,7 +397,7 @@ test("standalone server persists settings, actors, and admin action audit in SQL
       body: JSON.stringify({ force: true }),
     });
     assert.deepEqual(actorServer.requests.slice(-2), [
-      { adminCommand: "SEQ status", params: "", shouldLog: false },
+      { adminCommand: "SEQ actorStatus", params: "", shouldLog: false },
       { adminCommand: "list", params: "SEQ", shouldLog: false },
     ]);
     assert.equal(actorServer.requestConnections.at(-2), persistentConnection);
@@ -410,7 +413,7 @@ test("standalone server persists settings, actors, and admin action audit in SQL
     assert.deepEqual(actorServer.requests.slice(manualStatusStart, manualStatusStart + 4), [
       { adminCommand: "SEQ status", params: "" },
       { adminCommand: "SEQ healthCheck", params: "", shouldLog: false },
-      { adminCommand: "SEQ status", params: "", shouldLog: false },
+      { adminCommand: "SEQ actorStatus", params: "", shouldLog: false },
       { adminCommand: "list", params: "SEQ", shouldLog: false },
     ]);
     assert.notEqual(actorServer.requestConnections[manualStatusStart], persistentConnection);
@@ -444,7 +447,7 @@ test("standalone server persists settings, actors, and admin action audit in SQL
     assert.deepEqual(actorServer.requests.slice(slowActionStart, slowActionStart + 4), [
       { adminCommand: "SEQ slowAction", params: "" },
       { adminCommand: "SEQ healthCheck", params: "", shouldLog: false },
-      { adminCommand: "SEQ status", params: "", shouldLog: false },
+      { adminCommand: "SEQ actorStatus", params: "", shouldLog: false },
       { adminCommand: "list", params: "SEQ", shouldLog: false },
     ]);
     assert.notEqual(actorServer.requestConnections[slowActionStart], persistentConnection);
@@ -619,6 +622,7 @@ test("actor migrations preserve audit references and initialize status metadata"
       "0006_skinny_redwing",
       "0007_abandoned_romulus",
       "0008_broken_storm",
+      "0009_familiar_scarecrow",
     ];
     for (const [index, name] of migrationNames.entries()) {
       if (index === 5) {
@@ -644,8 +648,8 @@ test("actor migrations preserve audit references and initialize status metadata"
     ]);
     assert.deepEqual(database.prepare("SELECT actor_id AS actorId FROM command_audit").get(), { actorId: "a" });
     assert.deepEqual(
-      database.prepare("SELECT outbound_sequence AS outboundSequence, accounts, clock_tick_interval AS clockTickInterval, status_responded_at AS statusRespondedAt, operational_state AS operationalState FROM actors WHERE id = 'a'").get(),
-      { outboundSequence: "Not reported", accounts: "Not reported", clockTickInterval: "Not reported", statusRespondedAt: null, operationalState: "inactive" },
+      database.prepare("SELECT outbound_sequence AS outboundSequence, accounts, clock_tick_interval AS clockTickInterval, actor_status_fields AS actorStatusFields, status_responded_at AS actorStatusRespondedAt, operational_state AS operationalState FROM actors WHERE id = 'a'").get(),
+      { outboundSequence: "Not reported", accounts: "Not reported", clockTickInterval: "Not reported", actorStatusFields: "[]", actorStatusRespondedAt: null, operationalState: "inactive" },
     );
     assert.deepEqual(database.pragma("foreign_key_check"), []);
   } finally {
@@ -673,25 +677,26 @@ test("deployment and UI conventions stay explicit", async () => {
   assert.match(page, /\/api\/actors\/health/);
   assert.match(page, /Keep polling actors when nobody is viewing CoralConsole/);
   assert.match(page, /disabled=\{settingsDraft\.keepPollingWithoutViewers\}/);
-  assert.match(page, /actor\.kind === "sequencer"/);
   assert.match(page, /\["all", "online", "offline"\]/);
   assert.match(page, /actors online/);
   assert.match(page, /<small>ONLINE<\/small>/);
   assert.match(page, /<small>OFFLINE<\/small>/);
-  assert.match(page, /Immediately poll status and list for every actor/);
-  assert.match(page, /<small>SESSION<\/small>[\s\S]*<small>SEQUENCE<\/small>[\s\S]*<small>ACCOUNTS<\/small>[\s\S]*<small>CLOCK TICK<\/small>/);
+  assert.match(page, /Immediately poll actorStatus and list for every actor/);
+  assert.match(page, /actor-card-sequence/);
+  assert.match(page, /state-\$\{actor\.operationalState\}/);
+  assert.doesNotMatch(page, /className="actor-data|className="actor-foot/);
   assert.match(page, /Shared topology · Persisted in SQLite/);
   assert.match(actorDetail, /\/actions/);
   assert.match(actorDetail, /\/api\/actors\/refresh/);
   assert.match(actorDetail, /\/api\/actors\/health/);
   assert.match(actorDetail, /Recent activity/);
   assert.match(actorDetail, /<BrandIcon \/>/);
-  assert.match(actorDetail, /Refresh status/);
+  assert.match(actorDetail, /Refresh actor status/);
   assert.match(actorDetail, /state-\$\{actor\.operationalState\}/);
   assert.match(actorDetail, /operationalStateLabel\(actor\.operationalState\)/);
   assert.match(actorDetail, /\/api\/actors\/\$\{encodeURIComponent\(actor\.id\)\}\/refresh/);
-  assert.match(actorDetail, /formatLastStatusResponse\(actor\.statusRespondedAt\)/);
-  assert.match(actorDetail, /<dt>Session<\/dt>[\s\S]*<dt>Sequence<\/dt>[\s\S]*<dt>Accounts<\/dt>[\s\S]*<dt>Clock Tick<\/dt>/);
+  assert.match(actorDetail, /formatLastActorStatusResponse\(actor\.actorStatusRespondedAt\)/);
+  assert.match(actorDetail, /<dt>REST endpoint<\/dt>[\s\S]*<dt>Last response<\/dt>[\s\S]*actor\.actorStatusFields\.map/);
   assert.doesNotMatch(actorDetail, /Back to topology/);
   assert.match(styles, /\.status-refresh-button \{[^}]*background: color-mix/);
   for (const state of ["active", "inactive", "closed", "rewinding", "disconnected"]) {

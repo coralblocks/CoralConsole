@@ -1,31 +1,31 @@
 import { Agent as HttpAgent, request as requestHttp } from "node:http";
 import { Agent as HttpsAgent, request as requestHttps } from "node:https";
 import type { Socket } from "node:net";
-import { BASELINE_ADMIN_ACTIONS, type Actor, type ActorKind, type ActorOperationalState, type ActorStatus, type AdminActionReply, type AuditOutcome } from "./types";
+import { BASELINE_ADMIN_ACTIONS, type Actor, type ActorKind, type ActorOperationalState, type ActorStatus, type ActorStatusField, type AdminActionReply, type AuditOutcome } from "./types";
 
 const ACTOR_TIMEOUT_MS = 6500;
-const STATUS_CONNECTION_LOST = "The persistent status connection was lost.";
+const MONITORING_CONNECTION_LOST = "The persistent actor monitoring connection was lost.";
 
-type StatusDisconnectHandler = (message: string) => void;
+type MonitoringDisconnectHandler = (message: string) => void;
 
-type PersistentActorRequest = {
+type PersistentMonitoringRequest = {
   actorId: string;
-  onDisconnect: StatusDisconnectHandler;
+  onDisconnect: MonitoringDisconnectHandler;
   shouldLog?: boolean;
 };
 
-type StatusConnection = {
+type MonitoringConnection = {
   actorId: string;
   agent: HttpAgent;
   closing: boolean;
   disconnectedSockets: WeakSet<Socket>;
   observedSockets: WeakSet<Socket>;
-  onDisconnect: StatusDisconnectHandler;
+  onDisconnect: MonitoringDisconnectHandler;
   socket?: Socket;
   target: string;
 };
 
-const statusConnections = new Map<string, StatusConnection>();
+const monitoringConnections = new Map<string, MonitoringConnection>();
 
 export class ActorCallError extends Error {
   constructor(
@@ -54,29 +54,29 @@ export function actorUrl(host: string, port: number) {
   return target;
 }
 
-function closeStatusConnection(connection: StatusConnection) {
+function closeMonitoringConnection(connection: MonitoringConnection) {
   connection.closing = true;
-  statusConnections.delete(connection.actorId);
+  monitoringConnections.delete(connection.actorId);
   connection.agent.destroy();
 }
 
-export function closeActorStatusConnection(actorId: string) {
-  const connection = statusConnections.get(actorId);
-  if (connection) closeStatusConnection(connection);
+export function closeActorMonitoringConnection(actorId: string) {
+  const connection = monitoringConnections.get(actorId);
+  if (connection) closeMonitoringConnection(connection);
 }
 
-export function closeAllActorStatusConnections() {
-  for (const connection of [...statusConnections.values()]) closeStatusConnection(connection);
+export function closeAllActorMonitoringConnections() {
+  for (const connection of [...monitoringConnections.values()]) closeMonitoringConnection(connection);
 }
 
-function getStatusConnection(actorId: string, target: URL, onDisconnect: StatusDisconnectHandler) {
+function getMonitoringConnection(actorId: string, target: URL, onDisconnect: MonitoringDisconnectHandler) {
   const targetKey = target.origin;
-  const current = statusConnections.get(actorId);
+  const current = monitoringConnections.get(actorId);
   if (current?.target === targetKey) {
     current.onDisconnect = onDisconnect;
     return current;
   }
-  if (current) closeStatusConnection(current);
+  if (current) closeMonitoringConnection(current);
 
   const options = {
     keepAlive: true,
@@ -84,11 +84,11 @@ function getStatusConnection(actorId: string, target: URL, onDisconnect: StatusD
     maxSockets: 1,
     maxTotalSockets: 1,
     maxFreeSockets: 1,
-    // The status connection is intentionally kept across every configured
+    // The monitoring connection is intentionally kept across every configured
     // polling interval. Request timeouts are enforced separately below.
     timeout: 0,
   };
-  const connection: StatusConnection = {
+  const connection: MonitoringConnection = {
     actorId,
     agent: target.protocol === "https:" ? new HttpsAgent(options) : new HttpAgent(options),
     closing: false,
@@ -97,11 +97,11 @@ function getStatusConnection(actorId: string, target: URL, onDisconnect: StatusD
     observedSockets: new WeakSet(),
     target: targetKey,
   };
-  statusConnections.set(actorId, connection);
+  monitoringConnections.set(actorId, connection);
   return connection;
 }
 
-function observeStatusSocket(connection: StatusConnection, socket: Socket) {
+function observeMonitoringSocket(connection: MonitoringConnection, socket: Socket) {
   connection.socket = socket;
   socket.setKeepAlive(true, 1000);
   if (connection.observedSockets.has(socket)) return;
@@ -110,13 +110,13 @@ function observeStatusSocket(connection: StatusConnection, socket: Socket) {
   const disconnected = () => {
     if (
       connection.closing
-      || statusConnections.get(connection.actorId) !== connection
+      || monitoringConnections.get(connection.actorId) !== connection
       || connection.socket !== socket
       || connection.disconnectedSockets.has(socket)
     ) return;
     connection.disconnectedSockets.add(socket);
     connection.socket = undefined;
-    connection.onDisconnect(STATUS_CONNECTION_LOST);
+    connection.onDisconnect(MONITORING_CONNECTION_LOST);
   };
   socket.once("error", disconnected);
   socket.once("close", disconnected);
@@ -125,12 +125,12 @@ function observeStatusSocket(connection: StatusConnection, socket: Socket) {
 function postActorRequest(
   target: URL,
   body: string,
-  persistentStatus?: PersistentActorRequest,
+  persistentMonitoring?: PersistentMonitoringRequest,
 ) {
   return new Promise<{ status: number; text: string }>((resolve, reject) => {
     const send = target.protocol === "https:" ? requestHttps : requestHttp;
-    const statusConnection = persistentStatus
-      ? getStatusConnection(persistentStatus.actorId, target, persistentStatus.onDisconnect)
+    const monitoringConnection = persistentMonitoring
+      ? getMonitoringConnection(persistentMonitoring.actorId, target, persistentMonitoring.onDisconnect)
       : undefined;
     const resolveRequest = (value: { status: number; text: string }) => {
       clearTimeout(timeout);
@@ -145,9 +145,9 @@ function postActorRequest(
       headers: {
         "Content-Type": "application/json",
         "Content-Length": Buffer.byteLength(body),
-        "Connection": statusConnection ? "keep-alive" : "close",
+        "Connection": monitoringConnection ? "keep-alive" : "close",
       },
-      agent: statusConnection?.agent || false,
+      agent: monitoringConnection?.agent || false,
       // Coral REST admin servers can emit a timezone name in the Date header.
       // Node fetch rejects that otherwise usable response before exposing its body.
       insecureHTTPParser: true,
@@ -163,8 +163,8 @@ function postActorRequest(
       timeoutError.name = "AbortError";
       request.destroy(timeoutError);
     }, ACTOR_TIMEOUT_MS);
-    if (statusConnection) {
-      request.on("socket", (socket) => observeStatusSocket(statusConnection, socket));
+    if (monitoringConnection) {
+      request.on("socket", (socket) => observeMonitoringSocket(monitoringConnection, socket));
     }
     request.on("error", rejectRequest);
     request.end(body);
@@ -230,7 +230,7 @@ export async function callActorEndpoint(
   port: number,
   adminAction: string,
   params = "",
-  persistentStatus?: PersistentActorRequest,
+  persistentMonitoring?: PersistentMonitoringRequest,
 ) {
   const target = actorUrl(host, port);
 
@@ -238,9 +238,9 @@ export async function callActorEndpoint(
     const requestBody = {
       adminCommand: adminAction,
       params,
-      ...(persistentStatus?.shouldLog === undefined ? {} : { shouldLog: persistentStatus.shouldLog }),
+      ...(persistentMonitoring?.shouldLog === undefined ? {} : { shouldLog: persistentMonitoring.shouldLog }),
     };
-    const upstream = await postActorRequest(target, JSON.stringify(requestBody), persistentStatus);
+    const upstream = await postActorRequest(target, JSON.stringify(requestBody), persistentMonitoring);
     let payload: AdminActionReply;
     try {
       payload = parseAdminActionReply(upstream.text);
@@ -306,11 +306,6 @@ export function classFromDiscovery(scope: string, details: string, kind: ActorKi
   return addressStart > 0 ? withoutScope.slice(0, addressStart) : withoutScope;
 }
 
-export function sessionFromStatus(results: string) {
-  const labeled = results.match(/\bsession(?:\s+(?:id|name))?\s*[:=]?\s*(\d{10})\b/i);
-  return labeled?.[1] || results.match(/\b\d{10}\b/)?.[0] || "Not reported";
-}
-
 export function sessionStartFromId(session: string) {
   const match = session.match(/^(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})$/);
   if (!match) return undefined;
@@ -320,103 +315,105 @@ export function sessionStartFromId(session: string) {
   return `${day} ${monthLabel} 20${year} · ${hour}:${minute}`;
 }
 
-function statusValue(results: string, label: string) {
-  const escapedLabel = label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  return results.match(new RegExp(`^${escapedLabel}:\\s*([^\\r\\n]+)`, "im"))?.[1]?.trim();
+function actorStatusKey(label: string) {
+  return label.toLowerCase().replace(/[^a-z0-9]/g, "");
 }
 
-function statusBoolean(results: string, label: string) {
-  const value = statusValue(results, label)?.toLowerCase();
+export function parseActorStatusFields(results: string): ActorStatusField[] {
+  return results.split(/\r?\n/).flatMap((line) => {
+    const separator = line.indexOf(":");
+    if (separator <= 0) return [];
+    const label = line.slice(0, separator).trim();
+    const value = line.slice(separator + 1).trim();
+    return label ? [{ label, value }] : [];
+  });
+}
+
+function actorStatusValue(fields: ActorStatusField[], label: string) {
+  const key = actorStatusKey(label);
+  return fields.find((field) => actorStatusKey(field.label) === key)?.value;
+}
+
+function actorStatusBoolean(fields: ActorStatusField[], label: string) {
+  const value = actorStatusValue(fields, label)?.toLowerCase();
   return value === "true" ? true : value === "false" ? false : undefined;
 }
 
-function operationalStateFromStatus(results: string, fallback: ActorOperationalState) {
-  const open = statusBoolean(results, "actor open");
+function operationalStateFromActorStatus(fields: ActorStatusField[], fallback: ActorOperationalState) {
+  const open = actorStatusBoolean(fields, "open");
   if (open === false) return "closed";
   if (open !== true) return fallback;
 
-  const disconnected = statusBoolean(results, "actor disconnected");
+  const disconnected = actorStatusBoolean(fields, "disconnected");
   if (disconnected === true) return "disconnected";
   if (disconnected !== false) return fallback;
 
-  const rewinding = statusBoolean(results, "actor rewinding");
+  const rewinding = actorStatusBoolean(fields, "rewinding");
   if (rewinding === true) return "rewinding";
   if (rewinding !== false) return fallback;
 
-  const active = statusBoolean(results, "actor active");
+  const active = actorStatusBoolean(fields, "active");
   if (active === true) return "active";
   if (active === false) return "inactive";
   return fallback;
 }
 
-function classFromStatus(results: string) {
-  const className = statusValue(results, "actor class");
-  return className?.split(".").filter(Boolean).at(-1);
-}
-
-function kindFromStatus(results: string) {
-  const actorType = statusValue(results, "actor type");
+function kindFromActorStatus(fields: ActorStatusField[]) {
+  const actorType = actorStatusValue(fields, "type");
   return actorType ? kindFromDiscovery(actorType, "") : undefined;
 }
 
-function sessionStartFromStatus(results: string, session: string) {
-  const explicit = results.match(/\bsession\s+start(?:\s+time)?\s*[:=]\s*([^\r\n]+)/i)?.[1]?.trim();
+function sessionStartFromActorStatus(fields: ActorStatusField[], session: string) {
+  const explicit = actorStatusValue(fields, "session start time") || actorStatusValue(fields, "session start");
   return explicit || sessionStartFromId(session);
 }
 
-function sequencerStatusValue(results: string, label: string) {
-  return statusValue(results, `sequencer ${label}`) || statusValue(results, label);
-}
-
-function actorFromStatus(actor: Actor, statusDetails: string): Actor {
-  const reportedKind = kindFromStatus(statusDetails);
+function actorFromActorStatus(actor: Actor, actorStatusDetails: string): Actor {
+  const fields = parseActorStatusFields(actorStatusDetails);
+  if (!fields.length) {
+    throw new ActorCallError("Actor actorStatus response did not contain any fields.", 502);
+  }
+  const reportedKind = kindFromActorStatus(fields);
   const kind = reportedKind || actor.kind;
   const isSequencer = kind === "sequencer" || kind === "backup-sequencer";
-  const sequencerActive = statusBoolean(statusDetails, "sequencer active");
   const isBackup = isSequencer && (
     reportedKind === "backup-sequencer"
-    || sequencerActive === false
-    || (sequencerActive === undefined && actor.kind === "backup-sequencer")
-    || /backup|standby|failover/i.test(statusDetails)
+    || (reportedKind === undefined && actor.kind === "backup-sequencer")
   );
   const discoveredKind: ActorKind = isBackup ? "backup-sequencer" : kind;
-  const reportedSession = isSequencer ? sessionFromStatus(statusDetails) : actor.session;
-  const session = reportedSession === "Not reported" ? actor.session : reportedSession;
+  const name = actorStatusValue(fields, "name") || actor.name;
+  const session = actorStatusValue(fields, "session") || actor.session;
   return {
     ...actor,
+    name,
     kind: discoveredKind,
     status: actor.status,
-    operationalState: operationalStateFromStatus(statusDetails, actor.operationalState),
-    account: statusValue(statusDetails, isSequencer ? "sequencer account" : "actor account") || actor.account,
-    className: classFromStatus(statusDetails) || actor.className,
+    operationalState: operationalStateFromActorStatus(fields, actor.operationalState),
+    account: actorStatusValue(fields, "account") || name,
+    className: actorStatusValue(fields, "class") || actor.className,
     sequencerRole: isSequencer ? (isBackup ? "Backup" : "Primary") : undefined,
     latency: "connected",
     session,
-    outboundSequence: isSequencer
-      ? sequencerStatusValue(statusDetails, "outbound sequence") || actor.outboundSequence
-      : actor.outboundSequence,
-    accounts: isSequencer
-      ? sequencerStatusValue(statusDetails, "accounts") || actor.accounts
-      : actor.accounts,
-    clockTickInterval: isSequencer
-      ? sequencerStatusValue(statusDetails, "clockTickInterval") || actor.clockTickInterval
-      : actor.clockTickInterval,
-    sessionStarted: sessionStartFromStatus(statusDetails, session) || actor.sessionStarted,
-    statusRespondedAt: new Date().toISOString(),
+    outboundSequence: actorStatusValue(fields, "sequence") || actor.outboundSequence,
+    accounts: actorStatusValue(fields, "accounts") || actor.accounts,
+    clockTickInterval: actorStatusValue(fields, "clock tick interval") || actor.clockTickInterval,
+    actorStatusFields: fields,
+    sessionStarted: sessionStartFromActorStatus(fields, session) || actor.sessionStarted,
+    actorStatusRespondedAt: new Date().toISOString(),
     lastSeen: "just now",
   };
 }
 
-export async function refreshActorStatus(actor: Actor, onDisconnect: StatusDisconnectHandler) {
-  const persistentStatus = { actorId: actor.id, onDisconnect, shouldLog: false };
+export async function refreshActorStatus(actor: Actor, onDisconnect: MonitoringDisconnectHandler) {
+  const persistentMonitoring = { actorId: actor.id, onDisconnect, shouldLog: false };
   const reply = await callActorEndpoint(
     actor.host,
     actor.port,
-    `${actor.name} status`,
+    `${actor.name} actorStatus`,
     "",
-    persistentStatus,
+    persistentMonitoring,
   );
-  const refreshed = actorFromStatus(actor, reply.results || "");
+  const refreshed = actorFromActorStatus(actor, reply.results || "");
 
   try {
     const listReply = await callActorEndpoint(
@@ -424,12 +421,12 @@ export async function refreshActorStatus(actor: Actor, onDisconnect: StatusDisco
       actor.port,
       "list",
       actor.name,
-      persistentStatus,
+      persistentMonitoring,
     );
     const actions = actionsFromDiscovery(actor.name, listReply.results || "");
     return actions.length ? { ...refreshed, actions } : refreshed;
   } catch (error) {
-    // A malformed list response must not override a valid status response.
+    // A malformed list response must not override a valid actorStatus response.
     // Transport failure means the persistent monitoring connection is offline.
     if (error instanceof ActorCallError && error.outcome !== "unreachable") return refreshed;
     throw error;
@@ -443,7 +440,7 @@ export type ActorHealthCheck = {
   error: string | null;
 };
 
-export async function checkActorHealth(actor: Actor, onDisconnect: StatusDisconnectHandler): Promise<ActorHealthCheck> {
+export async function checkActorHealth(actor: Actor, onDisconnect: MonitoringDisconnectHandler): Promise<ActorHealthCheck> {
   try {
     const reply = await callActorEndpoint(
       actor.host,
@@ -491,52 +488,35 @@ export async function discoverActor(host: string, port: number, id = crypto.rand
   }
 
   const actions = actionsFromDiscovery(scope, details);
-  let statusDetails = "";
-  let statusRespondedAt: string | undefined;
-  if (actions.includes("status")) {
-    try {
-      statusDetails = (await callActorEndpoint(host, port, `${scope} status`)).results || "";
-      statusRespondedAt = new Date().toISOString();
-    } catch {
-      // Status metadata is optional during discovery.
-    }
-  }
-
-  const kind = kindFromStatus(statusDetails) || kindFromDiscovery(scope, details);
+  const kind = kindFromDiscovery(scope, details);
   const isSequencer = kind === "sequencer" || kind === "backup-sequencer";
-  const sequencerActive = statusBoolean(statusDetails, "sequencer active");
-  const isBackup = isSequencer && (
-    kind === "backup-sequencer"
-    || sequencerActive === false
-    || /backup|standby|failover/i.test(`${details} ${statusDetails}`)
-  );
+  const isBackup = kind === "backup-sequencer";
   const discoveredKind: ActorKind = isBackup ? "backup-sequencer" : kind;
-  const session = isSequencer ? sessionFromStatus(statusDetails) : "discovered";
-  return {
+  const actor: Actor = {
     id,
     name: scope,
     kind: discoveredKind,
     status: "online",
-    operationalState: operationalStateFromStatus(statusDetails, "inactive"),
+    operationalState: "inactive",
     host,
     port,
-    account: statusValue(statusDetails, isSequencer ? "sequencer account" : "actor account") || scope,
-    className: classFromStatus(statusDetails) || classFromDiscovery(scope, details, discoveredKind),
+    account: scope,
+    className: classFromDiscovery(scope, details, discoveredKind),
     sequencerRole: isSequencer ? (isBackup ? "Backup" : "Primary") : undefined,
     latency: "connected",
-    session,
-    outboundSequence: isSequencer
-      ? sequencerStatusValue(statusDetails, "outbound sequence") || "Not reported"
-      : "Not reported",
-    accounts: isSequencer
-      ? sequencerStatusValue(statusDetails, "accounts") || "Not reported"
-      : "Not reported",
-    clockTickInterval: isSequencer
-      ? sequencerStatusValue(statusDetails, "clockTickInterval") || "Not reported"
-      : "Not reported",
-    sessionStarted: sessionStartFromStatus(statusDetails, session),
-    statusRespondedAt,
+    session: "Not reported",
+    outboundSequence: "Not reported",
+    accounts: "Not reported",
+    clockTickInterval: "Not reported",
+    actorStatusFields: [],
     lastSeen: "just now",
     actions,
   };
+  try {
+    const actorStatusDetails = (await callActorEndpoint(host, port, `${scope} actorStatus`)).results || "";
+    return actorFromActorStatus(actor, actorStatusDetails);
+  } catch {
+    // Root and scoped list responses still provide a usable actor if metadata is temporarily unavailable.
+    return actor;
+  }
 }

@@ -17,7 +17,7 @@ function auditOutput(entry: AuditEntry) {
   return [entry.error, entry.output].filter(Boolean).join("\n\n") || "No output";
 }
 
-function formatLastStatusResponse(value?: string) {
+function formatLastActorStatusResponse(value?: string) {
   if (!value) return "Not received";
   const timestamp = new Date(value);
   return Number.isNaN(timestamp.getTime()) ? "Not received" : timestamp.toLocaleString();
@@ -31,7 +31,7 @@ export default function ActorDetail({ actorId }: { actorId: string }) {
   const [ready, setReady] = useState(false);
   const [removed, setRemoved] = useState(false);
   const [error, setError] = useState("");
-  const [action, setAction] = useState("status");
+  const [action, setAction] = useState("actorStatus");
   const [params, setParams] = useState("");
   const [running, setRunning] = useState(false);
   const [refreshingStatus, setRefreshingStatus] = useState(false);
@@ -141,7 +141,7 @@ export default function ActorDetail({ actorId }: { actorId: string }) {
     }
   }
 
-  async function refreshStatus() {
+  async function refreshActorStatus() {
     if (!actor || refreshingStatus) return;
     setRefreshingStatus(true);
     setError("");
@@ -201,9 +201,9 @@ export default function ActorDetail({ actorId }: { actorId: string }) {
                   <p>{ACTOR_META[actor.kind].label}{actor.sequencerRole ? ` · ${actor.sequencerRole}` : ""}</p>
                   <div className="actor-title-row">
                     <h1>{actor.name}</h1>
-                    <button className="status-refresh-button" type="button" onClick={() => void refreshStatus()} disabled={refreshingStatus} aria-label={`Refresh ${actor.name} status`}>
+                    <button className="status-refresh-button" type="button" onClick={() => void refreshActorStatus()} disabled={refreshingStatus} aria-label={`Refresh ${actor.name} actor status`}>
                       <RefreshCw aria-hidden="true" />
-                      {refreshingStatus ? "Refreshing…" : "Refresh status"}
+                      {refreshingStatus ? "Refreshing…" : "Refresh actor status"}
                     </button>
                   </div>
                 </div>
@@ -212,23 +212,12 @@ export default function ActorDetail({ actorId }: { actorId: string }) {
                   <span className={`status-badge status-${actor.status}`}><i />{statusLabel(actor.status)}</span>
                 </div>
               </div>
-              <dl className={`detail-grid${actor.kind === "sequencer" ? " sequencer-detail-grid" : ""}`}>
+              <dl className="detail-grid">
                 <div><dt>REST endpoint</dt><dd>{actor.host}:{actor.port}</dd></div>
-                <div><dt>Class</dt><dd>{actor.className}</dd></div>
-                {actor.kind === "sequencer" ? (
-                  <>
-                    <div><dt>Last response</dt><dd>{formatLastStatusResponse(actor.statusRespondedAt)}</dd></div>
-                    <div><dt>Session</dt><dd>{actor.session}</dd></div>
-                    <div><dt>Sequence</dt><dd>{actor.outboundSequence}</dd></div>
-                    <div><dt>Accounts</dt><dd>{actor.accounts}</dd></div>
-                    <div><dt>Clock Tick</dt><dd>{actor.clockTickInterval}</dd></div>
-                  </>
-                ) : (
-                  <>
-                    <div><dt>Account</dt><dd>{actor.account}</dd></div>
-                    <div><dt>Last response</dt><dd>{formatLastStatusResponse(actor.statusRespondedAt)}</dd></div>
-                  </>
-                )}
+                <div><dt>Last response</dt><dd>{formatLastActorStatusResponse(actor.actorStatusRespondedAt)}</dd></div>
+                {actor.actorStatusFields.map((field, index) => (
+                  <div key={`${field.label}-${index}`}><dt>{field.label}</dt><dd>{field.value}</dd></div>
+                ))}
               </dl>
               <div className="admin-block">
                 <div className="admin-heading"><div><p className="eyebrow">REST admin</p><h2>Run an action</h2></div><span>{actor.actions.length} available</span></div>

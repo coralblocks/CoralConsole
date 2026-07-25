@@ -1,4 +1,4 @@
-import { closeActorStatusConnection } from "@/lib/actor-server";
+import { closeActorMonitoringConnection } from "@/lib/actor-server";
 import { apiErrorResponse, apiJson, ApiError, mutationAllowed } from "@/lib/http";
 import { deleteActor, getActor } from "@/lib/repository";
 
@@ -22,7 +22,7 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
     const actor = getActor(id);
     if (!actor) throw new ApiError("Actor not found.", 404);
     if (actor.demo) throw new ApiError("Sample actors cannot be removed.", 400);
-    closeActorStatusConnection(id);
+    closeActorMonitoringConnection(id);
     deleteActor(id);
     return apiJson({ removed: true });
   } catch (error) {

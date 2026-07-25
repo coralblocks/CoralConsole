@@ -9,6 +9,7 @@ import {
   type ActorKind,
   type ActorOperationalState,
   type ActorStatus,
+  type ActorStatusField,
   type AuditEntry,
   type AuditOutcome,
   type SummaryActorKind,
@@ -74,6 +75,22 @@ function validActions(value: unknown) {
   return [...new Set([...BASELINE_ADMIN_ACTIONS, ...stored])];
 }
 
+function validActorStatusFields(value: unknown): ActorStatusField[] {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((field) => {
+    if (
+      !field
+      || typeof field !== "object"
+      || typeof (field as ActorStatusField).label !== "string"
+      || typeof (field as ActorStatusField).value !== "string"
+    ) return [];
+    return [{
+      label: (field as ActorStatusField).label,
+      value: (field as ActorStatusField).value,
+    }];
+  });
+}
+
 export function rowToActor(row: ActorRow): Actor {
   return {
     id: row.id,
@@ -92,8 +109,9 @@ export function rowToActor(row: ActorRow): Actor {
     outboundSequence: row.outboundSequence,
     accounts: row.accounts,
     clockTickInterval: row.clockTickInterval,
+    actorStatusFields: validActorStatusFields(row.actorStatusFields),
     sessionStarted: row.sessionStarted || undefined,
-    statusRespondedAt: row.statusRespondedAt || undefined,
+    actorStatusRespondedAt: row.actorStatusRespondedAt || undefined,
     lastSeen: row.lastSeen,
     actions: validActions(row.actions),
     demo: row.demo || undefined,
@@ -142,7 +160,7 @@ export function createActor(actor: Actor) {
     cluster: actor.cluster || null,
     sequencerRole: actor.sequencerRole || null,
     sessionStarted: actor.sessionStarted || null,
-    statusRespondedAt: actor.statusRespondedAt || null,
+    actorStatusRespondedAt: actor.actorStatusRespondedAt || null,
     lastSeenAt: now,
     lastError: null,
     demo: Boolean(actor.demo),
@@ -170,8 +188,9 @@ export function updateActor(actor: Actor, lastError: string | null = null) {
     outboundSequence: actor.outboundSequence,
     accounts: actor.accounts,
     clockTickInterval: actor.clockTickInterval,
+    actorStatusFields: actor.actorStatusFields,
     sessionStarted: actor.sessionStarted || null,
-    statusRespondedAt: actor.statusRespondedAt || null,
+    actorStatusRespondedAt: actor.actorStatusRespondedAt || null,
     lastSeen: actor.lastSeen,
     lastSeenAt: lastError ? undefined : now,
     lastError,

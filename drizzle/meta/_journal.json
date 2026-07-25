@@ -64,6 +64,13 @@
       "when": 1785002685323,
       "tag": "0008_broken_storm",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "6",
+      "when": 1785012040971,
+      "tag": "0009_familiar_scarecrow",
+      "breakpoints": true
     }
   ]
 }

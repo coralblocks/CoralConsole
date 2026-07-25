@@ -1,4 +1,4 @@
-import { ActorCallError, checkActorHealth, closeAllActorStatusConnections, refreshActorStatus } from "./actor-server";
+import { ActorCallError, checkActorHealth, closeAllActorMonitoringConnections, refreshActorStatus } from "./actor-server";
 import { getActor, getSettings, listActors, markActorOffline, recordActorHeartbeat, updateActor } from "./repository";
 import { hasRecentViewer } from "./viewer-presence";
 
@@ -190,7 +190,7 @@ export function ensureActorScheduler() {
       const viewerPresent = hasRecentViewer(settings.viewerGracePeriodSeconds);
       const shouldPoll = settings.keepPollingWithoutViewers || viewerPresent;
       if (!shouldPoll) {
-        closeAllActorStatusConnections();
+        closeAllActorMonitoringConnections();
         state.polling = false;
         return;
       }

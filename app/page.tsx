@@ -5,6 +5,7 @@ import Link from "next/link";
 import {
   ACTOR_KINDS,
   ACTOR_META,
+  operationalStateLabel,
   statusLabel,
   type Actor,
   type ActorKind,
@@ -59,7 +60,13 @@ function normalizeSavedActors(value: unknown): Actor[] {
   if (!Array.isArray(value)) return [];
   return value.flatMap((entry) => {
     if (!entry || typeof entry !== "object") return [];
-    const legacy = entry as Omit<Actor, "kind" | "status" | "actions"> & { actions?: string[]; commands?: string[]; kind: string; status: string };
+    const legacy = entry as Omit<Actor, "kind" | "status" | "actions"> & {
+      actions?: string[];
+      commands?: string[];
+      kind: string;
+      status: string;
+      statusRespondedAt?: string;
+    };
     if (typeof legacy.name !== "string" || typeof legacy.host !== "string" || !Number.isInteger(Number(legacy.port))) return [];
     const wasBackup = legacy.kind === "backup"
       || legacy.kind === "backup-sequencer"
@@ -83,6 +90,8 @@ function normalizeSavedActors(value: unknown): Actor[] {
       outboundSequence: legacy.outboundSequence || "Not reported",
       accounts: legacy.accounts || "Not reported",
       clockTickInterval: legacy.clockTickInterval || "Not reported",
+      actorStatusFields: Array.isArray(legacy.actorStatusFields) ? legacy.actorStatusFields : [],
+      actorStatusRespondedAt: legacy.actorStatusRespondedAt || legacy.statusRespondedAt,
       sequencerRole: kind === "sequencer" ? "Primary" : kind === "backup-sequencer" ? "Backup" : undefined,
       sessionStarted: legacy.sessionStarted || sessionStartFromId(legacy.session),
     }];
@@ -102,25 +111,18 @@ function ActorCard({ actor }: { actor: Actor }) {
     >
       <span className="actor-card-head">
         <span className="actor-avatar" aria-hidden="true"><Icon /></span>
-        <span className="actor-heading"><strong>{actor.name}</strong><small>{actor.className}</small></span>
-        <span className={`status-dot status-${actor.status}`} aria-label={statusLabel(actor.status)} />
-      </span>
-      {actor.kind === "sequencer" ? (
-        <span className="actor-data primary-sequencer-data">
-          <span><small>SESSION</small>{actor.session}</span>
-          <span><small>SEQUENCE</small>{actor.outboundSequence}</span>
-          <span><small>ACCOUNTS</small>{actor.accounts}</span>
-          <span><small>CLOCK TICK</small>{actor.clockTickInterval}</span>
-        </span>
-      ) : (
-        <>
-          <span className="actor-data">
-            <span><small>REST ADMIN</small>{actor.host}:{actor.port}</span>
-            <span><small>{actor.kind === "archiver" ? "STORAGE" : "SIGNAL"}</small>{actor.latency}</span>
+        <span className="actor-heading">
+          <span className="actor-name-line">
+            <strong>{actor.name}</strong>
+            <span className="actor-card-sequence" aria-label={`Sequence ${actor.outboundSequence}`} title="Sequence">{actor.outboundSequence}</span>
           </span>
-          <span className="actor-foot"><span>{actor.sequencerRole || actor.cluster || actor.account}</span><span>{actor.session}</span></span>
-        </>
-      )}
+          <small>{actor.className}</small>
+        </span>
+        <span className="actor-card-status">
+          <span className={`actor-state-badge state-${actor.operationalState}`}>{operationalStateLabel(actor.operationalState)}</span>
+          <span className={`status-dot status-${actor.status}`} aria-label={statusLabel(actor.status)} />
+        </span>
+      </span>
     </a>
   );
 }
@@ -409,7 +411,7 @@ export default function Home() {
                 type="button"
                 onClick={() => void refreshActors(true)}
                 disabled={refreshing || !actors.length}
-                title="Immediately poll status and list for every actor"
+                title="Immediately poll actorStatus and list for every actor"
               >
                 {refreshing ? "Refreshing…" : "Refresh now"}
               </button>
@@ -478,7 +480,7 @@ export default function Home() {
               <label htmlFor="topology-name">Topology name</label><input id="topology-name" value={settingsDraft.topologyName} onChange={(event) => setSettingsDraft((current) => ({ ...current, topologyName: event.target.value }))} autoFocus />
               <label htmlFor="background-color">Workspace color</label><div className="color-input"><input id="background-color" type="color" value={settingsDraft.backgroundColor} onChange={(event) => setSettingsDraft((current) => ({ ...current, backgroundColor: event.target.value }))} /><code>{settingsDraft.backgroundColor}</code></div>
               <div className="settings-grid">
-                <div><label htmlFor="poll-interval">Status refresh (seconds)</label><input id="poll-interval" type="number" min="10" max="300" value={settingsDraft.pollIntervalSeconds} onChange={(event) => setSettingsDraft((current) => ({ ...current, pollIntervalSeconds: Number(event.target.value) }))} /></div>
+                <div><label htmlFor="poll-interval">Actor status refresh (seconds)</label><input id="poll-interval" type="number" min="10" max="300" value={settingsDraft.pollIntervalSeconds} onChange={(event) => setSettingsDraft((current) => ({ ...current, pollIntervalSeconds: Number(event.target.value) }))} /></div>
                 <div><label htmlFor="health-check-interval">Health check (seconds)</label><input id="health-check-interval" type="number" min="1" max="300" value={settingsDraft.healthCheckIntervalSeconds} onChange={(event) => setSettingsDraft((current) => ({ ...current, healthCheckIntervalSeconds: Number(event.target.value) }))} /></div>
                 <div><label htmlFor="audit-retention">Audit retention (days)</label><input id="audit-retention" type="number" min="1" max="3650" value={settingsDraft.auditRetentionDays} onChange={(event) => setSettingsDraft((current) => ({ ...current, auditRetentionDays: Number(event.target.value) }))} /></div>
               </div>

@@ -1,6 +1,6 @@
 import { sql } from "drizzle-orm";
 import { index, integer, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
-import { SUMMARY_ACTOR_KINDS, type AuditOutcome, type SummaryActorKind } from "@/lib/types";
+import { SUMMARY_ACTOR_KINDS, type ActorStatusField, type AuditOutcome, type SummaryActorKind } from "@/lib/types";
 
 export const topologySettings = sqliteTable("topology_settings", {
   id: integer("id").primaryKey().default(1),
@@ -37,8 +37,12 @@ export const actors = sqliteTable("actors", {
   outboundSequence: text("outbound_sequence").notNull().default("Not reported"),
   accounts: text("accounts").notNull().default("Not reported"),
   clockTickInterval: text("clock_tick_interval").notNull().default("Not reported"),
+  actorStatusFields: text("actor_status_fields", { mode: "json" })
+    .$type<ActorStatusField[]>()
+    .notNull()
+    .default([]),
   sessionStarted: text("session_started"),
-  statusRespondedAt: text("status_responded_at"),
+  actorStatusRespondedAt: text("status_responded_at"),
   lastSeen: text("last_seen").notNull().default("Never"),
   lastSeenAt: text("last_seen_at"),
   lastError: text("last_error"),

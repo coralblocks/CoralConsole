@@ -17,7 +17,12 @@ export type ActorKind = SummaryActorKind | "link";
 export type ActorStatus = "online" | "offline";
 export type ActorOperationalState = "closed" | "disconnected" | "rewinding" | "active" | "inactive";
 
-export const BASELINE_ADMIN_ACTIONS = ["list", "status", "healthCheck"] as const;
+export const BASELINE_ADMIN_ACTIONS = ["list", "actorStatus", "healthCheck"] as const;
+
+export type ActorStatusField = {
+  label: string;
+  value: string;
+};
 
 export type Actor = {
   id: string;
@@ -36,8 +41,9 @@ export type Actor = {
   outboundSequence: string;
   accounts: string;
   clockTickInterval: string;
+  actorStatusFields: ActorStatusField[];
   sessionStarted?: string;
-  statusRespondedAt?: string;
+  actorStatusRespondedAt?: string;
   lastSeen: string;
   actions: string[];
   demo?: boolean;

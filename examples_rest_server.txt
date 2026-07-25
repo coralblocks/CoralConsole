@@ -66,7 +66,22 @@ Response:
   "result": true,
   "adminCommand": "list",
   "params": "SEQ",
-  "results": "SEQ open\nSEQ close\nSEQ status\nSEQ setSession\nSEQ endSession\nSEQ setSessionAuto\nSEQ rollSession\nSEQ rollSessionAuto\nSEQ setStore\nSEQ activate\nSEQ addAccount\nSEQ removeAccount\nSEQ resetAccount\nSEQ showAccounts\nSEQ sendMessage\nSEQ setThrottleMaxCommands\nSEQ setThrottleWindow\nSEQ setWarnOnThrottle\n\nSEQ-CommandReceiver-0.0.0.0:40002\nSEQ-SequencerMoldPublisher-224.0.0.0:40040\nSEQ-CircularStore-2004241744\n"
+  "results": "SEQ open\nSEQ close\nSEQ actorStatus\nSEQ status\nSEQ setSession\nSEQ endSession\nSEQ setSessionAuto\nSEQ rollSession\nSEQ rollSessionAuto\nSEQ setStore\nSEQ activate\nSEQ addAccount\nSEQ removeAccount\nSEQ resetAccount\nSEQ showAccounts\nSEQ sendMessage\nSEQ setThrottleMaxCommands\nSEQ setThrottleWindow\nSEQ setWarnOnThrottle\n\nSEQ-CommandReceiver-0.0.0.0:40002\nSEQ-SequencerMoldPublisher-224.0.0.0:40040\nSEQ-CircularStore-2004241744\n"
+}
+
+Request:
+{
+"adminCommand": "SEQ actorStatus",
+"params": "",
+"shouldLog": false
+}
+
+Response:
+{
+  "result": true,
+  "adminCommand": "SEQ actorStatus",
+  "params": "",
+  "results": "name:\tSEQ\ntype:\tSEQUENCER\nclass:\tPassThroughSequencer\nopen:\ttrue\nrewinding:\tfalse\nactive:\ttrue\ndisconnected:\tfalse\nsession:\t2607252236\nsequence:\t4\naccounts:\t1\nclock tick interval:\t-1\nstore implementation:\tCircularStore-1048576-1450\n"
 }
 
 Request:
