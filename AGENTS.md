@@ -38,7 +38,7 @@ Scheduled health refreshes send only `<scope> status` over one dedicated persist
 
 - `topology_settings` stores the singleton shared name, color, poll interval, retention, summary-count visibility, and first-run status.
 - `actors` stores endpoint, discovered identity, type, actions, cached health/session data, and timestamps. Host plus port is unique.
-- The legacy-named `command_audit` table stores the actor snapshot, scoped admin action, parameters, plain-text output, result, error, duration, timestamp, source IP (when trusted), and truncation state. Actor deletion retains audit rows with a null actor reference.
+- The legacy-named `command_audit` table stores the actor snapshot, scoped admin action, parameters, plain-text output, four-state outcome, error, duration, timestamp, source IP (when trusted), and truncation state. Actor deletion retains audit rows with a null actor reference.
 - Audit parameters are capped at 8 KiB and output at 256 KiB. Older rows are purged according to the shared retention setting.
 - `localStorage` is device-specific only: `coral-console-intro` stores intro visibility. `coral-console-actors` is a legacy import source and must not become the canonical topology again.
 - Never send topology, actor, admin action, or audit data to an external service.
@@ -57,7 +57,7 @@ The same-origin API surface is:
 
 Admin actions accept an actor ID, action name, and parameters. The server must resolve the stored actor endpoint; never reintroduce a client-supplied arbitrary relay route. Validate same-origin mutations, keep the actor timeout at 6.5 seconds, and render actor results only as plain text.
 
-The singular boolean `result` in an actor reply is authoritative: only `result: true` is a successful admin action. Treat `result: false`, a missing result, or a non-boolean result as failure and record a failed audit entry. The plural `results` field is output text only and must never determine the outcome.
+The singular boolean `result` in an actor reply is authoritative. Persist one of four audit outcomes: `success` for a valid response with `result: true`; `failed` for a valid response with `result: false`; `error` for a malformed response, missing or non-boolean `result`, actor error, or non-2xx HTTP response; and `unreachable` when no usable HTTP response arrives because of refusal, reset, timeout, DNS, TLS, or another transport failure. The plural `results` field is output text only and must never determine the outcome.
 
 Actors receive JSON shaped as:
 

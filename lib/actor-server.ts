@@ -1,7 +1,7 @@
 import { Agent as HttpAgent, request as requestHttp } from "node:http";
 import { Agent as HttpsAgent, request as requestHttps } from "node:https";
 import type { Socket } from "node:net";
-import type { Actor, ActorKind, AdminActionReply } from "./types";
+import type { Actor, ActorKind, AdminActionReply, AuditOutcome } from "./types";
 
 const ACTOR_TIMEOUT_MS = 6500;
 const STATUS_CONNECTION_LOST = "The persistent status connection was lost.";
@@ -22,7 +22,12 @@ type StatusConnection = {
 const statusConnections = new Map<string, StatusConnection>();
 
 export class ActorCallError extends Error {
-  constructor(message: string, public status = 502, public reply?: AdminActionReply) {
+  constructor(
+    message: string,
+    public status = 502,
+    public reply?: AdminActionReply,
+    public outcome: Exclude<AuditOutcome, "success"> = "error",
+  ) {
     super(message);
   }
 }
@@ -234,7 +239,7 @@ export async function callActorEndpoint(
       throw new ActorCallError(adminActionError(payload.error), 400, payload);
     }
     if (payload.result === false) {
-      throw new ActorCallError("Actor reported that the admin action failed.", 400, payload);
+      throw new ActorCallError("Actor reported that the admin action failed.", 400, payload, "failed");
     }
     if (payload.result !== true) {
       throw new ActorCallError("Actor response is missing the required boolean result.", 502, payload);
@@ -245,7 +250,7 @@ export async function callActorEndpoint(
     const message = error instanceof Error && error.name === "AbortError"
       ? "Actor did not respond within 6.5 seconds."
       : "Could not reach the actor. Check its address, REST port, and network access.";
-    throw new ActorCallError(message, 502);
+    throw new ActorCallError(message, 502, undefined, "unreachable");
   }
 }
 

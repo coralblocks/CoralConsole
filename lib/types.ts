@@ -52,6 +52,9 @@ export type TopologySettings = {
   setupComplete: boolean;
 };
 
+export const AUDIT_OUTCOMES = ["success", "failed", "error", "unreachable"] as const;
+export type AuditOutcome = typeof AUDIT_OUTCOMES[number];
+
 export type AuditEntry = {
   id: number;
   actorId: string | null;
@@ -60,7 +63,7 @@ export type AuditEntry = {
   action: string;
   params: string;
   output: string;
-  success: boolean;
+  outcome: AuditOutcome;
   error: string | null;
   durationMs: number;
   sourceIp: string | null;

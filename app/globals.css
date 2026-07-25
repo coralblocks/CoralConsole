@@ -229,12 +229,14 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .actor-audit-panel { background: rgba(255, 254, 249, .8); border: 1px solid rgba(16, 43, 38, .1); border-radius: 22px; overflow: hidden; }
 .actor-audit-panel .section-heading { padding-block: 20px; }
 .actor-audit-list { display: grid; gap: 1px; background: var(--line); }
-.actor-audit-list article { align-items: start; background: var(--panel); display: grid; gap: 14px; grid-template-columns: 70px minmax(150px, .7fr) minmax(0, 1.3fr); padding: 16px 26px; }
+.actor-audit-list article { align-items: start; background: var(--panel); display: grid; gap: 14px; grid-template-columns: 82px minmax(150px, .7fr) minmax(0, 1.3fr); padding: 16px 26px; }
 .actor-audit-list article > div { display: grid; }
 .actor-audit-list article small { color: var(--muted); font-family: var(--font-plex-mono), monospace; font-size: 8px; margin-top: 4px; }
 .actor-audit-list pre { color: #40504c; font-family: var(--font-plex-mono), monospace; font-size: 8px; line-height: 1.5; margin: 0; max-height: 64px; overflow: auto; white-space: pre-wrap; }
-.audit-outcome { align-self: start; background: var(--lime-soft); border-radius: 999px; color: #587318; display: inline-flex; font-family: var(--font-plex-mono), monospace; font-size: 8px; justify-content: center; padding: 6px 8px; text-transform: uppercase; }
-.audit-outcome.failure { background: var(--coral-soft); color: #9a3d36; }
+.audit-outcome { align-self: start; background: var(--lime-soft); border-radius: 999px; color: #587318; display: inline-flex; font-family: var(--font-plex-mono), monospace; font-size: 8px; justify-content: center; min-width: 72px; padding: 6px 8px; text-transform: uppercase; white-space: nowrap; }
+.audit-outcome.failed { background: var(--coral-soft); color: #9a3d36; }
+.audit-outcome.error { background: #fff0cd; color: #846018; }
+.audit-outcome.unreachable { background: #e4ebeb; color: #435b57; }
 .empty-audit { color: var(--muted); margin: 0; padding: 42px 24px; text-align: center; }
 .detail-back { min-height: 40px; }
 .actor-detail-empty { background: rgba(255, 254, 249, .8); border: 1px solid var(--line); border-radius: 22px; margin: 0 auto; max-width: 680px; padding: 46px; text-align: center; }

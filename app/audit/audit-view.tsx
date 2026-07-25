@@ -2,7 +2,7 @@
 
 import { FormEvent, useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import type { AuditEntry } from "@/lib/types";
+import { AUDIT_OUTCOMES, type AuditEntry, type AuditOutcome } from "@/lib/types";
 
 async function apiRequest<T>(url: string, init?: RequestInit): Promise<T> {
   const response = await fetch(url, init);
@@ -19,7 +19,7 @@ export default function AuditView() {
   const [entries, setEntries] = useState<AuditEntry[]>([]);
   const [query, setQuery] = useState("");
   const [appliedQuery, setAppliedQuery] = useState("");
-  const [outcome, setOutcome] = useState<"all" | "success" | "failure">("all");
+  const [outcome, setOutcome] = useState<"all" | AuditOutcome>("all");
   const [actorId, setActorId] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -80,7 +80,7 @@ export default function AuditView() {
         <form className="audit-controls" onSubmit={search}>
           <label htmlFor="audit-search">Search audit history</label>
           <div><input id="audit-search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Actor, endpoint, action, or output" /><button className="button button-dark" type="submit">Search</button></div>
-          <div className="filters" aria-label="Filter audit outcome">{(["all", "success", "failure"] as const).map((value) => <button key={value} type="button" className={outcome === value ? "active" : ""} onClick={() => setOutcome(value)}>{value}</button>)}</div>
+          <div className="filters" aria-label="Filter audit outcome">{(["all", ...AUDIT_OUTCOMES] as const).map((value) => <button key={value} type="button" className={outcome === value ? "active" : ""} onClick={() => setOutcome(value)}>{value}</button>)}</div>
           {actorId && <button className="actor-scope" type="button" onClick={() => setActorId("")}>Actor filter active ×</button>}
         </form>
 
@@ -94,7 +94,7 @@ export default function AuditView() {
                 <td><strong>{entry.actorName}</strong><small>{entry.actorEndpoint}</small></td>
                 <td><code>{entry.action}</code></td>
                 <td><code>{entry.params || "—"}</code></td>
-                <td><span className={`audit-outcome ${entry.success ? "success" : "failure"}`}>{entry.success ? "Success" : "Failed"}</span></td>
+                <td><span className={`audit-outcome ${entry.outcome}`}>{entry.outcome}</span></td>
                 <td>{entry.durationMs} ms</td>
                 <td><pre>{auditOutput(entry)}{entry.truncated ? "\n[truncated]" : ""}</pre></td>
               </tr>)}</tbody>

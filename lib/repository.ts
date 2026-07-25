@@ -8,6 +8,7 @@ import {
   type ActorKind,
   type ActorStatus,
   type AuditEntry,
+  type AuditOutcome,
   type SummaryActorKind,
   type TopologySettings,
 } from "./types";
@@ -168,10 +169,10 @@ export function recordAudit(entry: Omit<AuditEntry, "id" | "createdAt">) {
   return getDb().insert(adminActionAudit).values(entry).run().lastInsertRowid;
 }
 
-export function listAudit(options: { actorId?: string; query?: string; outcome?: "success" | "failure"; limit?: number }) {
+export function listAudit(options: { actorId?: string; query?: string; outcome?: AuditOutcome; limit?: number }) {
   const clauses: SQL[] = [];
   if (options.actorId) clauses.push(eq(adminActionAudit.actorId, options.actorId));
-  if (options.outcome) clauses.push(eq(adminActionAudit.success, options.outcome === "success"));
+  if (options.outcome) clauses.push(eq(adminActionAudit.outcome, options.outcome));
   if (options.query) {
     const pattern = `%${options.query.replaceAll("%", "\\%").replaceAll("_", "\\_")}%`;
     const search = or(

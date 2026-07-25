@@ -1,6 +1,6 @@
 import { sql } from "drizzle-orm";
 import { index, integer, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
-import { SUMMARY_ACTOR_KINDS, type SummaryActorKind } from "@/lib/types";
+import { SUMMARY_ACTOR_KINDS, type AuditOutcome, type SummaryActorKind } from "@/lib/types";
 
 export const topologySettings = sqliteTable("topology_settings", {
   id: integer("id").primaryKey().default(1),
@@ -52,7 +52,7 @@ export const adminActionAudit = sqliteTable("command_audit", {
   action: text("command").notNull(),
   params: text("params").notNull().default(""),
   output: text("output").notNull().default(""),
-  success: integer("success", { mode: "boolean" }).notNull(),
+  outcome: text("outcome").$type<AuditOutcome>().notNull().default("error"),
   error: text("error"),
   durationMs: integer("duration_ms").notNull(),
   sourceIp: text("source_ip"),
@@ -61,7 +61,7 @@ export const adminActionAudit = sqliteTable("command_audit", {
 }, (table) => [
   index("command_audit_actor_idx").on(table.actorId),
   index("command_audit_created_idx").on(table.createdAt),
-  index("command_audit_success_idx").on(table.success),
+  index("command_audit_outcome_idx").on(table.outcome),
 ]);
 
 export type TopologySettingsRow = typeof topologySettings.$inferSelect;

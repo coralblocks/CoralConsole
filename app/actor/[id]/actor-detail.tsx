@@ -134,7 +134,7 @@ export default function ActorDetail({ actorId }: { actorId: string }) {
 
             <section className="actor-audit-panel" aria-labelledby="actor-audit-title">
               <div className="section-heading"><div><p className="eyebrow">Admin action history</p><h2 id="actor-audit-title">Recent activity</h2></div><Link className="button button-ghost" href={`/audit?actorId=${encodeURIComponent(actor.id)}`}>Open full audit</Link></div>
-              {audit.length ? <div className="actor-audit-list">{audit.map((entry) => <article key={entry.id}><span className={`audit-outcome ${entry.success ? "success" : "failure"}`}>{entry.success ? "Success" : "Failed"}</span><div><strong>{entry.action}</strong><small>{new Date(entry.createdAt).toLocaleString()} · {entry.durationMs} ms</small></div><pre>{auditOutput(entry)}</pre></article>)}</div> : <p className="empty-audit">No admin actions have been run on this actor yet.</p>}
+              {audit.length ? <div className="actor-audit-list">{audit.map((entry) => <article key={entry.id}><span className={`audit-outcome ${entry.outcome}`}>{entry.outcome}</span><div><strong>{entry.action}</strong><small>{new Date(entry.createdAt).toLocaleString()} · {entry.durationMs} ms</small></div><pre>{auditOutput(entry)}</pre></article>)}</div> : <p className="empty-audit">No admin actions have been run on this actor yet.</p>}
             </section>
           </div>
         )}

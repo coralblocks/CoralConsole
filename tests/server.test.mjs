@@ -54,6 +54,8 @@ async function startMockActorServer() {
             "SEQ close",
             "SEQ status",
             "SEQ rollSessionAuto",
+            "SEQ invalidResult",
+            "SEQ dropConnection",
             "",
             "SEQ-CommandReceiver-0.0.0.0:40002",
             "SEQ-SequencerMoldPublisher-224.0.0.0:40040",
@@ -74,10 +76,15 @@ async function startMockActorServer() {
           ].join("\n");
         } else if (input.adminCommand === "SEQ rollSessionAuto" && input.params === "") {
           results = "As a safeguard, pass 'true' to indicate you really want to do this!";
+        } else if (input.adminCommand === "SEQ dropConnection" && input.params === "") {
+          socket.destroy();
+          return;
         }
 
         const responseBody = JSON.stringify({
-          result: input.adminCommand !== "SEQ rollSessionAuto",
+          result: input.adminCommand === "SEQ invalidResult"
+            ? "invalid"
+            : input.adminCommand !== "SEQ rollSessionAuto",
           adminCommand: input.adminCommand,
           params: input.params,
           results,
@@ -247,6 +254,9 @@ test("standalone server persists settings, actors, and admin action audit in SQL
       body: JSON.stringify({ action: "status", params: "" }),
     });
     assert.notEqual(actorServer.requestConnections.at(-1), persistentConnection);
+    const successAudit = await json(server.baseUrl, `/api/audit?actorId=${discovered.actor.id}&query=status&outcome=success&limit=20`);
+    assert.equal(successAudit.entries[0].outcome, "success");
+    assert.equal("success" in successAudit.entries[0], false);
 
     const failedResponse = await fetch(`${server.baseUrl}/api/actors/${discovered.actor.id}/actions`, {
       method: "POST",
@@ -256,11 +266,37 @@ test("standalone server persists settings, actors, and admin action audit in SQL
     const failedPayload = await failedResponse.json();
     assert.equal(failedResponse.ok, false);
     assert.match(failedPayload.error, /admin action failed/i);
-    const failedAudit = await json(server.baseUrl, `/api/audit?actorId=${discovered.actor.id}&query=rollSessionAuto&limit=20`);
+    const failedAudit = await json(server.baseUrl, `/api/audit?actorId=${discovered.actor.id}&query=rollSessionAuto&outcome=failed&limit=20`);
     assert.equal(failedAudit.entries.length, 1);
     assert.equal(failedAudit.entries[0].action, "SEQ rollSessionAuto");
-    assert.equal(failedAudit.entries[0].success, false);
+    assert.equal(failedAudit.entries[0].outcome, "failed");
     assert.match(failedAudit.entries[0].output, /safeguard/);
+
+    const errorResponse = await fetch(`${server.baseUrl}/api/actors/${discovered.actor.id}/actions`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "invalidResult", params: "" }),
+    });
+    const errorPayload = await errorResponse.json();
+    assert.equal(errorResponse.ok, false);
+    assert.match(errorPayload.error, /required boolean result/i);
+    const errorAudit = await json(server.baseUrl, `/api/audit?actorId=${discovered.actor.id}&outcome=error&limit=20`);
+    assert.equal(errorAudit.entries.length, 1);
+    assert.equal(errorAudit.entries[0].action, "SEQ invalidResult");
+    assert.equal(errorAudit.entries[0].outcome, "error");
+
+    const unreachableResponse = await fetch(`${server.baseUrl}/api/actors/${discovered.actor.id}/actions`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "dropConnection", params: "" }),
+    });
+    const unreachablePayload = await unreachableResponse.json();
+    assert.equal(unreachableResponse.ok, false);
+    assert.match(unreachablePayload.error, /could not reach the actor/i);
+    const unreachableAudit = await json(server.baseUrl, `/api/audit?actorId=${discovered.actor.id}&outcome=unreachable&limit=20`);
+    assert.equal(unreachableAudit.entries.length, 1);
+    assert.equal(unreachableAudit.entries[0].action, "SEQ dropConnection");
+    assert.equal(unreachableAudit.entries[0].outcome, "unreachable");
 
     assert.equal(actorServer.closeConnection(persistentConnection), true);
     let disconnectedActor;
