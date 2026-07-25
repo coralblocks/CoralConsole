@@ -140,6 +140,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .group-heading > span { align-items: center; background: var(--panel); border: 1px solid var(--line); border-radius: 50%; display: flex; font-family: var(--font-plex-mono), monospace; font-size: 9px; height: 28px; justify-content: center; width: 28px; }
 .group-cards { display: grid; gap: 9px; grid-template-columns: 1fr; }
 .actor-card { --actor-color: var(--coral); --actor-soft: var(--coral-soft); background: var(--panel); border: 1px solid #dfe2db; border-radius: 12px; color: var(--ink); cursor: pointer; display: block; min-width: 0; padding: 14px; text-align: left; text-decoration: none; transition: border .2s ease, box-shadow .2s ease, transform .2s ease; }
+.actor-card.actor-card-offline { background: color-mix(in srgb, var(--coral-soft) 42%, var(--panel)); }
 .actor-card:hover { border-color: var(--actor-color); box-shadow: 0 10px 28px rgba(16,43,38,.09); transform: translateY(-2px); }
 .actor-sequencer { --actor-color: #d9584e; --actor-soft: #ffdeda; }
 .actor-backup-sequencer { --actor-color: #f3aaa2; --actor-soft: #fff4f2; }

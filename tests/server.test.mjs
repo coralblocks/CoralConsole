@@ -698,10 +698,12 @@ test("deployment and UI conventions stay explicit", async () => {
   assert.doesNotMatch(page, /Start time not reported/);
   assert.match(page, /Immediately poll actorStatus and list for every actor/);
   assert.match(page, /actor-card-sequence/);
+  assert.match(page, /actor\.status === "offline" \? " actor-card-offline" : ""/);
   assert.match(page, /state-\$\{actor\.operationalState\}/);
   assert.doesNotMatch(page, /className="actor-data|className="actor-foot/);
   assert.match(page, /ACTOR_KINDS\.filter\(\(kind\) => kind !== "link"\)\.map/);
   assert.match(styles, /\.group-cards \{[^}]*grid-template-columns: 1fr/);
+  assert.match(styles, /\.actor-card\.actor-card-offline \{[^}]*background: color-mix/);
   assert.doesNotMatch(styles, /\.sequencer-groups \.group-cards/);
   assert.match(page, /Shared topology · Persisted in SQLite/);
   assert.match(actorDetail, /\/actions/);

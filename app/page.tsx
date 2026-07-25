@@ -96,7 +96,7 @@ function ActorCard({ actor }: { actor: Actor }) {
   const Icon = meta.icon;
   return (
     <a
-      className={`actor-card actor-${actor.kind}`}
+      className={`actor-card actor-${actor.kind}${actor.status === "offline" ? " actor-card-offline" : ""}`}
       href={`/actor/${encodeURIComponent(actor.id)}`}
       target="_blank"
       rel="noopener noreferrer"
