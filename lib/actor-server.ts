@@ -394,13 +394,21 @@ export type ActorHealthCheck = {
 export async function checkActorHealth(actor: Actor, onDisconnect: StatusDisconnectHandler): Promise<ActorHealthCheck | null> {
   if (!actor.actions.includes("healthCheck")) return null;
   try {
-    await callActorEndpoint(
+    const reply = await callActorEndpoint(
       actor.host,
       actor.port,
       `${actor.name} healthCheck`,
       "",
       { actorId: actor.id, onDisconnect },
     );
+    if (!(reply.results || "").startsWith("ALIVE")) {
+      return {
+        status: actor.status === "offline" ? "offline" : "warning",
+        latency: "health check failed",
+        lastSeen: "just now",
+        error: "Actor health check response does not start with ALIVE.",
+      };
+    }
     const recoveredStatus = actor.kind === "backup-sequencer" ? "standby" : "online";
     return {
       status: actor.status === "warning" ? recoveredStatus : actor.status,

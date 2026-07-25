@@ -82,7 +82,9 @@ async function startMockActorServer() {
           results = "As a safeguard, pass 'true' to indicate you really want to do this!";
         } else if (input.adminCommand === "SEQ healthCheck" && input.params === "") {
           healthCheckCount += 1;
-          results = healthCheckCount === 2 ? "NOT HEALTHY" : "ALIVE and OPEN";
+          results = healthCheckCount === 2 ? "NOT HEALTHY"
+            : healthCheckCount === 3 ? "ALIVE but CLOSED"
+              : "ALIVE and OPEN";
         } else if (input.adminCommand === "SEQ dropConnection" && input.params === "") {
           socket.destroy();
           return;
@@ -90,9 +92,7 @@ async function startMockActorServer() {
 
         const actionResult = input.adminCommand === "SEQ invalidResult"
           ? "invalid"
-          : input.adminCommand === "SEQ healthCheck"
-            ? healthCheckCount !== 2
-            : input.adminCommand !== "SEQ rollSessionAuto";
+          : input.adminCommand !== "SEQ rollSessionAuto";
         const responseBody = JSON.stringify({
           result: actionResult,
           adminCommand: input.adminCommand,
