@@ -1,5 +1,5 @@
-import { discoverActor } from "./actor-server";
-import { listActors, markActorOffline, updateActor } from "./repository";
+import { refreshActorStatus } from "./actor-server";
+import { getActor, listActors, markActorOffline, updateActor } from "./repository";
 
 let refreshPromise: Promise<ReturnType<typeof listActors>> | null = null;
 let lastRefreshAt = 0;
@@ -12,8 +12,11 @@ async function refreshWithLimit() {
       const actor = actors[cursor++];
       if (!actor || actor.demo) continue;
       try {
-        const refreshed = await discoverActor(actor.host, actor.port, actor.id);
-        updateActor({ ...refreshed, account: actor.account, cluster: actor.cluster });
+        const refreshed = await refreshActorStatus(actor, (message) => {
+          const current = getActor(actor.id);
+          if (current && !current.demo) markActorOffline(current, message);
+        });
+        updateActor(refreshed);
       } catch (error) {
         markActorOffline(actor, error instanceof Error ? error.message : "Actor refresh failed.");
       }

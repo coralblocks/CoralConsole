@@ -20,6 +20,8 @@ The supported actor types are Sequencer, Backup Sequencer, Replayer, Archiver, L
 
 Discovery begins with `list`, then calls `list` with the first non-`VM` scope. For any actor with a `status` action, discovery also calls `<scope> status`; use its explicit type, class, account, open/active state, and session metadata when available. An inactive Sequencer is a Backup Sequencer. Session identifiers normally use `YYMMDDHHmm`; show both the raw identifier and a readable start time. Prefer an explicit start time returned by the actor. Coral REST servers may return a non-standard timezone name in the HTTP `Date` header and literal tabs inside JSON strings, so actor calls use Node's tolerant HTTP parser and narrowly repair unescaped JSON control characters.
 
+Scheduled health refreshes send only `<scope> status` over one dedicated persistent HTTP/HTTPS connection per actor. That connection has no client-side idle expiry and is reused across the configured polling interval; a socket close, socket error, or request failure marks the actor offline, and the next scheduled refresh may establish its replacement. Discovery calls and operator-triggered admin commands use new one-shot connections and close them after each response.
+
 ## Runtime architecture
 
 - Next.js 16 standalone Node.js server, React 19, and TypeScript.

@@ -22,65 +22,79 @@ async function availablePort() {
 
 async function startMockActorServer() {
   const requests = [];
+  const requestConnections = [];
+  const sockets = new Map();
+  let connectionCount = 0;
   const server = createServer((socket) => {
+    const connectionId = ++connectionCount;
+    sockets.set(connectionId, socket);
     let received = Buffer.alloc(0);
-    let handled = false;
+    socket.on("close", () => sockets.delete(connectionId));
     socket.on("data", (chunk) => {
-      if (handled) return;
       received = Buffer.concat([received, chunk]);
-      const headerEnd = received.indexOf("\r\n\r\n");
-      if (headerEnd < 0) return;
-      const headers = received.subarray(0, headerEnd).toString("utf8").split("\r\n");
-      const contentLength = Number(headers.find((line) => line.toLowerCase().startsWith("content-length:"))?.split(":")[1] || 0);
-      const bodyStart = headerEnd + 4;
-      if (received.length < bodyStart + contentLength) return;
-      handled = true;
-      const input = JSON.parse(received.subarray(bodyStart, bodyStart + contentLength).toString("utf8"));
-      requests.push(input);
+      while (received.length) {
+        const headerEnd = received.indexOf("\r\n\r\n");
+        if (headerEnd < 0) return;
+        const headers = received.subarray(0, headerEnd).toString("utf8").split("\r\n");
+        const contentLength = Number(headers.find((line) => line.toLowerCase().startsWith("content-length:"))?.split(":")[1] || 0);
+        const bodyStart = headerEnd + 4;
+        const bodyEnd = bodyStart + contentLength;
+        if (received.length < bodyEnd) return;
+        const input = JSON.parse(received.subarray(bodyStart, bodyEnd).toString("utf8"));
+        received = received.subarray(bodyEnd);
+        requests.push(input);
+        requestConnections.push(connectionId);
 
-      let results = "";
-      if (input.adminCommand === "list" && input.params === "") {
-        results = "VM\nSEQ\n";
-      } else if (input.adminCommand === "list" && input.params === "SEQ") {
-        results = [
-          "SEQ open",
-          "SEQ close",
-          "SEQ status",
+        let results = "";
+        if (input.adminCommand === "list" && input.params === "") {
+          results = "VM\nSEQ\n";
+        } else if (input.adminCommand === "list" && input.params === "SEQ") {
+          results = [
+            "SEQ open",
+            "SEQ close",
+            "SEQ status",
+            "",
+            "SEQ-CommandReceiver-0.0.0.0:40002",
+            "SEQ-SequencerMoldPublisher-224.0.0.0:40040",
+            "SEQ-CircularStore-2607232154-1048576",
+            "",
+          ].join("\n");
+        } else if (input.adminCommand === "SEQ status" && input.params === "") {
+          results = [
+            "actor type:\tSEQUENCER",
+            "actor class:\tcom.coralblocks.coralsequencer.mq.PassThroughSequencer",
+            "sequencer name:\tSEQ",
+            "sequencer account:\tTRADING",
+            "sequencer active:\ttrue",
+            "sequencer open:\ttrue",
+            "sequencer session:\t2607232154",
+            "publisher pending replays:\t0",
+            "",
+          ].join("\n");
+        }
+
+        const responseBody = JSON.stringify({
+          result: true,
+          adminCommand: input.adminCommand,
+          params: input.params,
+          results,
+        }).replaceAll("\\t", "\t");
+        const shouldClose = headers.some((line) => /^connection:\s*close$/i.test(line));
+        const response = [
+          "HTTP/1.1 200 OK",
+          "Content-Type: application/json",
+          "Date: Thu, 23 Jul 2026 21:59:06 Europe/Stockholm",
+          `Content-Length: ${Buffer.byteLength(responseBody)}`,
+          `Connection: ${shouldClose ? "close" : "keep-alive"}`,
           "",
-          "SEQ-CommandReceiver-0.0.0.0:40002",
-          "SEQ-SequencerMoldPublisher-224.0.0.0:40040",
-          "SEQ-CircularStore-2607232154-1048576",
-          "",
-        ].join("\n");
-      } else if (input.adminCommand === "SEQ status" && input.params === "") {
-        results = [
-          "actor type:\tSEQUENCER",
-          "actor class:\tcom.coralblocks.coralsequencer.mq.PassThroughSequencer",
-          "sequencer name:\tSEQ",
-          "sequencer account:\tTRADING",
-          "sequencer active:\ttrue",
-          "sequencer open:\ttrue",
-          "sequencer session:\t2607232154",
-          "publisher pending replays:\t0",
-          "",
-        ].join("\n");
+          responseBody,
+        ].join("\r\n");
+        if (shouldClose) {
+          socket.end(response);
+          return;
+        }
+        socket.write(response);
       }
-
-      const responseBody = JSON.stringify({
-        result: true,
-        adminCommand: input.adminCommand,
-        params: input.params,
-        results,
-      }).replaceAll("\\t", "\t");
-      socket.end([
-        "HTTP/1.1 200 OK",
-        "Content-Type: application/json",
-        "Date: Thu, 23 Jul 2026 21:59:06 Europe/Stockholm",
-        `Content-Length: ${Buffer.byteLength(responseBody)}`,
-        "Connection: close",
-        "",
-        responseBody,
-      ].join("\r\n"));
     });
   });
   await new Promise((resolveListen, reject) => {
@@ -89,7 +103,19 @@ async function startMockActorServer() {
   });
   const address = server.address();
   if (!address || typeof address === "string") throw new Error("Mock actor server did not bind to a TCP port.");
-  return { server, port: address.port, requests };
+  return {
+    server,
+    port: address.port,
+    requests,
+    requestConnections,
+    get connectionCount() { return connectionCount; },
+    closeConnection(connectionId) {
+      const socket = sockets.get(connectionId);
+      if (!socket) return false;
+      socket.destroy();
+      return true;
+    },
+  };
 }
 
 async function startServer(databasePath, port) {
@@ -189,6 +215,51 @@ test("standalone server persists settings, actors, and command audit in SQLite",
       { adminCommand: "list", params: "SEQ" },
       { adminCommand: "SEQ status", params: "" },
     ]);
+    assert.deepEqual(actorServer.requestConnections, [1, 2, 3]);
+
+    const firstRefresh = await json(server.baseUrl, "/api/actors/refresh", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ force: true }),
+    });
+    assert.equal(firstRefresh.actors.find((actor) => actor.id === discovered.actor.id)?.status, "online");
+    const persistentConnection = actorServer.requestConnections.at(-1);
+    assert.equal(actorServer.requests.at(-1).adminCommand, "SEQ status");
+    const connectionsAfterFirstRefresh = actorServer.connectionCount;
+
+    await json(server.baseUrl, "/api/actors/refresh", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ force: true }),
+    });
+    assert.equal(actorServer.requests.at(-1).adminCommand, "SEQ status");
+    assert.equal(actorServer.requestConnections.at(-1), persistentConnection);
+    assert.equal(actorServer.connectionCount, connectionsAfterFirstRefresh);
+
+    await json(server.baseUrl, `/api/actors/${discovered.actor.id}/commands`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ command: "status", params: "" }),
+    });
+    assert.notEqual(actorServer.requestConnections.at(-1), persistentConnection);
+
+    assert.equal(actorServer.closeConnection(persistentConnection), true);
+    let disconnectedActor;
+    for (let attempt = 0; attempt < 50; attempt += 1) {
+      const payload = await json(server.baseUrl, "/api/actors");
+      disconnectedActor = payload.actors.find((actor) => actor.id === discovered.actor.id);
+      if (disconnectedActor?.status === "offline") break;
+      await new Promise((resolveWait) => setTimeout(resolveWait, 20));
+    }
+    assert.equal(disconnectedActor?.status, "offline");
+
+    const reconnected = await json(server.baseUrl, "/api/actors/refresh", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ force: true }),
+    });
+    assert.equal(reconnected.actors.find((actor) => actor.id === discovered.actor.id)?.status, "online");
+    assert.notEqual(actorServer.requestConnections.at(-1), persistentConnection);
 
     const command = await json(server.baseUrl, "/api/actors/demo-seq-01/commands", {
       method: "POST",
