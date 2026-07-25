@@ -12,6 +12,7 @@ import {
   type ActorOperationalState,
   type ActorStatus,
 } from "./actor-ui";
+import { sessionStartFromId } from "@/lib/session";
 import { SUMMARY_ACTOR_KINDS, type SummaryActorKind, type TopologySettings } from "@/lib/types";
 
 const LEGACY_ACTORS_KEY = "coral-console-actors";
@@ -46,14 +47,6 @@ async function apiRequest<T>(url: string, init?: RequestInit): Promise<T> {
   const payload = await response.json() as T & { error?: string };
   if (!response.ok) throw new Error(payload.error || "The request failed.");
   return payload;
-}
-
-function sessionStartFromId(session: string) {
-  const match = session.match(/^(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})$/);
-  if (!match) return undefined;
-  const [, year, month, day, hour, minute] = match;
-  const monthLabel = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"][Number(month) - 1];
-  return monthLabel ? `${day} ${monthLabel} 20${year} · ${hour}:${minute}` : undefined;
 }
 
 function normalizeSavedActors(value: unknown): Actor[] {
@@ -397,7 +390,11 @@ export default function Home() {
             <div className="connectivity-count online"><i /><p><strong>{onlineCount}</strong><small>ONLINE</small></p></div>
             <div className="connectivity-count offline"><i /><p><strong>{offlineCount}</strong><small>OFFLINE</small></p></div>
           </div>
-          <div className="pulse-session"><small>Active session</small><strong>{sessionSequencer?.session || "Not discovered"}</strong><span>{sessionSequencer?.sessionStarted ? `Started ${sessionSequencer.sessionStarted}` : "Start time not reported"}</span></div>
+          <div className="pulse-session">
+            <small>Active session</small>
+            <strong>{sessionSequencer?.session || "Not discovered"}</strong>
+            {sessionSequencer?.sessionStarted && <span>Started {sessionSequencer.sessionStarted}</span>}
+          </div>
         </aside>
       </section>
 

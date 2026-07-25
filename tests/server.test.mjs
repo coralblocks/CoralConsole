@@ -29,6 +29,7 @@ async function startMockActorServer() {
   let scopedListCount = 0;
   let healthCheckCount = 0;
   let actorStatusCount = 0;
+  let session = "2607232154";
   let operationalState = { open: true, disconnected: false, rewinding: false, active: true };
   const server = createServer((socket) => {
     const connectionId = ++connectionCount;
@@ -82,7 +83,7 @@ async function startMockActorServer() {
             `rewinding:\t${operationalState.rewinding}`,
             `active:\t${operationalState.active}`,
             `disconnected:\t${operationalState.disconnected}`,
-            "session:\t2607232154",
+            `session:\t${session}`,
             ...(actorStatusCount === 1
               ? [
                   "sequence:\t41",
@@ -162,6 +163,9 @@ async function startMockActorServer() {
     get connectionCount() { return connectionCount; },
     setOperationalState(next) {
       operationalState = next;
+    },
+    setSession(next) {
+      session = next;
     },
     closeConnection(connectionId) {
       const socket = sockets.get(connectionId);
@@ -340,6 +344,15 @@ test("standalone server persists settings, actors, and admin action audit in SQL
     actorServer.setOperationalState({ open: true, disconnected: false, rewinding: false, active: true });
     assert.equal(actorServer.requestConnections.at(-2), persistentConnection);
     assert.equal(actorServer.requestConnections.at(-1), persistentConnection);
+
+    actorServer.setSession("overnight-primary");
+    const unparseableSessionRefresh = await json(server.baseUrl, `/api/actors/${discovered.actor.id}/refresh`, {
+      method: "POST",
+    });
+    assert.equal(unparseableSessionRefresh.actor.session, "overnight-primary");
+    assert.equal(unparseableSessionRefresh.actor.sessionStarted, undefined);
+    actorServer.setSession("2607232154");
+
     const auditAfterTargetedRefresh = await json(server.baseUrl, `/api/audit?actorId=${discovered.actor.id}&limit=20`);
     assert.equal(auditAfterTargetedRefresh.entries.length, 0);
 
@@ -681,6 +694,8 @@ test("deployment and UI conventions stay explicit", async () => {
   assert.match(page, /actors online/);
   assert.match(page, /<small>ONLINE<\/small>/);
   assert.match(page, /<small>OFFLINE<\/small>/);
+  assert.match(page, /sessionSequencer\?\.sessionStarted && <span>Started \{sessionSequencer\.sessionStarted\}<\/span>/);
+  assert.doesNotMatch(page, /Start time not reported/);
   assert.match(page, /Immediately poll actorStatus and list for every actor/);
   assert.match(page, /actor-card-sequence/);
   assert.match(page, /state-\$\{actor\.operationalState\}/);

@@ -1,6 +1,7 @@
 import { Agent as HttpAgent, request as requestHttp } from "node:http";
 import { Agent as HttpsAgent, request as requestHttps } from "node:https";
 import type { Socket } from "node:net";
+import { sessionStartFromId } from "./session";
 import { BASELINE_ADMIN_ACTIONS, type Actor, type ActorKind, type ActorOperationalState, type ActorStatus, type ActorStatusField, type AdminActionReply, type AuditOutcome } from "./types";
 
 const ACTOR_TIMEOUT_MS = 6500;
@@ -306,15 +307,6 @@ export function classFromDiscovery(scope: string, details: string, kind: ActorKi
   return addressStart > 0 ? withoutScope.slice(0, addressStart) : withoutScope;
 }
 
-export function sessionStartFromId(session: string) {
-  const match = session.match(/^(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})$/);
-  if (!match) return undefined;
-  const [, year, month, day, hour, minute] = match;
-  const monthLabel = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"][Number(month) - 1];
-  if (!monthLabel) return undefined;
-  return `${day} ${monthLabel} 20${year} · ${hour}:${minute}`;
-}
-
 function actorStatusKey(label: string) {
   return label.toLowerCase().replace(/[^a-z0-9]/g, "");
 }
@@ -398,7 +390,7 @@ function actorFromActorStatus(actor: Actor, actorStatusDetails: string): Actor {
     accounts: actorStatusValue(fields, "accounts") || actor.accounts,
     clockTickInterval: actorStatusValue(fields, "clock tick interval") || actor.clockTickInterval,
     actorStatusFields: fields,
-    sessionStarted: sessionStartFromActorStatus(fields, session) || actor.sessionStarted,
+    sessionStarted: sessionStartFromActorStatus(fields, session),
     actorStatusRespondedAt: new Date().toISOString(),
     lastSeen: "just now",
   };
