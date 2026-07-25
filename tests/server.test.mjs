@@ -528,6 +528,7 @@ test("deployment and UI conventions stay explicit", async () => {
   assert.match(page, /\/api\/actors\/refresh/);
   assert.match(page, /\/api\/actors\/health/);
   assert.match(page, /Keep polling actors when nobody is viewing CoralConsole/);
+  assert.match(page, /disabled=\{settingsDraft\.keepPollingWithoutViewers\}/);
   assert.match(page, /Shared topology · Persisted in SQLite/);
   assert.match(actorDetail, /\/actions/);
   assert.match(actorDetail, /\/api\/actors\/refresh/);

@@ -280,6 +280,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .polling-option strong { color: var(--ink); font-size: 10px; line-height: 1.4; }
 .polling-option small { color: var(--muted); font-size: 9px; font-weight: 500; line-height: 1.5; }
 .grace-period-setting { display: grid; max-width: calc(50% - 6px); }
+.grace-period-setting:has(input:disabled) { opacity: .48; }
 .summary-settings { border: 0; border-top: 1px solid var(--line); margin: 22px 0 0; padding: 19px 0 0; }
 .summary-settings legend { float: left; font-size: 10px; font-weight: 800; padding: 0; text-transform: uppercase; width: 100%; }
 .summary-settings > p { clear: both; color: var(--muted); font-size: 10px; line-height: 1.5; margin: 6px 0 12px; }

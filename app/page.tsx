@@ -466,7 +466,7 @@ export default function Home() {
                 </label>
                 <div className="grace-period-setting">
                   <label htmlFor="viewer-grace-period">Stop polling after no viewers (seconds)</label>
-                  <input id="viewer-grace-period" type="number" min="5" max="3600" value={settingsDraft.viewerGracePeriodSeconds} onChange={(event) => setSettingsDraft((current) => ({ ...current, viewerGracePeriodSeconds: Number(event.target.value) }))} />
+                  <input id="viewer-grace-period" type="number" min="5" max="3600" value={settingsDraft.viewerGracePeriodSeconds} disabled={settingsDraft.keepPollingWithoutViewers} onChange={(event) => setSettingsDraft((current) => ({ ...current, viewerGracePeriodSeconds: Number(event.target.value) }))} />
                 </div>
               </fieldset>
               <fieldset className="summary-settings">
