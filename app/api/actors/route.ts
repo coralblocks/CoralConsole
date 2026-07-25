@@ -1,11 +1,13 @@
 import { discoverActor } from "@/lib/actor-server";
 import { apiErrorResponse, apiJson, ApiError, mutationAllowed, readJson } from "@/lib/http";
+import { ensureActorScheduler } from "@/lib/refresh";
 import { createActor, listActors } from "@/lib/repository";
 
 export const runtime = "nodejs";
 
 export function GET() {
   try {
+    ensureActorScheduler();
     return apiJson({ actors: listActors() });
   } catch (error) {
     return apiErrorResponse(error);

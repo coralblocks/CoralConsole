@@ -86,6 +86,7 @@ export function getSettings(): TopologySettings {
     topologyName: row.topologyName,
     backgroundColor: row.backgroundColor,
     pollIntervalSeconds: row.pollIntervalSeconds,
+    healthCheckIntervalSeconds: row.healthCheckIntervalSeconds,
     auditRetentionDays: row.auditRetentionDays,
     summaryActorKinds: validSummaryActorKinds(row.summaryActorKinds),
     setupComplete: row.setupComplete,
@@ -159,6 +160,21 @@ export function markActorOffline(actor: Actor, error: string) {
     lastError: error,
     updatedAt: new Date().toISOString(),
   }).where(eq(actors.id, actor.id)).run();
+}
+
+export function recordActorHeartbeat(
+  actorId: string,
+  heartbeat: { status: ActorStatus; latency: string; lastSeen: string; error: string | null },
+) {
+  const now = new Date().toISOString();
+  getDb().update(actors).set({
+    status: heartbeat.status,
+    latency: heartbeat.latency,
+    lastSeen: heartbeat.lastSeen,
+    lastSeenAt: now,
+    lastError: heartbeat.error,
+    updatedAt: now,
+  }).where(eq(actors.id, actorId)).run();
 }
 
 export function deleteActor(id: string) {

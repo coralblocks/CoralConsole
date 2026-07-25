@@ -26,6 +26,7 @@ async function startMockActorServer() {
   const sockets = new Map();
   let connectionCount = 0;
   let scopedListCount = 0;
+  let healthCheckCount = 0;
   const server = createServer((socket) => {
     const connectionId = ++connectionCount;
     sockets.set(connectionId, socket);
@@ -79,15 +80,21 @@ async function startMockActorServer() {
           ].join("\n");
         } else if (input.adminCommand === "SEQ rollSessionAuto" && input.params === "") {
           results = "As a safeguard, pass 'true' to indicate you really want to do this!";
+        } else if (input.adminCommand === "SEQ healthCheck" && input.params === "") {
+          healthCheckCount += 1;
+          results = healthCheckCount === 2 ? "NOT HEALTHY" : "ALIVE and OPEN";
         } else if (input.adminCommand === "SEQ dropConnection" && input.params === "") {
           socket.destroy();
           return;
         }
 
+        const actionResult = input.adminCommand === "SEQ invalidResult"
+          ? "invalid"
+          : input.adminCommand === "SEQ healthCheck"
+            ? healthCheckCount !== 2
+            : input.adminCommand !== "SEQ rollSessionAuto";
         const responseBody = JSON.stringify({
-          result: input.adminCommand === "SEQ invalidResult"
-            ? "invalid"
-            : input.adminCommand !== "SEQ rollSessionAuto",
+          result: actionResult,
           adminCommand: input.adminCommand,
           params: input.params,
           results,
@@ -191,6 +198,7 @@ test("standalone server persists settings, actors, and admin action audit in SQL
 
     const initial = await json(server.baseUrl, "/api/settings");
     assert.equal(initial.settings.setupComplete, false);
+    assert.equal(initial.settings.healthCheckIntervalSeconds, 5);
 
     const saved = await json(server.baseUrl, "/api/settings", {
       method: "PATCH",
@@ -199,12 +207,14 @@ test("standalone server persists settings, actors, and admin action audit in SQL
         topologyName: "Test Topology",
         backgroundColor: "#e8f2ed",
         pollIntervalSeconds: 30,
+        healthCheckIntervalSeconds: 1,
         auditRetentionDays: 90,
         summaryActorKinds: ["sequencer", "replayer", "application"],
         setupComplete: true,
       }),
     });
     assert.equal(saved.settings.topologyName, "Test Topology");
+    assert.equal(saved.settings.healthCheckIntervalSeconds, 1);
     assert.deepEqual(saved.settings.summaryActorKinds, ["sequencer", "replayer", "application"]);
 
     const actorPayload = await json(server.baseUrl, "/api/actors");
@@ -248,6 +258,29 @@ test("standalone server persists settings, actors, and admin action audit in SQL
     ]);
     assert.equal(actorServer.requestConnections.at(-2), persistentConnection);
     const connectionsAfterFirstRefresh = actorServer.connectionCount;
+
+    for (let attempt = 0; attempt < 100 && actorServer.requests.at(-1)?.adminCommand !== "SEQ healthCheck"; attempt += 1) {
+      await new Promise((resolveWait) => setTimeout(resolveWait, 20));
+    }
+    assert.deepEqual(actorServer.requests.at(-1), { adminCommand: "SEQ healthCheck", params: "" });
+    assert.equal(actorServer.requestConnections.at(-1), persistentConnection);
+    assert.equal(actorServer.connectionCount, connectionsAfterFirstRefresh);
+
+    const failedHealthCheck = await json(server.baseUrl, "/api/actors/health", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ force: true }),
+    });
+    assert.equal(failedHealthCheck.actors.find((actor) => actor.id === discovered.actor.id)?.status, "warning");
+    assert.equal(actorServer.requestConnections.at(-1), persistentConnection);
+
+    const recoveredHealthCheck = await json(server.baseUrl, "/api/actors/health", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ force: true }),
+    });
+    assert.equal(recoveredHealthCheck.actors.find((actor) => actor.id === discovered.actor.id)?.status, "online");
+    assert.equal(actorServer.requestConnections.at(-1), persistentConnection);
 
     await json(server.baseUrl, "/api/actors/refresh", {
       method: "POST",
@@ -350,6 +383,7 @@ test("standalone server persists settings, actors, and admin action audit in SQL
     const persistedAudit = await json(server.baseUrl, "/api/audit?actorId=demo-seq-01&limit=20");
     const persistedActors = await json(server.baseUrl, "/api/actors");
     assert.equal(persistedSettings.settings.topologyName, "Test Topology");
+    assert.equal(persistedSettings.settings.healthCheckIntervalSeconds, 1);
     assert.deepEqual(persistedSettings.settings.summaryActorKinds, ["sequencer", "replayer", "application"]);
     assert.equal(persistedAudit.entries.length, 1);
     assert.equal(persistedActors.actors.some((actor) => actor.host === "127.0.0.1" && actor.port === actorServer.port), true);
@@ -374,9 +408,11 @@ test("deployment and UI conventions stay explicit", async () => {
   ]);
   assert.match(page, /target="_blank"/);
   assert.match(page, /\/api\/actors\/refresh/);
+  assert.match(page, /\/api\/actors\/health/);
   assert.match(page, /Shared topology · Persisted in SQLite/);
   assert.match(actorDetail, /\/actions/);
   assert.match(actorDetail, /\/api\/actors\/refresh/);
+  assert.match(actorDetail, /\/api\/actors\/health/);
   assert.match(actorDetail, /Recent activity/);
   assert.match(guide, /Keep this file current/);
   assert.match(compose, /coralconsole-data:\/data/);

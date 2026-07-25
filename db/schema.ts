@@ -7,6 +7,7 @@ export const topologySettings = sqliteTable("topology_settings", {
   topologyName: text("topology_name").notNull().default("Coral Topology"),
   backgroundColor: text("background_color").notNull().default("#f4eee7"),
   pollIntervalSeconds: integer("poll_interval_seconds").notNull().default(30),
+  healthCheckIntervalSeconds: integer("health_check_interval_seconds").notNull().default(5),
   auditRetentionDays: integer("audit_retention_days").notNull().default(90),
   summaryActorKinds: text("summary_actor_kinds", { mode: "json" })
     .$type<SummaryActorKind[]>()

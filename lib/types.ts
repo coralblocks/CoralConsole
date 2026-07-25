@@ -47,6 +47,7 @@ export type TopologySettings = {
   topologyName: string;
   backgroundColor: string;
   pollIntervalSeconds: number;
+  healthCheckIntervalSeconds: number;
   auditRetentionDays: number;
   summaryActorKinds: SummaryActorKind[];
   setupComplete: boolean;

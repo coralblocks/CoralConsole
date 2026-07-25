@@ -1,0 +1,1 @@
+ALTER TABLE `topology_settings` ADD `health_check_interval_seconds` integer DEFAULT 5 NOT NULL;

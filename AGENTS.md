@@ -20,7 +20,7 @@ The supported actor types are Sequencer, Backup Sequencer, Replayer, Archiver, L
 
 Discovery begins with `list`, then calls `list` with the first non-`VM` scope. For any actor with a `status` action, discovery also calls `<scope> status`; use its explicit type, class, account, open/active state, and session metadata when available. An inactive Sequencer is a Backup Sequencer. Session identifiers normally use `YYMMDDHHmm`; show both the raw identifier and a readable start time. Prefer an explicit start time returned by the actor. Coral REST servers may return a non-standard timezone name in the HTTP `Date` header and literal tabs inside JSON strings, so actor calls use Node's tolerant HTTP parser and narrowly repair unescaped JSON control characters.
 
-Scheduled refreshes send `<scope> status` and then scoped `list` over one dedicated persistent HTTP/HTTPS connection per actor. This keeps health current and synchronizes newly added admin actions without re-adding the actor. The connection has no client-side idle expiry and is reused across the configured polling interval; a socket close, socket error, or request failure marks the actor offline, and the next scheduled refresh may establish its replacement. Initial discovery calls and operator-triggered admin actions use new one-shot connections and close them after each response. Both the topology and actor-detail views trigger refreshes at the shared configured interval.
+One process-level scheduler owns actor polling independently of browser tabs. It sends `<scope> status` and then scoped `list` over one dedicated persistent HTTP/HTTPS connection per actor at the configured status interval, 30 seconds by default. A separate heartbeat sends `<scope> healthCheck` over that same connection at the configured health-check interval, five seconds by default, and skips actors that do not advertise the action. A transport failure marks the actor offline; a valid response with a failed or invalid health result marks it warning. The connection has no client-side idle expiry, and the next scheduled request may establish its replacement after a failure. Initial discovery calls and operator-triggered admin actions use new one-shot connections and close them after each response. Visible topology and actor-detail views also fetch at those intervals so the displayed state stays current; server-side throttling consolidates those requests with the scheduler.
 
 ## Runtime architecture
 
@@ -36,7 +36,7 @@ Scheduled refreshes send `<scope> status` and then scoped `list` over one dedica
 
 ## Data ownership and persistence
 
-- `topology_settings` stores the singleton shared name, color, poll interval, retention, summary-count visibility, and first-run status.
+- `topology_settings` stores the singleton shared name, color, status and health-check intervals, retention, summary-count visibility, and first-run status.
 - `actors` stores endpoint, discovered identity, type, actions, cached health/session data, and timestamps. Host plus port is unique.
 - The legacy-named `command_audit` table stores the actor snapshot, scoped admin action, parameters, plain-text output, four-state outcome, error, duration, timestamp, source IP (when trusted), and truncation state. Actor deletion retains audit rows with a null actor reference.
 - Audit parameters are capped at 8 KiB and output at 256 KiB. Older rows are purged according to the shared retention setting.
@@ -51,6 +51,7 @@ The same-origin API surface is:
 - `GET/POST /api/actors`
 - `GET/DELETE /api/actors/<id>`
 - `POST /api/actors/refresh`
+- `POST /api/actors/health`
 - `POST /api/actors/<id>/actions`
 - `GET/DELETE /api/audit`
 - `GET /api/health`
@@ -113,7 +114,7 @@ Use the existing npm lockfile. Commit schema changes and their generated migrati
 - Use pictorial Lucide icons, consistent role colors, readable status text, keyboard focus, reduced-motion support, and responsive behavior down to 320 px.
 - Actor cards are links that open `/actor/<id>` in a new browser tab. Do not use scripted popups or browser-local actor snapshots.
 - Admin output belongs in a bounded monospace area. Actor details show recent audit entries and the global Audit page supports search and outcome filtering.
-- Shared topology name, color, polling, retention, and summary-count visibility changes belong in Settings and SQLite, not browser storage.
+- Shared topology name, color, status and health-check polling, retention, and summary-count visibility changes belong in Settings and SQLite, not browser storage.
 
 ## Security and deployment expectations
 

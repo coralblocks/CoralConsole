@@ -1,7 +1,7 @@
 import { Agent as HttpAgent, request as requestHttp } from "node:http";
 import { Agent as HttpsAgent, request as requestHttps } from "node:https";
 import type { Socket } from "node:net";
-import type { Actor, ActorKind, AdminActionReply, AuditOutcome } from "./types";
+import type { Actor, ActorKind, ActorStatus, AdminActionReply, AuditOutcome } from "./types";
 
 const ACTOR_TIMEOUT_MS = 6500;
 const STATUS_CONNECTION_LOST = "The persistent status connection was lost.";
@@ -381,6 +381,41 @@ export async function refreshActorStatus(actor: Actor, onDisconnect: StatusDisco
     // Transport failure means the persistent connection is no longer healthy.
     if (error instanceof ActorCallError && error.outcome !== "unreachable") return refreshed;
     throw error;
+  }
+}
+
+export type ActorHealthCheck = {
+  status: ActorStatus;
+  latency: string;
+  lastSeen: string;
+  error: string | null;
+};
+
+export async function checkActorHealth(actor: Actor, onDisconnect: StatusDisconnectHandler): Promise<ActorHealthCheck | null> {
+  if (!actor.actions.includes("healthCheck")) return null;
+  try {
+    await callActorEndpoint(
+      actor.host,
+      actor.port,
+      `${actor.name} healthCheck`,
+      "",
+      { actorId: actor.id, onDisconnect },
+    );
+    const recoveredStatus = actor.kind === "backup-sequencer" ? "standby" : "online";
+    return {
+      status: actor.status === "warning" ? recoveredStatus : actor.status,
+      latency: "connected",
+      lastSeen: "just now",
+      error: null,
+    };
+  } catch (error) {
+    if (!(error instanceof ActorCallError) || error.outcome === "unreachable") throw error;
+    return {
+      status: actor.status === "offline" ? "offline" : "warning",
+      latency: "health check failed",
+      lastSeen: "just now",
+      error: error.message,
+    };
   }
 }
 
