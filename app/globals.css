@@ -128,7 +128,6 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .actor-groups { display: grid; gap: 14px; grid-template-columns: repeat(2, minmax(0, 1fr)); position: relative; z-index: 1; }
 .actor-group { background: rgba(244, 241, 233, .88); border: 1px solid var(--line); border-radius: 16px; padding: 17px; }
 .sequencer-groups { display: grid; gap: 14px; grid-template-columns: repeat(2, minmax(0, 1fr)); margin-bottom: 14px; position: relative; z-index: 1; }
-.sequencer-groups .group-cards { grid-template-columns: 1fr; }
 .sequencer-primary { background: color-mix(in srgb, #ffdeda 38%, rgba(244, 241, 233, .9)); border-color: color-mix(in srgb, #d9584e 42%, var(--line)); }
 .sequencer-backups { background: color-mix(in srgb, #fff4f2 68%, rgba(244, 241, 233, .9)); border-color: color-mix(in srgb, #f3aaa2 34%, var(--line)); }
 .group-replayer { background: color-mix(in srgb, var(--cyan-soft) 46%, rgba(244, 241, 233, .92)); border-color: color-mix(in srgb, var(--cyan) 32%, var(--line)); }
@@ -139,7 +138,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .group-heading p { color: var(--muted); font-family: var(--font-plex-mono), monospace; font-size: 8px; letter-spacing: .1em; margin: 0 0 3px; text-transform: uppercase; }
 .group-heading h3 { font-size: 13px; margin: 0; }
 .group-heading > span { align-items: center; background: var(--panel); border: 1px solid var(--line); border-radius: 50%; display: flex; font-family: var(--font-plex-mono), monospace; font-size: 9px; height: 28px; justify-content: center; width: 28px; }
-.group-cards { display: grid; gap: 9px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.group-cards { display: grid; gap: 9px; grid-template-columns: 1fr; }
 .actor-card { --actor-color: var(--coral); --actor-soft: var(--coral-soft); background: var(--panel); border: 1px solid #dfe2db; border-radius: 12px; color: var(--ink); cursor: pointer; display: block; min-width: 0; padding: 14px; text-align: left; text-decoration: none; transition: border .2s ease, box-shadow .2s ease, transform .2s ease; }
 .actor-card:hover { border-color: var(--actor-color); box-shadow: 0 10px 28px rgba(16,43,38,.09); transform: translateY(-2px); }
 .actor-sequencer { --actor-color: #d9584e; --actor-soft: #ffdeda; }

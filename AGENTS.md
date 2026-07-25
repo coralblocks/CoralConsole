@@ -117,6 +117,7 @@ Use the existing npm lockfile. Commit schema changes and their generated migrati
 - Keep the header brand square and aligned. Keep the hero optional through the persistent Hide intro / Show intro control.
 - Keep summary and Actor Map on the same responsive gutters. Order summary counts as Sequencer, Backup Sequencers, Replayers, Archivers, Loggers, Bridges, Dispatchers, Nodes, Applications, and MultiMqApps. Never show Links. Show all other actor types, including MultiMqApps at zero, by default; Settings may independently hide any of these counts without changing actor visibility elsewhere.
 - Use pictorial Lucide icons, consistent role colors, readable status text, keyboard focus, reduced-motion support, and responsive behavior down to 320 px.
+- Use the same full-width actor-card layout in every topology group; multiple actors stack within their group rather than switching non-Sequencer types to narrower cards.
 - Actor cards are links that open `/actor/<id>` in a new browser tab. Do not use scripted popups or browser-local actor snapshots.
 - Because actor details open in a dedicated tab, their header does not include a redundant Back to topology link.
 - Every actor card is concise and type-independent: icon, actor/account name, sequence immediately to the name's right, class, operational-state badge, and Online/Offline dot only. Never add endpoint, session, accounts, clock tick, signal, or footer metadata below the icon.

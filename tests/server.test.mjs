@@ -700,6 +700,8 @@ test("deployment and UI conventions stay explicit", async () => {
   assert.match(page, /actor-card-sequence/);
   assert.match(page, /state-\$\{actor\.operationalState\}/);
   assert.doesNotMatch(page, /className="actor-data|className="actor-foot/);
+  assert.match(styles, /\.group-cards \{[^}]*grid-template-columns: 1fr/);
+  assert.doesNotMatch(styles, /\.sequencer-groups \.group-cards/);
   assert.match(page, /Shared topology · Persisted in SQLite/);
   assert.match(actorDetail, /\/actions/);
   assert.match(actorDetail, /\/api\/actors\/refresh/);
