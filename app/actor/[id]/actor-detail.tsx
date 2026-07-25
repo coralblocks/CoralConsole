@@ -189,7 +189,6 @@ export default function ActorDetail({ actorId }: { actorId: string }) {
             <p className="eyebrow">Actor detail</p>
             <h1>{removed ? "Actor removed" : "Actor details unavailable"}</h1>
             <p>{removed ? "The actor was removed from the shared topology." : error || "This actor no longer exists in the shared topology."}</p>
-            <Link className="button button-primary" href="/">Return to topology</Link>
           </div>
         ) : (
           <div className="actor-detail-layout">

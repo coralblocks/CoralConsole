@@ -700,6 +700,7 @@ test("deployment and UI conventions stay explicit", async () => {
   assert.match(page, /actor-card-sequence/);
   assert.match(page, /state-\$\{actor\.operationalState\}/);
   assert.doesNotMatch(page, /className="actor-data|className="actor-foot/);
+  assert.match(page, /ACTOR_KINDS\.filter\(\(kind\) => kind !== "link"\)\.map/);
   assert.match(styles, /\.group-cards \{[^}]*grid-template-columns: 1fr/);
   assert.doesNotMatch(styles, /\.sequencer-groups \.group-cards/);
   assert.match(page, /Shared topology · Persisted in SQLite/);
@@ -715,6 +716,7 @@ test("deployment and UI conventions stay explicit", async () => {
   assert.match(actorDetail, /formatLastActorStatusResponse\(actor\.actorStatusRespondedAt\)/);
   assert.match(actorDetail, /<dt>REST endpoint<\/dt>[\s\S]*<dt>Last response<\/dt>[\s\S]*actor\.actorStatusFields\.map/);
   assert.doesNotMatch(actorDetail, /Back to topology/);
+  assert.doesNotMatch(actorDetail, /Return to topology/);
   assert.match(styles, /\.status-refresh-button \{[^}]*background: color-mix/);
   for (const state of ["active", "inactive", "closed", "rewinding", "disconnected"]) {
     assert.match(styles, new RegExp(`\\.actor-state-badge\\.state-${state} \\{`));

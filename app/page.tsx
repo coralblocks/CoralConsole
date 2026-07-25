@@ -455,7 +455,7 @@ export default function Home() {
             <button className="modal-close" type="button" onClick={() => setAddOpen(false)} aria-label="Close add actor dialog">×</button>
             <p className="eyebrow">Auto-discovery</p><h2 id="add-title">Connect an actor</h2>
             <p>Enter the actor’s network address. The server will discover its role and actions, then save it for everyone using this console.</p>
-            <div className="actor-type-list" aria-label="Supported actor types">{ACTOR_KINDS.map((kind) => <span key={kind}>{ACTOR_META[kind].label}</span>)}</div>
+            <div className="actor-type-list" aria-label="Supported actor types">{ACTOR_KINDS.filter((kind) => kind !== "link").map((kind) => <span key={kind}>{ACTOR_META[kind].label}</span>)}</div>
             <form onSubmit={addActor}>
               <label htmlFor="host">IP address or host</label><input id="host" value={host} onChange={(event) => setHost(event.target.value)} placeholder="10.42.0.10" autoFocus />
               <label htmlFor="port">REST admin port</label><input id="port" value={port} onChange={(event) => setPort(event.target.value)} inputMode="numeric" placeholder="30001" />

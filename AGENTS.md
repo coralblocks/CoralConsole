@@ -113,7 +113,7 @@ Use the existing npm lockfile. Commit schema changes and their generated migrati
 
 - The topology is the primary view; do not turn it into generic dashboard chrome.
 - Split Sequencers into **Primary Sequencer** and **Backup Sequencers** panels, using a darker coral for Primary and a lighter coral for Backups.
-- Use **Replayer Fabric / Replayers**, **Transport layer / Bridge · Dispatcher · MultiMqApp**, **Persistence & audit / Archiver · Logger**, and **Application Layer / Nodes · Applications**. Keep Link supported by discovery but hidden from the topology and summary for now; render Node before Application.
+- Use **Replayer Fabric / Replayers**, **Transport layer / Bridge · Dispatcher · MultiMqApp**, **Persistence & audit / Archiver · Logger**, and **Application Layer / Nodes · Applications**. Keep Link supported by discovery but hidden from the topology, summary, and add-actor supported-type list for now; render Node before Application.
 - Keep the header brand square and aligned. Keep the hero optional through the persistent Hide intro / Show intro control.
 - Keep summary and Actor Map on the same responsive gutters. Order summary counts as Sequencer, Backup Sequencers, Replayers, Archivers, Loggers, Bridges, Dispatchers, Nodes, Applications, and MultiMqApps. Never show Links. Show all other actor types, including MultiMqApps at zero, by default; Settings may independently hide any of these counts without changing actor visibility elsewhere.
 - Use pictorial Lucide icons, consistent role colors, readable status text, keyboard focus, reduced-motion support, and responsive behavior down to 320 px.
