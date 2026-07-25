@@ -345,6 +345,10 @@ function sessionStartFromStatus(results: string, session: string) {
   return explicit || sessionStartFromId(session);
 }
 
+function sequencerStatusValue(results: string, label: string) {
+  return statusValue(results, `sequencer ${label}`) || statusValue(results, label);
+}
+
 function actorFromStatus(actor: Actor, statusDetails: string): Actor {
   const reportedKind = kindFromStatus(statusDetails);
   const kind = reportedKind || actor.kind;
@@ -368,6 +372,15 @@ function actorFromStatus(actor: Actor, statusDetails: string): Actor {
     sequencerRole: isSequencer ? (isBackup ? "Backup" : "Primary") : undefined,
     latency: "connected",
     session,
+    outboundSequence: isSequencer
+      ? sequencerStatusValue(statusDetails, "outbound sequence") || actor.outboundSequence
+      : actor.outboundSequence,
+    accounts: isSequencer
+      ? sequencerStatusValue(statusDetails, "accounts") || actor.accounts
+      : actor.accounts,
+    clockTickInterval: isSequencer
+      ? sequencerStatusValue(statusDetails, "clockTickInterval") || actor.clockTickInterval
+      : actor.clockTickInterval,
     sessionStarted: sessionStartFromStatus(statusDetails, session) || actor.sessionStarted,
     lastSeen: "just now",
   };
@@ -488,6 +501,15 @@ export async function discoverActor(host: string, port: number, id = crypto.rand
     sequencerRole: isSequencer ? (isBackup ? "Backup" : "Primary") : undefined,
     latency: "connected",
     session,
+    outboundSequence: isSequencer
+      ? sequencerStatusValue(statusDetails, "outbound sequence") || "Not reported"
+      : "Not reported",
+    accounts: isSequencer
+      ? sequencerStatusValue(statusDetails, "accounts") || "Not reported"
+      : "Not reported",
+    clockTickInterval: isSequencer
+      ? sequencerStatusValue(statusDetails, "clockTickInterval") || "Not reported"
+      : "Not reported",
     sessionStarted: sessionStartFromStatus(statusDetails, session),
     lastSeen: "just now",
     actions,

@@ -167,6 +167,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .actor-data { display: grid; gap: 7px; grid-template-columns: minmax(0, 1.3fr) minmax(0, .7fr); margin: 14px 0; }
 .actor-data > span { font-family: var(--font-plex-mono), monospace; font-size: 8px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .actor-data small { color: var(--muted); display: block; font-size: 6px; letter-spacing: .08em; margin-bottom: 3px; }
+.primary-sequencer-data { grid-template-columns: repeat(2, minmax(0, 1fr)); margin-bottom: 0; row-gap: 12px; }
 .actor-foot { border-top: 1px solid #eaebe6; color: var(--muted); display: flex; font-family: var(--font-plex-mono), monospace; font-size: 7px; justify-content: space-between; padding-top: 9px; text-transform: uppercase; }
 .empty-group { color: var(--muted); font-size: 11px; grid-column: 1/-1; margin: 13px 0; text-align: center; }
 

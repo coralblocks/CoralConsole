@@ -43,6 +43,13 @@
       "when": 1784993486938,
       "tag": "0005_outgoing_invaders",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1784996290132,
+      "tag": "0006_skinny_redwing",
+      "breakpoints": true
     }
   ]
 }

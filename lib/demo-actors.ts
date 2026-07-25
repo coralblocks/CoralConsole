@@ -3,12 +3,15 @@ import type { Actor } from "./types";
 const base = {
   account: "production",
   session: "operational",
+  outboundSequence: "Not reported",
+  accounts: "Not reported",
+  clockTickInterval: "Not reported",
   lastSeen: "sample data",
   demo: true,
 } as const;
 
 export const DEMO_ACTORS: Actor[] = [
-  { ...base, id: "demo-seq-01", name: "SEQ-NYC-01", kind: "sequencer", status: "healthy", host: "10.42.0.10", port: 30001, className: "Sequencer", sequencerRole: "Primary", latency: "3.4 μs", session: "2607171725", sessionStarted: "17 Jul 2026 · 17:25", actions: ["status", "showAccounts", "rollSession", "list"] },
+  { ...base, id: "demo-seq-01", name: "SEQ-NYC-01", kind: "sequencer", status: "healthy", host: "10.42.0.10", port: 30001, className: "Sequencer", sequencerRole: "Primary", latency: "3.4 μs", session: "2607171725", outboundSequence: "184201", accounts: "12", clockTickInterval: "1000000", sessionStarted: "17 Jul 2026 · 17:25", actions: ["status", "showAccounts", "rollSession", "list"] },
   { ...base, id: "demo-backup-01", name: "SEQ-NYC-02", kind: "backup-sequencer", status: "healthy", host: "10.42.0.11", port: 30001, className: "Sequencer", sequencerRole: "Backup", latency: "4.1 μs", session: "2607171725", sessionStarted: "17 Jul 2026 · 17:25", actions: ["status", "activate", "showAccounts", "list"] },
   { ...base, id: "demo-rpl-01", name: "RPL-EAST-01", kind: "replayer", status: "healthy", host: "10.42.1.20", port: 30002, className: "NetworkReplayer", cluster: "EAST", latency: "0 lag", session: "caught up", actions: ["status", "open", "close", "list"] },
   { ...base, id: "demo-rpl-02", name: "RPL-EAST-02", kind: "replayer", status: "healthy", host: "10.42.1.21", port: 30002, className: "NetworkReplayer", cluster: "EAST", latency: "0 lag", session: "caught up", actions: ["status", "open", "close", "list"] },

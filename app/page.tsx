@@ -75,6 +75,9 @@ function normalizeSavedActors(value: unknown): Actor[] {
       status: legacy.status === "online" || legacy.status === "standby" || legacy.status === "healthy"
         ? "healthy"
         : "unhealthy",
+      outboundSequence: legacy.outboundSequence || "Not reported",
+      accounts: legacy.accounts || "Not reported",
+      clockTickInterval: legacy.clockTickInterval || "Not reported",
       sequencerRole: kind === "sequencer" ? "Primary" : kind === "backup-sequencer" ? "Backup" : undefined,
       sessionStarted: legacy.sessionStarted || sessionStartFromId(legacy.session),
     }];
@@ -97,11 +100,22 @@ function ActorCard({ actor }: { actor: Actor }) {
         <span className="actor-heading"><strong>{actor.name}</strong><small>{actor.className}</small></span>
         <span className={`status-dot status-${actor.status}`} aria-label={statusLabel(actor.status)} />
       </span>
-      <span className="actor-data">
-        <span><small>REST ADMIN</small>{actor.host}:{actor.port}</span>
-        <span><small>{actor.kind === "archiver" ? "STORAGE" : "SIGNAL"}</small>{actor.latency}</span>
-      </span>
-      <span className="actor-foot"><span>{actor.sequencerRole || actor.cluster || actor.account}</span><span>{actor.session}</span></span>
+      {actor.kind === "sequencer" ? (
+        <span className="actor-data primary-sequencer-data">
+          <span><small>SESSION</small>{actor.session}</span>
+          <span><small>SEQUENCE</small>{actor.outboundSequence}</span>
+          <span><small>ACCOUNTS</small>{actor.accounts}</span>
+          <span><small>CLOCK TICK</small>{actor.clockTickInterval}</span>
+        </span>
+      ) : (
+        <>
+          <span className="actor-data">
+            <span><small>REST ADMIN</small>{actor.host}:{actor.port}</span>
+            <span><small>{actor.kind === "archiver" ? "STORAGE" : "SIGNAL"}</small>{actor.latency}</span>
+          </span>
+          <span className="actor-foot"><span>{actor.sequencerRole || actor.cluster || actor.account}</span><span>{actor.session}</span></span>
+        </>
+      )}
     </a>
   );
 }

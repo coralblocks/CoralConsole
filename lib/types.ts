@@ -31,6 +31,9 @@ export type Actor = {
   sequencerRole?: "Primary" | "Backup";
   latency: string;
   session: string;
+  outboundSequence: string;
+  accounts: string;
+  clockTickInterval: string;
   sessionStarted?: string;
   lastSeen: string;
   actions: string[];

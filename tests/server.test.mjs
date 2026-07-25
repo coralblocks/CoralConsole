@@ -28,6 +28,7 @@ async function startMockActorServer() {
   let connectionCount = 0;
   let scopedListCount = 0;
   let healthCheckCount = 0;
+  let statusCount = 0;
   const server = createServer((socket) => {
     const connectionId = ++connectionCount;
     sockets.set(connectionId, socket);
@@ -70,6 +71,7 @@ async function startMockActorServer() {
             "",
           ].join("\n");
         } else if (input.adminCommand === "SEQ status" && input.params === "") {
+          statusCount += 1;
           results = [
             "actor type:\tSEQUENCER",
             "actor class:\tcom.coralblocks.coralsequencer.mq.PassThroughSequencer",
@@ -78,6 +80,17 @@ async function startMockActorServer() {
             "sequencer active:\ttrue",
             "sequencer open:\ttrue",
             "sequencer session:\t2607232154",
+            ...(statusCount === 1
+              ? [
+                  "sequencer outbound sequence:\t41",
+                  "sequencer accounts:\t3",
+                  "sequencer clockTickInterval:\t1000",
+                ]
+              : [
+                  "outbound sequence:\t42",
+                  "accounts:\t4",
+                  "clockTickInterval:\t2000",
+                ]),
             "publisher pending replays:\t0",
             "",
           ].join("\n");
@@ -253,6 +266,9 @@ test("standalone server persists settings, actors, and admin action audit in SQL
     assert.equal(discovered.actor.account, "TRADING");
     assert.equal(discovered.actor.status, "healthy");
     assert.equal(discovered.actor.session, "2607232154");
+    assert.equal(discovered.actor.outboundSequence, "41");
+    assert.equal(discovered.actor.accounts, "3");
+    assert.equal(discovered.actor.clockTickInterval, "1000");
     assert.equal(discovered.actor.sessionStarted, "23 Jul 2026 · 21:54");
     assert.equal(discovered.actor.actions.includes("status"), true);
     assert.equal(discovered.actor.actions.includes("healthCheck"), true);
@@ -271,6 +287,9 @@ test("standalone server persists settings, actors, and admin action audit in SQL
     });
     const firstRefreshedActor = firstRefresh.actors.find((actor) => actor.id === discovered.actor.id);
     assert.equal(firstRefreshedActor?.status, "healthy");
+    assert.equal(firstRefreshedActor?.outboundSequence, "42");
+    assert.equal(firstRefreshedActor?.accounts, "4");
+    assert.equal(firstRefreshedActor?.clockTickInterval, "2000");
     assert.equal(firstRefreshedActor?.actions.includes("healthCheck"), true);
     const persistentConnection = actorServer.requestConnections.at(-1);
     assert.deepEqual(actorServer.requests.slice(-2), [
@@ -541,7 +560,7 @@ test("standalone server persists settings, actors, and admin action audit in SQL
   }
 });
 
-test("health-state migration preserves actors and their audit references", async () => {
+test("actor migrations preserve audit references and initialize status metadata", async () => {
   const database = new Database(":memory:");
   database.pragma("foreign_keys = ON");
   try {
@@ -552,6 +571,7 @@ test("health-state migration preserves actors and their audit references", async
       "0003_large_changeling",
       "0004_handy_thunderbolts",
       "0005_outgoing_invaders",
+      "0006_skinny_redwing",
     ];
     for (const [index, name] of migrationNames.entries()) {
       if (index === 5) {
@@ -576,6 +596,10 @@ test("health-state migration preserves actors and their audit references", async
       { id: "d", status: "unhealthy" },
     ]);
     assert.deepEqual(database.prepare("SELECT actor_id AS actorId FROM command_audit").get(), { actorId: "a" });
+    assert.deepEqual(
+      database.prepare("SELECT outbound_sequence AS outboundSequence, accounts, clock_tick_interval AS clockTickInterval FROM actors WHERE id = 'a'").get(),
+      { outboundSequence: "Not reported", accounts: "Not reported", clockTickInterval: "Not reported" },
+    );
     assert.deepEqual(database.pragma("foreign_key_check"), []);
   } finally {
     database.close();
@@ -601,6 +625,8 @@ test("deployment and UI conventions stay explicit", async () => {
   assert.match(page, /\/api\/actors\/health/);
   assert.match(page, /Keep polling actors when nobody is viewing CoralConsole/);
   assert.match(page, /disabled=\{settingsDraft\.keepPollingWithoutViewers\}/);
+  assert.match(page, /actor\.kind === "sequencer"/);
+  assert.match(page, /<small>SESSION<\/small>[\s\S]*<small>SEQUENCE<\/small>[\s\S]*<small>ACCOUNTS<\/small>[\s\S]*<small>CLOCK TICK<\/small>/);
   assert.match(page, /Shared topology · Persisted in SQLite/);
   assert.match(actorDetail, /\/actions/);
   assert.match(actorDetail, /\/api\/actors\/refresh/);
