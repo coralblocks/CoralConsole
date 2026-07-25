@@ -138,6 +138,14 @@ export function refreshActors(force = false) {
   return refreshPromise;
 }
 
+export async function refreshActorNow(actorId: string) {
+  const actor = getActor(actorId);
+  if (!actor || actor.demo) return actor;
+  const state = operationState(actorId);
+  await enqueueActorOperation(actorId, state, () => refreshOneActor(actorId));
+  return getActor(actorId);
+}
+
 async function healthCheckWithLimit() {
   const actors = listActors();
   let cursor = 0;

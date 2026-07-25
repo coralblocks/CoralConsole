@@ -2,6 +2,7 @@
 
 import { FormEvent, useCallback, useEffect, useState } from "react";
 import Link from "next/link";
+import { RefreshCw } from "lucide-react";
 import { ACTOR_META, statusLabel, type Actor, type AdminActionReply } from "../../actor-ui";
 import type { AuditEntry, TopologySettings } from "@/lib/types";
 
@@ -33,6 +34,7 @@ export default function ActorDetail({ actorId }: { actorId: string }) {
   const [action, setAction] = useState("status");
   const [params, setParams] = useState("");
   const [running, setRunning] = useState(false);
+  const [refreshingStatus, setRefreshingStatus] = useState(false);
   const [reply, setReply] = useState<AdminActionReply | null>(null);
   const [pollIntervalSeconds, setPollIntervalSeconds] = useState(30);
   const [healthCheckIntervalSeconds, setHealthCheckIntervalSeconds] = useState(5);
@@ -139,6 +141,23 @@ export default function ActorDetail({ actorId }: { actorId: string }) {
     }
   }
 
+  async function refreshStatus() {
+    if (!actor || refreshingStatus) return;
+    setRefreshingStatus(true);
+    setError("");
+    try {
+      const payload = await apiRequest<{ actor: Actor }>(`/api/actors/${encodeURIComponent(actor.id)}/refresh`, {
+        method: "POST",
+      });
+      setActor(payload.actor);
+      setAction((current) => payload.actor.actions.includes(current) ? current : payload.actor.actions[0] || "list");
+    } catch (requestError) {
+      setError(requestError instanceof Error ? requestError.message : "Actor status could not be refreshed.");
+    } finally {
+      setRefreshingStatus(false);
+    }
+  }
+
   async function removeActor() {
     if (!actor || actor.demo || !window.confirm(`Remove ${actor.name} from the shared topology?`)) return;
     try {
@@ -178,7 +197,16 @@ export default function ActorDetail({ actorId }: { actorId: string }) {
               <div className="inspector-accent" />
               <div className="inspector-head">
                 <span className="actor-avatar large" aria-hidden="true">{Icon && <Icon />}</span>
-                <div><p>{ACTOR_META[actor.kind].label}{actor.sequencerRole ? ` · ${actor.sequencerRole}` : ""}</p><h1>{actor.name}</h1></div>
+                <div className="actor-detail-identity">
+                  <p>{ACTOR_META[actor.kind].label}{actor.sequencerRole ? ` · ${actor.sequencerRole}` : ""}</p>
+                  <div className="actor-title-row">
+                    <h1>{actor.name}</h1>
+                    <button className="status-refresh-button" type="button" onClick={() => void refreshStatus()} disabled={refreshingStatus} aria-label={`Refresh ${actor.name} status`}>
+                      <RefreshCw aria-hidden="true" />
+                      {refreshingStatus ? "Refreshing…" : "Refresh status"}
+                    </button>
+                  </div>
+                </div>
                 <span className={`status-badge status-${actor.status}`}><i />{statusLabel(actor.status)}</span>
               </div>
               <dl className={`detail-grid${actor.kind === "sequencer" ? " sequencer-detail-grid" : ""}`}>

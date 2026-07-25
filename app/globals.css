@@ -216,6 +216,14 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .actor-detail-panel { margin: 0 auto; max-width: 860px; position: relative; top: auto; width: 100%; }
 .actor-detail-panel .inspector-head { padding: 30px 30px 26px; }
 .actor-detail-panel .inspector-head h1 { font-size: 24px; letter-spacing: -.035em; }
+.actor-detail-panel .actor-detail-identity { flex: 1; }
+.actor-title-row { align-items: center; display: flex; gap: 12px; min-width: 0; }
+.actor-title-row h1 { min-width: 0; }
+.status-refresh-button { align-items: center; background: transparent; border: 1px solid var(--line); border-radius: 999px; color: var(--muted); cursor: pointer; display: inline-flex; flex: 0 0 auto; font-family: var(--font-plex-mono), monospace; font-size: 8px; gap: 6px; min-height: 30px; padding: 6px 10px; }
+.status-refresh-button:hover { border-color: var(--ink); color: var(--ink); }
+.status-refresh-button:disabled { cursor: wait; opacity: .55; }
+.status-refresh-button svg { height: 12px; width: 12px; }
+.status-refresh-button:disabled svg { animation: status-refresh-spin .8s linear infinite; }
 .actor-detail-panel .actor-avatar.large { flex-basis: 56px; height: 56px; }
 .actor-detail-panel .actor-avatar.large svg { height: 28px; width: 28px; }
 .actor-detail-panel .detail-grid div { padding: 19px 28px; }
@@ -320,6 +328,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .audit-table code, .audit-table pre { font-family: var(--font-plex-mono), monospace; font-size: 8px; }
 .audit-table pre { line-height: 1.5; margin: 0; max-height: 110px; overflow: auto; white-space: pre-wrap; }
 @keyframes modal-in { from { opacity: 0; transform: translateY(12px) scale(.98); } }
+@keyframes status-refresh-spin { to { transform: rotate(360deg); } }
 
 @media (max-width: 1180px) {
   .system-overview { grid-template-columns: minmax(0, 1fr) 300px; }
@@ -351,6 +360,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   .workspace { padding: 0 14px 50px; }
   .actor-detail-main { padding: 28px 14px 48px; }
   .actor-detail-panel .inspector-head { padding: 23px 20px 19px; }
+  .actor-title-row { align-items: flex-start; flex-direction: column; gap: 7px; }
   .actor-detail-panel .detail-grid div { padding: 14px 18px; }
   .actor-detail-panel .admin-block { padding: 24px 20px 20px; }
   .section-heading { align-items: start; flex-direction: column; padding: 20px; }
@@ -382,5 +392,5 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 
 @media (prefers-reduced-motion: reduce) {
   *, *:before, *:after { scroll-behavior: auto !important; transition: none !important; }
-  .add-modal { animation: none; }
+  .add-modal, .status-refresh-button:disabled svg { animation: none; }
 }

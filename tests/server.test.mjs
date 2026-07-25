@@ -301,6 +301,21 @@ test("standalone server persists settings, actors, and admin action audit in SQL
     assert.equal(actorServer.requestConnections.at(-2), persistentConnection);
     const connectionsAfterFirstRefresh = actorServer.connectionCount;
 
+    const targetedRefreshStart = actorServer.requests.length;
+    const targetedRefresh = await json(server.baseUrl, `/api/actors/${discovered.actor.id}/refresh`, {
+      method: "POST",
+    });
+    assert.equal(targetedRefresh.actor.id, discovered.actor.id);
+    assert.equal(Number.isNaN(Date.parse(targetedRefresh.actor.statusRespondedAt)), false);
+    assert.deepEqual(actorServer.requests.slice(targetedRefreshStart), [
+      { adminCommand: "SEQ status", params: "", shouldLog: false },
+      { adminCommand: "list", params: "SEQ", shouldLog: false },
+    ]);
+    assert.equal(actorServer.requestConnections.at(-2), persistentConnection);
+    assert.equal(actorServer.requestConnections.at(-1), persistentConnection);
+    const auditAfterTargetedRefresh = await json(server.baseUrl, `/api/audit?actorId=${discovered.actor.id}&limit=20`);
+    assert.equal(auditAfterTargetedRefresh.entries.length, 0);
+
     for (let attempt = 0; attempt < 100 && actorServer.requests.at(-1)?.adminCommand !== "SEQ healthCheck"; attempt += 1) {
       await new Promise((resolveWait) => setTimeout(resolveWait, 20));
     }
@@ -640,6 +655,8 @@ test("deployment and UI conventions stay explicit", async () => {
   assert.match(actorDetail, /\/api\/actors\/health/);
   assert.match(actorDetail, /Recent activity/);
   assert.match(actorDetail, /<BrandIcon \/>/);
+  assert.match(actorDetail, /Refresh status/);
+  assert.match(actorDetail, /\/api\/actors\/\$\{encodeURIComponent\(actor\.id\)\}\/refresh/);
   assert.match(actorDetail, /formatLastStatusResponse\(actor\.statusRespondedAt\)/);
   assert.match(actorDetail, /<dt>Session<\/dt>[\s\S]*<dt>Sequence<\/dt>[\s\S]*<dt>Accounts<\/dt>[\s\S]*<dt>Clock Tick<\/dt>/);
   assert.match(layout, /ViewerPresence/);

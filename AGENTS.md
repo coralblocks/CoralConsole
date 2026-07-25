@@ -50,6 +50,7 @@ The same-origin API surface is:
 - `GET/PATCH /api/settings`
 - `GET/POST /api/actors`
 - `GET/DELETE /api/actors/<id>`
+- `POST /api/actors/<id>/refresh`
 - `POST /api/actors/refresh`
 - `POST /api/actors/health`
 - `POST /api/actors/<id>/actions`
@@ -119,6 +120,7 @@ Use the existing npm lockfile. Commit schema changes and their generated migrati
 - Actor cards are links that open `/actor/<id>` in a new browser tab. Do not use scripted popups or browser-local actor snapshots.
 - The Primary Sequencer card shows only Session, Sequence, Accounts, and Clock Tick from its cached status response beneath the actor name; omit its REST endpoint, generic signal, redundant Primary label, and footer session.
 - Sequencer details show REST Endpoint, Class, Last Response, Session, Sequence, Accounts, and Clock Tick. Last Response is an absolute timestamp updated only after a successful `status` admin action; health checks and list calls must not change it. Omit the redundant singular Account field.
+- Every actor detail header provides a compact Refresh status control beside the actor name. It runs an immediate coordinated `status`/`list` poll for only that actor with `shouldLog: false`, updates the cached actor, and does not create an audit row.
 - Admin output belongs in a bounded monospace area. Actor details show recent audit entries and the global Audit page supports search and outcome filtering.
 - Shared topology name, color, status and health-check polling, idle-polling policy, viewer grace period, retention, and summary-count visibility changes belong in Settings and SQLite, not browser storage.
 
