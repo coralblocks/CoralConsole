@@ -25,6 +25,7 @@ async function startMockActorServer() {
   const requestConnections = [];
   const sockets = new Map();
   let connectionCount = 0;
+  let scopedListCount = 0;
   const server = createServer((socket) => {
     const connectionId = ++connectionCount;
     sockets.set(connectionId, socket);
@@ -49,10 +50,12 @@ async function startMockActorServer() {
         if (input.adminCommand === "list" && input.params === "") {
           results = "VM\nSEQ\n";
         } else if (input.adminCommand === "list" && input.params === "SEQ") {
+          scopedListCount += 1;
           results = [
             "SEQ open",
             "SEQ close",
             "SEQ status",
+            ...(scopedListCount > 1 ? ["SEQ healthCheck"] : []),
             "SEQ rollSessionAuto",
             "SEQ invalidResult",
             "SEQ dropConnection",
@@ -221,6 +224,7 @@ test("standalone server persists settings, actors, and admin action audit in SQL
     assert.equal(discovered.actor.session, "2607232154");
     assert.equal(discovered.actor.sessionStarted, "23 Jul 2026 · 21:54");
     assert.equal(discovered.actor.actions.includes("status"), true);
+    assert.equal(discovered.actor.actions.includes("healthCheck"), false);
     assert.equal("commands" in discovered.actor, false);
     assert.deepEqual(actorServer.requests, [
       { adminCommand: "list", params: "" },
@@ -234,9 +238,15 @@ test("standalone server persists settings, actors, and admin action audit in SQL
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ force: true }),
     });
-    assert.equal(firstRefresh.actors.find((actor) => actor.id === discovered.actor.id)?.status, "online");
+    const firstRefreshedActor = firstRefresh.actors.find((actor) => actor.id === discovered.actor.id);
+    assert.equal(firstRefreshedActor?.status, "online");
+    assert.equal(firstRefreshedActor?.actions.includes("healthCheck"), true);
     const persistentConnection = actorServer.requestConnections.at(-1);
-    assert.equal(actorServer.requests.at(-1).adminCommand, "SEQ status");
+    assert.deepEqual(actorServer.requests.slice(-2), [
+      { adminCommand: "SEQ status", params: "" },
+      { adminCommand: "list", params: "SEQ" },
+    ]);
+    assert.equal(actorServer.requestConnections.at(-2), persistentConnection);
     const connectionsAfterFirstRefresh = actorServer.connectionCount;
 
     await json(server.baseUrl, "/api/actors/refresh", {
@@ -244,7 +254,11 @@ test("standalone server persists settings, actors, and admin action audit in SQL
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ force: true }),
     });
-    assert.equal(actorServer.requests.at(-1).adminCommand, "SEQ status");
+    assert.deepEqual(actorServer.requests.slice(-2), [
+      { adminCommand: "SEQ status", params: "" },
+      { adminCommand: "list", params: "SEQ" },
+    ]);
+    assert.equal(actorServer.requestConnections.at(-2), persistentConnection);
     assert.equal(actorServer.requestConnections.at(-1), persistentConnection);
     assert.equal(actorServer.connectionCount, connectionsAfterFirstRefresh);
 
@@ -315,6 +329,7 @@ test("standalone server persists settings, actors, and admin action audit in SQL
     });
     assert.equal(reconnected.actors.find((actor) => actor.id === discovered.actor.id)?.status, "online");
     assert.notEqual(actorServer.requestConnections.at(-1), persistentConnection);
+    assert.equal(actorServer.requestConnections.at(-2), actorServer.requestConnections.at(-1));
 
     const action = await json(server.baseUrl, "/api/actors/demo-seq-01/actions", {
       method: "POST",
@@ -361,6 +376,7 @@ test("deployment and UI conventions stay explicit", async () => {
   assert.match(page, /\/api\/actors\/refresh/);
   assert.match(page, /Shared topology · Persisted in SQLite/);
   assert.match(actorDetail, /\/actions/);
+  assert.match(actorDetail, /\/api\/actors\/refresh/);
   assert.match(actorDetail, /Recent activity/);
   assert.match(guide, /Keep this file current/);
   assert.match(compose, /coralconsole-data:\/data/);

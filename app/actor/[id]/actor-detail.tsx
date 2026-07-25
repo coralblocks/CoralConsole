@@ -3,7 +3,7 @@
 import { FormEvent, useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { ACTOR_META, statusLabel, type Actor, type AdminActionReply } from "../../actor-ui";
-import type { AuditEntry } from "@/lib/types";
+import type { AuditEntry, TopologySettings } from "@/lib/types";
 
 async function apiRequest<T>(url: string, init?: RequestInit): Promise<T> {
   const response = await fetch(url, init);
@@ -26,29 +26,57 @@ export default function ActorDetail({ actorId }: { actorId: string }) {
   const [params, setParams] = useState("");
   const [running, setRunning] = useState(false);
   const [reply, setReply] = useState<AdminActionReply | null>(null);
+  const [pollIntervalSeconds, setPollIntervalSeconds] = useState(30);
 
   const loadAudit = useCallback(async () => {
     const payload = await apiRequest<{ entries: AuditEntry[] }>(`/api/audit?actorId=${encodeURIComponent(actorId)}&limit=20`, { cache: "no-store" });
     setAudit(payload.entries);
   }, [actorId]);
 
+  const refreshActor = useCallback(async (force = false) => {
+    await apiRequest<{ actors: Actor[] }>("/api/actors/refresh", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ force }),
+    });
+    const payload = await apiRequest<{ actor: Actor }>(`/api/actors/${encodeURIComponent(actorId)}`, { cache: "no-store" });
+    return payload.actor;
+  }, [actorId]);
+
   useEffect(() => {
     let active = true;
     void Promise.all([
-      apiRequest<{ actor: Actor }>(`/api/actors/${encodeURIComponent(actorId)}`, { cache: "no-store" }),
+      refreshActor(true),
       apiRequest<{ entries: AuditEntry[] }>(`/api/audit?actorId=${encodeURIComponent(actorId)}&limit=20`, { cache: "no-store" }),
-    ]).then(([actorPayload, auditPayload]) => {
+      apiRequest<{ settings: TopologySettings }>("/api/settings", { cache: "no-store" }),
+    ]).then(([actorPayload, auditPayload, settingsPayload]) => {
       if (!active) return;
-      setActor(actorPayload.actor);
-      setAction(actorPayload.actor.actions[0] || "list");
+      setActor(actorPayload);
+      setAction(actorPayload.actions[0] || "list");
       setAudit(auditPayload.entries);
+      setPollIntervalSeconds(settingsPayload.settings.pollIntervalSeconds);
     }).catch((requestError) => {
       if (active) setError(requestError instanceof Error ? requestError.message : "Actor details could not be loaded.");
     }).finally(() => {
       if (active) setReady(true);
     });
     return () => { active = false; };
-  }, [actorId]);
+  }, [actorId, refreshActor]);
+
+  useEffect(() => {
+    if (!ready || removed) return;
+    const timer = window.setInterval(() => {
+      if (document.visibilityState !== "visible") return;
+      void refreshActor(false).then((updatedActor) => {
+        setActor(updatedActor);
+        setAction((current) => updatedActor.actions.includes(current) ? current : updatedActor.actions[0] || "list");
+        setError("");
+      }).catch((requestError) => {
+        setError(requestError instanceof Error ? requestError.message : "Actor details could not be refreshed.");
+      });
+    }, pollIntervalSeconds * 1000);
+    return () => window.clearInterval(timer);
+  }, [pollIntervalSeconds, ready, refreshActor, removed]);
 
   async function runAction(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();

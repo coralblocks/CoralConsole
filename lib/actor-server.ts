@@ -356,14 +356,32 @@ function actorFromStatus(actor: Actor, statusDetails: string): Actor {
 }
 
 export async function refreshActorStatus(actor: Actor, onDisconnect: StatusDisconnectHandler) {
+  const persistentStatus = { actorId: actor.id, onDisconnect };
   const reply = await callActorEndpoint(
     actor.host,
     actor.port,
     `${actor.name} status`,
     "",
-    { actorId: actor.id, onDisconnect },
+    persistentStatus,
   );
-  return actorFromStatus(actor, reply.results || "");
+  const refreshed = actorFromStatus(actor, reply.results || "");
+
+  try {
+    const listReply = await callActorEndpoint(
+      actor.host,
+      actor.port,
+      "list",
+      actor.name,
+      persistentStatus,
+    );
+    const actions = actionsFromDiscovery(actor.name, listReply.results || "");
+    return actions.length ? { ...refreshed, actions } : refreshed;
+  } catch (error) {
+    // A malformed list response must not override a valid status response.
+    // Transport failure means the persistent connection is no longer healthy.
+    if (error instanceof ActorCallError && error.outcome !== "unreachable") return refreshed;
+    throw error;
+  }
 }
 
 export async function discoverActor(host: string, port: number, id = crypto.randomUUID()): Promise<Actor> {
