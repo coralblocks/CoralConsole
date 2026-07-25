@@ -16,6 +16,14 @@ function auditOutput(entry: AuditEntry) {
   return [entry.error, entry.output].filter(Boolean).join("\n\n") || "No output";
 }
 
+function formatLastStatusResponse(value?: string) {
+  if (!value) return "Not received";
+  const timestamp = new Date(value);
+  return Number.isNaN(timestamp.getTime()) ? "Not received" : timestamp.toLocaleString();
+}
+
+const BrandIcon = ACTOR_META.sequencer.icon;
+
 export default function ActorDetail({ actorId }: { actorId: string }) {
   const [actor, setActor] = useState<Actor | null>(null);
   const [audit, setAudit] = useState<AuditEntry[]>([]);
@@ -148,7 +156,7 @@ export default function ActorDetail({ actorId }: { actorId: string }) {
     <main className="console-shell actor-detail-page">
       <header className="topbar">
         <Link className="brand" href="/" aria-label="CoralConsole topology">
-          <span className="brand-mark" aria-hidden="true"><i /><i /><i /></span>
+          <span className="brand-mark" aria-hidden="true"><BrandIcon /></span>
           <span><strong>CoralConsole</strong><small>Actor detail</small></span>
         </Link>
         <div className="topbar-actions"><Link className="intro-toggle nav-link" href="/audit">Audit</Link><Link className="button button-ghost detail-back" href="/">← Back to topology</Link></div>
@@ -173,11 +181,23 @@ export default function ActorDetail({ actorId }: { actorId: string }) {
                 <div><p>{ACTOR_META[actor.kind].label}{actor.sequencerRole ? ` · ${actor.sequencerRole}` : ""}</p><h1>{actor.name}</h1></div>
                 <span className={`status-badge status-${actor.status}`}><i />{statusLabel(actor.status)}</span>
               </div>
-              <dl className="detail-grid">
+              <dl className={`detail-grid${actor.kind === "sequencer" ? " sequencer-detail-grid" : ""}`}>
                 <div><dt>REST endpoint</dt><dd>{actor.host}:{actor.port}</dd></div>
                 <div><dt>Class</dt><dd>{actor.className}</dd></div>
-                <div><dt>Account</dt><dd>{actor.account}</dd></div>
-                <div><dt>Last response</dt><dd>{actor.lastSeen}</dd></div>
+                {actor.kind === "sequencer" ? (
+                  <>
+                    <div><dt>Last response</dt><dd>{formatLastStatusResponse(actor.statusRespondedAt)}</dd></div>
+                    <div><dt>Session</dt><dd>{actor.session}</dd></div>
+                    <div><dt>Sequence</dt><dd>{actor.outboundSequence}</dd></div>
+                    <div><dt>Accounts</dt><dd>{actor.accounts}</dd></div>
+                    <div><dt>Clock Tick</dt><dd>{actor.clockTickInterval}</dd></div>
+                  </>
+                ) : (
+                  <>
+                    <div><dt>Account</dt><dd>{actor.account}</dd></div>
+                    <div><dt>Last response</dt><dd>{formatLastStatusResponse(actor.statusRespondedAt)}</dd></div>
+                  </>
+                )}
               </dl>
               <div className="admin-block">
                 <div className="admin-heading"><div><p className="eyebrow">REST admin</p><h2>Run an action</h2></div><span>{actor.actions.length} available</span></div>

@@ -184,6 +184,8 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .detail-grid div { border-bottom: 1px solid var(--line); min-width: 0; padding: 13px 19px; }
 .detail-grid div:nth-last-child(-n+2) { border-bottom: 0; }
 .detail-grid div:nth-child(odd) { border-right: 1px solid var(--line); }
+.sequencer-detail-grid div:nth-last-child(2) { border-bottom: 1px solid var(--line); }
+.sequencer-detail-grid div:last-child { border-bottom: 0; border-right: 0; grid-column: 1 / -1; }
 .detail-grid dt { color: var(--muted); font-size: 8px; margin-bottom: 5px; text-transform: uppercase; }
 .detail-grid dd { font-family: var(--font-plex-mono), monospace; font-size: 8px; margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .admin-block { padding: 22px 20px 18px; }

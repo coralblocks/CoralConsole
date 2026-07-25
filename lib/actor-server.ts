@@ -382,6 +382,7 @@ function actorFromStatus(actor: Actor, statusDetails: string): Actor {
       ? sequencerStatusValue(statusDetails, "clockTickInterval") || actor.clockTickInterval
       : actor.clockTickInterval,
     sessionStarted: sessionStartFromStatus(statusDetails, session) || actor.sessionStarted,
+    statusRespondedAt: new Date().toISOString(),
     lastSeen: "just now",
   };
 }
@@ -471,9 +472,11 @@ export async function discoverActor(host: string, port: number, id = crypto.rand
 
   const actions = actionsFromDiscovery(scope, details);
   let statusDetails = "";
+  let statusRespondedAt: string | undefined;
   if (actions.includes("status")) {
     try {
       statusDetails = (await callActorEndpoint(host, port, `${scope} status`)).results || "";
+      statusRespondedAt = new Date().toISOString();
     } catch {
       // Status metadata is optional during discovery.
     }
@@ -511,6 +514,7 @@ export async function discoverActor(host: string, port: number, id = crypto.rand
       ? sequencerStatusValue(statusDetails, "clockTickInterval") || "Not reported"
       : "Not reported",
     sessionStarted: sessionStartFromStatus(statusDetails, session),
+    statusRespondedAt,
     lastSeen: "just now",
     actions,
   };

@@ -35,6 +35,7 @@ export type Actor = {
   accounts: string;
   clockTickInterval: string;
   sessionStarted?: string;
+  statusRespondedAt?: string;
   lastSeen: string;
   actions: string[];
   demo?: boolean;

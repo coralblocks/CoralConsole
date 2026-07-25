@@ -6,6 +6,7 @@ const base = {
   outboundSequence: "Not reported",
   accounts: "Not reported",
   clockTickInterval: "Not reported",
+  statusRespondedAt: "2026-07-17T17:25:00.000Z",
   lastSeen: "sample data",
   demo: true,
 } as const;

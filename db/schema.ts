@@ -37,6 +37,7 @@ export const actors = sqliteTable("actors", {
   accounts: text("accounts").notNull().default("Not reported"),
   clockTickInterval: text("clock_tick_interval").notNull().default("Not reported"),
   sessionStarted: text("session_started"),
+  statusRespondedAt: text("status_responded_at"),
   lastSeen: text("last_seen").notNull().default("Never"),
   lastSeenAt: text("last_seen_at"),
   lastError: text("last_error"),

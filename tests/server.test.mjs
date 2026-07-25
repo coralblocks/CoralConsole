@@ -270,6 +270,7 @@ test("standalone server persists settings, actors, and admin action audit in SQL
     assert.equal(discovered.actor.accounts, "3");
     assert.equal(discovered.actor.clockTickInterval, "1000");
     assert.equal(discovered.actor.sessionStarted, "23 Jul 2026 · 21:54");
+    assert.equal(Number.isNaN(Date.parse(discovered.actor.statusRespondedAt)), false);
     assert.equal(discovered.actor.actions.includes("status"), true);
     assert.equal(discovered.actor.actions.includes("healthCheck"), true);
     assert.equal("commands" in discovered.actor, false);
@@ -291,6 +292,7 @@ test("standalone server persists settings, actors, and admin action audit in SQL
     assert.equal(firstRefreshedActor?.accounts, "4");
     assert.equal(firstRefreshedActor?.clockTickInterval, "2000");
     assert.equal(firstRefreshedActor?.actions.includes("healthCheck"), true);
+    assert.equal(Number.isNaN(Date.parse(firstRefreshedActor?.statusRespondedAt)), false);
     const persistentConnection = actorServer.requestConnections.at(-1);
     assert.deepEqual(actorServer.requests.slice(-2), [
       { adminCommand: "SEQ status", params: "", shouldLog: false },
@@ -305,13 +307,17 @@ test("standalone server persists settings, actors, and admin action audit in SQL
     assert.deepEqual(actorServer.requests.at(-1), { adminCommand: "SEQ healthCheck", params: "", shouldLog: false });
     assert.equal(actorServer.requestConnections.at(-1), persistentConnection);
     assert.equal(actorServer.connectionCount, connectionsAfterFirstRefresh);
+    const actorBeforeForcedHealth = await json(server.baseUrl, `/api/actors/${discovered.actor.id}`);
+    const statusRespondedAtBeforeHealth = actorBeforeForcedHealth.actor.statusRespondedAt;
 
     const failedHealthCheck = await json(server.baseUrl, "/api/actors/health", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ force: true }),
     });
-    assert.equal(failedHealthCheck.actors.find((actor) => actor.id === discovered.actor.id)?.status, "unhealthy");
+    const failedHealthActor = failedHealthCheck.actors.find((actor) => actor.id === discovered.actor.id);
+    assert.equal(failedHealthActor?.status, "unhealthy");
+    assert.equal(failedHealthActor?.statusRespondedAt, statusRespondedAtBeforeHealth);
     assert.equal(actorServer.requestConnections.at(-1), persistentConnection);
 
     const recoveredHealthCheck = await json(server.baseUrl, "/api/actors/health", {
@@ -572,6 +578,7 @@ test("actor migrations preserve audit references and initialize status metadata"
       "0004_handy_thunderbolts",
       "0005_outgoing_invaders",
       "0006_skinny_redwing",
+      "0007_abandoned_romulus",
     ];
     for (const [index, name] of migrationNames.entries()) {
       if (index === 5) {
@@ -597,8 +604,8 @@ test("actor migrations preserve audit references and initialize status metadata"
     ]);
     assert.deepEqual(database.prepare("SELECT actor_id AS actorId FROM command_audit").get(), { actorId: "a" });
     assert.deepEqual(
-      database.prepare("SELECT outbound_sequence AS outboundSequence, accounts, clock_tick_interval AS clockTickInterval FROM actors WHERE id = 'a'").get(),
-      { outboundSequence: "Not reported", accounts: "Not reported", clockTickInterval: "Not reported" },
+      database.prepare("SELECT outbound_sequence AS outboundSequence, accounts, clock_tick_interval AS clockTickInterval, status_responded_at AS statusRespondedAt FROM actors WHERE id = 'a'").get(),
+      { outboundSequence: "Not reported", accounts: "Not reported", clockTickInterval: "Not reported", statusRespondedAt: null },
     );
     assert.deepEqual(database.pragma("foreign_key_check"), []);
   } finally {
@@ -632,6 +639,9 @@ test("deployment and UI conventions stay explicit", async () => {
   assert.match(actorDetail, /\/api\/actors\/refresh/);
   assert.match(actorDetail, /\/api\/actors\/health/);
   assert.match(actorDetail, /Recent activity/);
+  assert.match(actorDetail, /<BrandIcon \/>/);
+  assert.match(actorDetail, /formatLastStatusResponse\(actor\.statusRespondedAt\)/);
+  assert.match(actorDetail, /<dt>Session<\/dt>[\s\S]*<dt>Sequence<\/dt>[\s\S]*<dt>Accounts<\/dt>[\s\S]*<dt>Clock Tick<\/dt>/);
   assert.match(layout, /ViewerPresence/);
   assert.match(viewerPresence, /\/api\/presence/);
   assert.match(viewerPresence, /crypto\.randomUUID/);

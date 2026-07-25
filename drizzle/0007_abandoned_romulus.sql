@@ -1,0 +1,1 @@
+ALTER TABLE `actors` ADD `status_responded_at` text;
