@@ -20,7 +20,7 @@ The supported actor types are Sequencer, Backup Sequencer, Replayer, Archiver, L
 
 Discovery begins with `list`, then calls `list` with the first non-`VM` scope. For any actor with a `status` action, discovery also calls `<scope> status`; use its explicit type, class, account, open/active state, and session metadata when available. An inactive Sequencer is a Backup Sequencer. Session identifiers normally use `YYMMDDHHmm`; show both the raw identifier and a readable start time. Prefer an explicit start time returned by the actor. Coral REST servers may return a non-standard timezone name in the HTTP `Date` header and literal tabs inside JSON strings, so actor calls use Node's tolerant HTTP parser and narrowly repair unescaped JSON control characters.
 
-One process-level scheduler owns actor polling independently of browser tabs. It sends `<scope> status` and then scoped `list` over one dedicated persistent HTTP/HTTPS connection per actor at the configured status interval, 30 seconds by default. A separate heartbeat sends `<scope> healthCheck` over that same connection at the configured health-check interval, five seconds by default, and skips actors that do not advertise the action. A successful heartbeat requires the standard `result: true` response and a `results` string that starts with `ALIVE`; do not require a particular suffix such as `and OPEN`. A transport failure marks the actor offline; a response with `result: false`, an invalid result, an actor/HTTP error, or output that does not start with `ALIVE` marks it warning. The connection has no client-side idle expiry, and the next scheduled request may establish its replacement after a failure. Initial discovery calls and operator-triggered admin actions use new one-shot connections and close them after each response. Per-actor coordination waits for any active scheduled check before a manual action, defers new scheduled checks while the action runs, then immediately sends `healthCheck`, `status`, and scoped `list` over the persistent monitoring connection before releasing the actor. Visible topology and actor-detail views also fetch at those intervals so the displayed state stays current; server-side throttling consolidates those requests with the scheduler.
+One process-level scheduler owns actor polling independently of browser tabs. Each open tab reports an ephemeral, session-only viewer lease through `POST /api/presence`; the server prunes missed leases and applies the shared viewer grace period, 90 seconds by default. Unless Settings enables polling without viewers, the scheduler pauses after the last lease and grace period expire, deliberately closes every persistent actor connection without marking actors offline, and forces an immediate refresh when a viewer returns. It sends `<scope> status` and then scoped `list` over one dedicated persistent HTTP/HTTPS connection per actor at the configured status interval, 30 seconds by default. A separate heartbeat sends `<scope> healthCheck` over that same connection at the configured health-check interval, five seconds by default, and skips actors that do not advertise the action. A successful heartbeat requires the standard `result: true` response and a `results` string that starts with `ALIVE`; do not require a particular suffix such as `and OPEN`. A transport failure marks the actor offline; a response with `result: false`, an invalid result, an actor/HTTP error, or output that does not start with `ALIVE` marks it warning. The connection has no client-side idle expiry, and the next scheduled request may establish its replacement after a failure. Initial discovery calls and operator-triggered admin actions use new one-shot connections and close them after each response. Per-actor coordination waits for any active scheduled check before a manual action, defers new scheduled checks while the action runs, then immediately sends `healthCheck`, `status`, and scoped `list` over the persistent monitoring connection before releasing the actor. Visible topology and actor-detail views also fetch at those intervals so the displayed state stays current; server-side throttling consolidates those requests with the scheduler.
 
 ## Runtime architecture
 
@@ -36,7 +36,7 @@ One process-level scheduler owns actor polling independently of browser tabs. It
 
 ## Data ownership and persistence
 
-- `topology_settings` stores the singleton shared name, color, status and health-check intervals, retention, summary-count visibility, and first-run status.
+- `topology_settings` stores the singleton shared name, color, status and health-check intervals, idle-polling policy, viewer grace period, retention, summary-count visibility, and first-run status.
 - `actors` stores endpoint, discovered identity, type, actions, cached health/session data, and timestamps. Host plus port is unique.
 - The legacy-named `command_audit` table stores the actor snapshot, scoped admin action, parameters, plain-text output, four-state outcome, error, duration, timestamp, source IP (when trusted), and truncation state. Actor deletion retains audit rows with a null actor reference.
 - Audit parameters are capped at 8 KiB and output at 256 KiB. Older rows are purged according to the shared retention setting.
@@ -53,6 +53,7 @@ The same-origin API surface is:
 - `POST /api/actors/refresh`
 - `POST /api/actors/health`
 - `POST /api/actors/<id>/actions`
+- `POST /api/presence`
 - `GET/DELETE /api/audit`
 - `GET /api/health`
 
@@ -75,6 +76,7 @@ Actors receive JSON shaped as:
 - `app/actor-ui.tsx` owns shared actor labels, icons, and UI metadata.
 - `app/actor/[id]/` loads direct actor details from SQLite and runs audited admin actions in a dedicated tab.
 - `app/audit/` renders searchable global admin action history.
+- `app/viewer-presence.tsx` owns per-tab presence heartbeats and best-effort departure reporting.
 - `app/api/` contains the same-origin server API.
 - `lib/actor-server.ts` owns actor endpoint validation, REST calls, and discovery.
 - `lib/repository.ts` owns SQLite reads/writes and audit retention.
@@ -114,7 +116,7 @@ Use the existing npm lockfile. Commit schema changes and their generated migrati
 - Use pictorial Lucide icons, consistent role colors, readable status text, keyboard focus, reduced-motion support, and responsive behavior down to 320 px.
 - Actor cards are links that open `/actor/<id>` in a new browser tab. Do not use scripted popups or browser-local actor snapshots.
 - Admin output belongs in a bounded monospace area. Actor details show recent audit entries and the global Audit page supports search and outcome filtering.
-- Shared topology name, color, status and health-check polling, retention, and summary-count visibility changes belong in Settings and SQLite, not browser storage.
+- Shared topology name, color, status and health-check polling, idle-polling policy, viewer grace period, retention, and summary-count visibility changes belong in Settings and SQLite, not browser storage.
 
 ## Security and deployment expectations
 

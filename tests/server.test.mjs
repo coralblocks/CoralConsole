@@ -138,6 +138,7 @@ async function startMockActorServer() {
     port: address.port,
     requests,
     requestConnections,
+    get activeConnectionCount() { return sockets.size; },
     get connectionCount() { return connectionCount; },
     closeConnection(connectionId) {
       const socket = sockets.get(connectionId);
@@ -209,6 +210,8 @@ test("standalone server persists settings, actors, and admin action audit in SQL
     const initial = await json(server.baseUrl, "/api/settings");
     assert.equal(initial.settings.setupComplete, false);
     assert.equal(initial.settings.healthCheckIntervalSeconds, 5);
+    assert.equal(initial.settings.keepPollingWithoutViewers, false);
+    assert.equal(initial.settings.viewerGracePeriodSeconds, 90);
 
     const saved = await json(server.baseUrl, "/api/settings", {
       method: "PATCH",
@@ -218,6 +221,8 @@ test("standalone server persists settings, actors, and admin action audit in SQL
         backgroundColor: "#e8f2ed",
         pollIntervalSeconds: 30,
         healthCheckIntervalSeconds: 1,
+        keepPollingWithoutViewers: true,
+        viewerGracePeriodSeconds: 5,
         auditRetentionDays: 90,
         summaryActorKinds: ["sequencer", "replayer", "application"],
         setupComplete: true,
@@ -225,6 +230,8 @@ test("standalone server persists settings, actors, and admin action audit in SQL
     });
     assert.equal(saved.settings.topologyName, "Test Topology");
     assert.equal(saved.settings.healthCheckIntervalSeconds, 1);
+    assert.equal(saved.settings.keepPollingWithoutViewers, true);
+    assert.equal(saved.settings.viewerGracePeriodSeconds, 5);
     assert.deepEqual(saved.settings.summaryActorKinds, ["sequencer", "replayer", "application"]);
 
     const actorPayload = await json(server.baseUrl, "/api/actors");
@@ -429,6 +436,61 @@ test("standalone server persists settings, actors, and admin action audit in SQL
     assert.equal("command" in firstAudit.entries[0], false);
     assert.match(firstAudit.entries[0].output, /simulated successfully/);
 
+    const idleSettings = await json(server.baseUrl, "/api/settings", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ keepPollingWithoutViewers: false }),
+    });
+    assert.equal(idleSettings.settings.keepPollingWithoutViewers, false);
+    for (let attempt = 0; attempt < 40 && actorServer.activeConnectionCount > 0; attempt += 1) {
+      await new Promise((resolveWait) => setTimeout(resolveWait, 50));
+    }
+    assert.equal(actorServer.activeConnectionCount, 0);
+    const requestsWhileIdle = actorServer.requests.length;
+    await new Promise((resolveWait) => setTimeout(resolveWait, 1200));
+    assert.equal(actorServer.requests.length, requestsWhileIdle);
+
+    const presence = await json(server.baseUrl, "/api/presence", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ viewerId: "integration-test-viewer", active: true }),
+    });
+    assert.equal(presence.activeViewers, 1);
+    assert.equal(presence.heartbeatIntervalSeconds, 2);
+    for (let attempt = 0; attempt < 40 && actorServer.requests.length === requestsWhileIdle; attempt += 1) {
+      await new Promise((resolveWait) => setTimeout(resolveWait, 50));
+    }
+    assert.ok(actorServer.requests.length > requestsWhileIdle);
+    assert.ok(actorServer.activeConnectionCount > 0);
+
+    const requestsBeforeDeparture = actorServer.requests.length;
+    const departure = await json(server.baseUrl, "/api/presence", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ viewerId: "integration-test-viewer", active: false }),
+    });
+    assert.equal(departure.activeViewers, 0);
+    await new Promise((resolveWait) => setTimeout(resolveWait, 2500));
+    assert.ok(actorServer.requests.length > requestsBeforeDeparture);
+    for (let attempt = 0; attempt < 90 && actorServer.activeConnectionCount > 0; attempt += 1) {
+      await new Promise((resolveWait) => setTimeout(resolveWait, 50));
+    }
+    assert.equal(actorServer.activeConnectionCount, 0);
+    const requestsAfterGrace = actorServer.requests.length;
+    await new Promise((resolveWait) => setTimeout(resolveWait, 1200));
+    assert.equal(actorServer.requests.length, requestsAfterGrace);
+
+    const backgroundSettings = await json(server.baseUrl, "/api/settings", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ keepPollingWithoutViewers: true }),
+    });
+    assert.equal(backgroundSettings.settings.keepPollingWithoutViewers, true);
+    for (let attempt = 0; attempt < 40 && actorServer.requests.length === requestsAfterGrace; attempt += 1) {
+      await new Promise((resolveWait) => setTimeout(resolveWait, 50));
+    }
+    assert.ok(actorServer.requests.length > requestsAfterGrace);
+
     await stopServer(server.child);
     server = await startServer(databasePath, port);
     const persistedSettings = await json(server.baseUrl, "/api/settings");
@@ -436,6 +498,8 @@ test("standalone server persists settings, actors, and admin action audit in SQL
     const persistedActors = await json(server.baseUrl, "/api/actors");
     assert.equal(persistedSettings.settings.topologyName, "Test Topology");
     assert.equal(persistedSettings.settings.healthCheckIntervalSeconds, 1);
+    assert.equal(persistedSettings.settings.keepPollingWithoutViewers, true);
+    assert.equal(persistedSettings.settings.viewerGracePeriodSeconds, 5);
     assert.deepEqual(persistedSettings.settings.summaryActorKinds, ["sequencer", "replayer", "application"]);
     assert.equal(persistedAudit.entries.length, 1);
     assert.equal(persistedActors.actors.some((actor) => actor.host === "127.0.0.1" && actor.port === actorServer.port), true);
@@ -447,9 +511,11 @@ test("standalone server persists settings, actors, and admin action audit in SQL
 });
 
 test("deployment and UI conventions stay explicit", async () => {
-  const [page, actorDetail, guide, compose, dockerfile, dockerStart, dockerStop, dockerBackup, gitMergeToMain] = await Promise.all([
+  const [page, actorDetail, layout, viewerPresence, guide, compose, dockerfile, dockerStart, dockerStop, dockerBackup, gitMergeToMain] = await Promise.all([
     readFile(join(projectRoot, "app/page.tsx"), "utf8"),
     readFile(join(projectRoot, "app/actor/[id]/actor-detail.tsx"), "utf8"),
+    readFile(join(projectRoot, "app/layout.tsx"), "utf8"),
+    readFile(join(projectRoot, "app/viewer-presence.tsx"), "utf8"),
     readFile(join(projectRoot, "AGENTS.md"), "utf8"),
     readFile(join(projectRoot, "docker-compose.yml"), "utf8"),
     readFile(join(projectRoot, "Dockerfile"), "utf8"),
@@ -461,11 +527,15 @@ test("deployment and UI conventions stay explicit", async () => {
   assert.match(page, /target="_blank"/);
   assert.match(page, /\/api\/actors\/refresh/);
   assert.match(page, /\/api\/actors\/health/);
+  assert.match(page, /Keep polling actors when nobody is viewing CoralConsole/);
   assert.match(page, /Shared topology · Persisted in SQLite/);
   assert.match(actorDetail, /\/actions/);
   assert.match(actorDetail, /\/api\/actors\/refresh/);
   assert.match(actorDetail, /\/api\/actors\/health/);
   assert.match(actorDetail, /Recent activity/);
+  assert.match(layout, /ViewerPresence/);
+  assert.match(viewerPresence, /\/api\/presence/);
+  assert.match(viewerPresence, /crypto\.randomUUID/);
   assert.match(guide, /Keep this file current/);
   assert.match(compose, /coralconsole-data:\/data/);
   assert.match(dockerfile, /HEALTHCHECK/);

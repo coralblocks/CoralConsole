@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { IBM_Plex_Mono, Manrope } from "next/font/google";
 import { headers } from "next/headers";
+import ViewerPresence from "./viewer-presence";
 import "./globals.css";
 
 const manrope = Manrope({
@@ -40,7 +41,7 @@ export async function generateMetadata(): Promise<Metadata> {
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en">
-      <body className={`${manrope.variable} ${plexMono.variable}`}>{children}</body>
+      <body className={`${manrope.variable} ${plexMono.variable}`}><ViewerPresence />{children}</body>
     </html>
   );
 }

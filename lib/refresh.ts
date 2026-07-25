@@ -1,5 +1,6 @@
-import { checkActorHealth, refreshActorStatus } from "./actor-server";
+import { checkActorHealth, closeAllActorStatusConnections, refreshActorStatus } from "./actor-server";
 import { getActor, getSettings, listActors, markActorOffline, recordActorHeartbeat, updateActor } from "./repository";
+import { hasRecentViewer } from "./viewer-presence";
 
 let refreshPromise: Promise<ReturnType<typeof listActors>> | null = null;
 let lastRefreshAt = 0;
@@ -156,6 +157,7 @@ export function checkActorsHealth(force = false) {
 }
 
 type ActorSchedulerState = {
+  polling: boolean;
   running: boolean;
   timer?: ReturnType<typeof setInterval>;
 };
@@ -164,14 +166,24 @@ const globalScheduler = globalThis as typeof globalThis & { coralActorScheduler?
 
 export function ensureActorScheduler() {
   if (globalScheduler.coralActorScheduler) return;
-  const state: ActorSchedulerState = { running: false };
+  const state: ActorSchedulerState = { polling: false, running: false };
   globalScheduler.coralActorScheduler = state;
 
   const tick = async () => {
     if (state.running) return;
     state.running = true;
     try {
-      await Promise.allSettled([refreshActors(false), checkActorsHealth(false)]);
+      const settings = getSettings();
+      const viewerPresent = hasRecentViewer(settings.viewerGracePeriodSeconds);
+      const shouldPoll = settings.keepPollingWithoutViewers || viewerPresent;
+      if (!shouldPoll) {
+        closeAllActorStatusConnections();
+        state.polling = false;
+        return;
+      }
+      const resumed = !state.polling;
+      state.polling = true;
+      await Promise.allSettled([refreshActors(resumed), checkActorsHealth(resumed)]);
     } finally {
       state.running = false;
     }

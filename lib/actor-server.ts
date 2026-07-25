@@ -59,6 +59,10 @@ export function closeActorStatusConnection(actorId: string) {
   if (connection) closeStatusConnection(connection);
 }
 
+export function closeAllActorStatusConnections() {
+  for (const connection of [...statusConnections.values()]) closeStatusConnection(connection);
+}
+
 function getStatusConnection(actorId: string, target: URL, onDisconnect: StatusDisconnectHandler) {
   const targetKey = target.origin;
   const current = statusConnections.get(actorId);

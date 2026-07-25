@@ -87,6 +87,8 @@ export function getSettings(): TopologySettings {
     backgroundColor: row.backgroundColor,
     pollIntervalSeconds: row.pollIntervalSeconds,
     healthCheckIntervalSeconds: row.healthCheckIntervalSeconds,
+    keepPollingWithoutViewers: row.keepPollingWithoutViewers,
+    viewerGracePeriodSeconds: row.viewerGracePeriodSeconds,
     auditRetentionDays: row.auditRetentionDays,
     summaryActorKinds: validSummaryActorKinds(row.summaryActorKinds),
     setupComplete: row.setupComplete,

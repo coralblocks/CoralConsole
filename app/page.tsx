@@ -32,6 +32,8 @@ const DEFAULT_SETTINGS: TopologySettings = {
   backgroundColor: "#f4f1e9",
   pollIntervalSeconds: 30,
   healthCheckIntervalSeconds: 5,
+  keepPollingWithoutViewers: false,
+  viewerGracePeriodSeconds: 90,
   auditRetentionDays: 90,
   summaryActorKinds: [...SUMMARY_ACTOR_KINDS],
   setupComplete: false,
@@ -452,6 +454,21 @@ export default function Home() {
                 <div><label htmlFor="health-check-interval">Health check (seconds)</label><input id="health-check-interval" type="number" min="1" max="300" value={settingsDraft.healthCheckIntervalSeconds} onChange={(event) => setSettingsDraft((current) => ({ ...current, healthCheckIntervalSeconds: Number(event.target.value) }))} /></div>
                 <div><label htmlFor="audit-retention">Audit retention (days)</label><input id="audit-retention" type="number" min="1" max="3650" value={settingsDraft.auditRetentionDays} onChange={(event) => setSettingsDraft((current) => ({ ...current, auditRetentionDays: Number(event.target.value) }))} /></div>
               </div>
+              <fieldset className="polling-settings">
+                <legend>Polling without viewers</legend>
+                <label className="polling-option">
+                  <input
+                    type="checkbox"
+                    checked={settingsDraft.keepPollingWithoutViewers}
+                    onChange={(event) => setSettingsDraft((current) => ({ ...current, keepPollingWithoutViewers: event.target.checked }))}
+                  />
+                  <span><strong>Keep polling actors when nobody is viewing CoralConsole</strong><small>When disabled, server-side polling pauses after the last browser tab stops reporting presence.</small></span>
+                </label>
+                <div className="grace-period-setting">
+                  <label htmlFor="viewer-grace-period">Stop polling after no viewers (seconds)</label>
+                  <input id="viewer-grace-period" type="number" min="5" max="3600" value={settingsDraft.viewerGracePeriodSeconds} onChange={(event) => setSettingsDraft((current) => ({ ...current, viewerGracePeriodSeconds: Number(event.target.value) }))} />
+                </div>
+              </fieldset>
               <fieldset className="summary-settings">
                 <legend>Summary counts</legend>
                 <p>Choose which actor types appear in the count panel. Actors remain visible everywhere else.</p>

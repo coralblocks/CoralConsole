@@ -271,6 +271,15 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .color-input { align-items: center; display: grid; gap: 12px; grid-template-columns: 72px 1fr; }
 .color-input input[type="color"] { cursor: pointer; padding: 5px; width: 72px; }
 .color-input code { align-items: center; display: flex; height: 48px; padding-inline: 14px; }
+.polling-settings { border: 0; border-top: 1px solid var(--line); display: grid; gap: 12px; margin: 22px 0 0; padding: 19px 0 0; }
+.polling-settings legend { float: left; font-size: 10px; font-weight: 800; padding: 0; text-transform: uppercase; width: 100%; }
+.polling-option { align-items: flex-start; background: #f4f4ef; border: 1px solid #e2e4dd; border-radius: 10px; cursor: pointer; display: flex; gap: 10px; margin: 0; padding: 12px; text-transform: none; }
+.polling-option:has(input:checked) { background: color-mix(in srgb, var(--coral-soft) 36%, white); border-color: color-mix(in srgb, var(--coral) 34%, var(--line)); }
+.polling-option input { accent-color: var(--coral); appearance: auto; flex: 0 0 15px; height: 15px; margin: 2px 0 0; padding: 0; width: 15px; }
+.polling-option span { display: grid; gap: 3px; }
+.polling-option strong { color: var(--ink); font-size: 10px; line-height: 1.4; }
+.polling-option small { color: var(--muted); font-size: 9px; font-weight: 500; line-height: 1.5; }
+.grace-period-setting { display: grid; max-width: calc(50% - 6px); }
 .summary-settings { border: 0; border-top: 1px solid var(--line); margin: 22px 0 0; padding: 19px 0 0; }
 .summary-settings legend { float: left; font-size: 10px; font-weight: 800; padding: 0; text-transform: uppercase; width: 100%; }
 .summary-settings > p { clear: both; color: var(--muted); font-size: 10px; line-height: 1.5; margin: 6px 0 12px; }
@@ -355,6 +364,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   .add-modal { border-radius: 18px; padding: 28px 22px; }
   .import-banner { align-items: stretch; flex-direction: column; margin-inline: 14px; }
   .settings-grid { grid-template-columns: 1fr; }
+  .grace-period-setting { max-width: none; }
   .summary-kind-options { grid-template-columns: 1fr; }
   .actor-audit-list article { grid-template-columns: 1fr; padding: 16px 20px; }
   .audit-main { padding: 38px 14px 54px; }
