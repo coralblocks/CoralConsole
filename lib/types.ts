@@ -14,7 +14,8 @@ export const SUMMARY_ACTOR_KINDS = [
 export type SummaryActorKind = typeof SUMMARY_ACTOR_KINDS[number];
 export type ActorKind = SummaryActorKind | "link";
 
-export type ActorStatus = "healthy" | "unhealthy";
+export type ActorStatus = "online" | "offline";
+export type ActorOperationalState = "closed" | "disconnected" | "rewinding" | "active" | "inactive";
 
 export const BASELINE_ADMIN_ACTIONS = ["list", "status", "healthCheck"] as const;
 
@@ -23,6 +24,7 @@ export type Actor = {
   name: string;
   kind: ActorKind;
   status: ActorStatus;
+  operationalState: ActorOperationalState;
   host: string;
   port: number;
   account: string;

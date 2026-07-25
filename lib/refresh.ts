@@ -1,5 +1,5 @@
 import { ActorCallError, checkActorHealth, closeAllActorStatusConnections, refreshActorStatus } from "./actor-server";
-import { getActor, getSettings, listActors, markActorUnhealthy, recordActorHeartbeat, updateActor } from "./repository";
+import { getActor, getSettings, listActors, markActorOffline, recordActorHeartbeat, updateActor } from "./repository";
 import { hasRecentViewer } from "./viewer-presence";
 
 let refreshPromise: Promise<ReturnType<typeof listActors>> | null = null;
@@ -58,7 +58,7 @@ async function runScheduledActorOperation(actorId: string, operation: () => Prom
 function disconnectHandler(actorId: string) {
   return (message: string) => {
     const current = getActor(actorId);
-    if (current && !current.demo) markActorUnhealthy(current, message);
+    if (current && !current.demo) markActorOffline(current, message);
   };
 }
 
@@ -72,7 +72,7 @@ async function refreshOneActor(actorId: string) {
     if (error instanceof ActorCallError && error.outcome !== "unreachable") {
       updateActor(actor, message);
     } else {
-      markActorUnhealthy(actor, message);
+      markActorOffline(actor, message);
     }
   }
 }
@@ -84,7 +84,7 @@ async function healthCheckOneActor(actorId: string) {
     const heartbeat = await checkActorHealth(actor, disconnectHandler(actorId));
     recordActorHeartbeat(actor.id, heartbeat);
   } catch (error) {
-    markActorUnhealthy(actor, error instanceof Error ? error.message : "Actor health check failed.");
+    markActorOffline(actor, error instanceof Error ? error.message : "Actor health check failed.");
   }
 }
 

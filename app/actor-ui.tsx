@@ -11,9 +11,9 @@ import {
   Workflow,
   type LucideIcon,
 } from "lucide-react";
-import type { ActorKind, ActorStatus } from "@/lib/types";
+import type { ActorKind, ActorOperationalState, ActorStatus } from "@/lib/types";
 
-export type { Actor, ActorKind, ActorStatus, AdminActionReply } from "@/lib/types";
+export type { Actor, ActorKind, ActorOperationalState, ActorStatus, AdminActionReply } from "@/lib/types";
 
 export const ACTOR_KINDS: ActorKind[] = [
   "sequencer",
@@ -44,5 +44,9 @@ export const ACTOR_META: Record<ActorKind, { label: string; summaryLabel: string
 };
 
 export function statusLabel(status: ActorStatus) {
-  return status === "healthy" ? "Healthy" : "Unhealthy";
+  return status === "online" ? "Online" : "Offline";
+}
+
+export function operationalStateLabel(state: ActorOperationalState) {
+  return state[0].toUpperCase() + state.slice(1);
 }

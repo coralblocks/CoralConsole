@@ -1,7 +1,7 @@
 import { Agent as HttpAgent, request as requestHttp } from "node:http";
 import { Agent as HttpsAgent, request as requestHttps } from "node:https";
 import type { Socket } from "node:net";
-import { BASELINE_ADMIN_ACTIONS, type Actor, type ActorKind, type ActorStatus, type AdminActionReply, type AuditOutcome } from "./types";
+import { BASELINE_ADMIN_ACTIONS, type Actor, type ActorKind, type ActorOperationalState, type ActorStatus, type AdminActionReply, type AuditOutcome } from "./types";
 
 const ACTOR_TIMEOUT_MS = 6500;
 const STATUS_CONNECTION_LOST = "The persistent status connection was lost.";
@@ -330,6 +330,25 @@ function statusBoolean(results: string, label: string) {
   return value === "true" ? true : value === "false" ? false : undefined;
 }
 
+function operationalStateFromStatus(results: string, fallback: ActorOperationalState) {
+  const open = statusBoolean(results, "actor open");
+  if (open === false) return "closed";
+  if (open !== true) return fallback;
+
+  const disconnected = statusBoolean(results, "actor disconnected");
+  if (disconnected === true) return "disconnected";
+  if (disconnected !== false) return fallback;
+
+  const rewinding = statusBoolean(results, "actor rewinding");
+  if (rewinding === true) return "rewinding";
+  if (rewinding !== false) return fallback;
+
+  const active = statusBoolean(results, "actor active");
+  if (active === true) return "active";
+  if (active === false) return "inactive";
+  return fallback;
+}
+
 function classFromStatus(results: string) {
   const className = statusValue(results, "actor class");
   return className?.split(".").filter(Boolean).at(-1);
@@ -367,6 +386,7 @@ function actorFromStatus(actor: Actor, statusDetails: string): Actor {
     ...actor,
     kind: discoveredKind,
     status: actor.status,
+    operationalState: operationalStateFromStatus(statusDetails, actor.operationalState),
     account: statusValue(statusDetails, isSequencer ? "sequencer account" : "actor account") || actor.account,
     className: classFromStatus(statusDetails) || actor.className,
     sequencerRole: isSequencer ? (isBackup ? "Backup" : "Primary") : undefined,
@@ -410,7 +430,7 @@ export async function refreshActorStatus(actor: Actor, onDisconnect: StatusDisco
     return actions.length ? { ...refreshed, actions } : refreshed;
   } catch (error) {
     // A malformed list response must not override a valid status response.
-    // Transport failure means the persistent connection is no longer healthy.
+    // Transport failure means the persistent monitoring connection is offline.
     if (error instanceof ActorCallError && error.outcome !== "unreachable") return refreshed;
     throw error;
   }
@@ -434,14 +454,14 @@ export async function checkActorHealth(actor: Actor, onDisconnect: StatusDisconn
     );
     if (!(reply.results || "").startsWith("ALIVE")) {
       return {
-        status: "unhealthy",
+        status: "offline",
         latency: "health check failed",
         lastSeen: "just now",
         error: "Actor health check response does not start with ALIVE.",
       };
     }
     return {
-      status: "healthy",
+      status: "online",
       latency: "connected",
       lastSeen: "just now",
       error: null,
@@ -449,7 +469,7 @@ export async function checkActorHealth(actor: Actor, onDisconnect: StatusDisconn
   } catch (error) {
     const unreachable = error instanceof ActorCallError && error.outcome === "unreachable";
     return {
-      status: "unhealthy",
+      status: "offline",
       latency: unreachable ? "unreachable" : "health check failed",
       lastSeen: unreachable
         ? actor.lastSeen === "just now" ? "unreachable" : actor.lastSeen
@@ -496,7 +516,8 @@ export async function discoverActor(host: string, port: number, id = crypto.rand
     id,
     name: scope,
     kind: discoveredKind,
-    status: "healthy",
+    status: "online",
+    operationalState: operationalStateFromStatus(statusDetails, "inactive"),
     host,
     port,
     account: statusValue(statusDetails, isSequencer ? "sequencer account" : "actor account") || scope,

@@ -3,7 +3,7 @@
 import { FormEvent, useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { RefreshCw } from "lucide-react";
-import { ACTOR_META, statusLabel, type Actor, type AdminActionReply } from "../../actor-ui";
+import { ACTOR_META, operationalStateLabel, statusLabel, type Actor, type AdminActionReply } from "../../actor-ui";
 import type { AuditEntry, TopologySettings } from "@/lib/types";
 
 async function apiRequest<T>(url: string, init?: RequestInit): Promise<T> {
@@ -207,7 +207,10 @@ export default function ActorDetail({ actorId }: { actorId: string }) {
                     </button>
                   </div>
                 </div>
-                <span className={`status-badge status-${actor.status}`}><i />{statusLabel(actor.status)}</span>
+                <div className="actor-status-badges">
+                  <span className={`actor-state-badge state-${actor.operationalState}`}>{operationalStateLabel(actor.operationalState)}</span>
+                  <span className={`status-badge status-${actor.status}`}><i />{statusLabel(actor.status)}</span>
+                </div>
               </div>
               <dl className={`detail-grid${actor.kind === "sequencer" ? " sequencer-detail-grid" : ""}`}>
                 <div><dt>REST endpoint</dt><dd>{actor.host}:{actor.port}</dd></div>

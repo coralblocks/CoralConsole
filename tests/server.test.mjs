@@ -29,6 +29,7 @@ async function startMockActorServer() {
   let scopedListCount = 0;
   let healthCheckCount = 0;
   let statusCount = 0;
+  let operationalState = { open: true, disconnected: false, rewinding: false, active: true };
   const server = createServer((socket) => {
     const connectionId = ++connectionCount;
     sockets.set(connectionId, socket);
@@ -75,6 +76,10 @@ async function startMockActorServer() {
           results = [
             "actor type:\tSEQUENCER",
             "actor class:\tcom.coralblocks.coralsequencer.mq.PassThroughSequencer",
+            `actor open:\t${operationalState.open}`,
+            `actor disconnected:\t${operationalState.disconnected}`,
+            `actor rewinding:\t${operationalState.rewinding}`,
+            `actor active:\t${operationalState.active}`,
             "sequencer name:\tSEQ",
             "sequencer account:\tTRADING",
             "sequencer active:\ttrue",
@@ -157,6 +162,9 @@ async function startMockActorServer() {
     requestConnections,
     get activeConnectionCount() { return sockets.size; },
     get connectionCount() { return connectionCount; },
+    setOperationalState(next) {
+      operationalState = next;
+    },
     closeConnection(connectionId) {
       const socket = sockets.get(connectionId);
       if (!socket) return false;
@@ -264,7 +272,8 @@ test("standalone server persists settings, actors, and admin action audit in SQL
     assert.equal(discovered.actor.kind, "sequencer");
     assert.equal(discovered.actor.className, "PassThroughSequencer");
     assert.equal(discovered.actor.account, "TRADING");
-    assert.equal(discovered.actor.status, "healthy");
+    assert.equal(discovered.actor.status, "online");
+    assert.equal(discovered.actor.operationalState, "active");
     assert.equal(discovered.actor.session, "2607232154");
     assert.equal(discovered.actor.outboundSequence, "41");
     assert.equal(discovered.actor.accounts, "3");
@@ -287,7 +296,8 @@ test("standalone server persists settings, actors, and admin action audit in SQL
       body: JSON.stringify({ force: true }),
     });
     const firstRefreshedActor = firstRefresh.actors.find((actor) => actor.id === discovered.actor.id);
-    assert.equal(firstRefreshedActor?.status, "healthy");
+    assert.equal(firstRefreshedActor?.status, "online");
+    assert.equal(firstRefreshedActor?.operationalState, "active");
     assert.equal(firstRefreshedActor?.outboundSequence, "42");
     assert.equal(firstRefreshedActor?.accounts, "4");
     assert.equal(firstRefreshedActor?.clockTickInterval, "2000");
@@ -301,16 +311,30 @@ test("standalone server persists settings, actors, and admin action audit in SQL
     assert.equal(actorServer.requestConnections.at(-2), persistentConnection);
     const connectionsAfterFirstRefresh = actorServer.connectionCount;
 
-    const targetedRefreshStart = actorServer.requests.length;
-    const targetedRefresh = await json(server.baseUrl, `/api/actors/${discovered.actor.id}/refresh`, {
-      method: "POST",
-    });
-    assert.equal(targetedRefresh.actor.id, discovered.actor.id);
-    assert.equal(Number.isNaN(Date.parse(targetedRefresh.actor.statusRespondedAt)), false);
-    assert.deepEqual(actorServer.requests.slice(targetedRefreshStart), [
-      { adminCommand: "SEQ status", params: "", shouldLog: false },
-      { adminCommand: "list", params: "SEQ", shouldLog: false },
-    ]);
+    const operationalStateCases = [
+      [{ open: false, disconnected: true, rewinding: true, active: true }, "closed"],
+      [{ open: true, disconnected: true, rewinding: true, active: true }, "disconnected"],
+      [{ open: true, disconnected: false, rewinding: true, active: true }, "rewinding"],
+      [{ open: true, disconnected: false, rewinding: false, active: true }, "active"],
+      [{ open: true, disconnected: false, rewinding: false, active: false }, "inactive"],
+    ];
+    for (const [reportedState, expectedState] of operationalStateCases) {
+      actorServer.setOperationalState(reportedState);
+      const targetedRefreshStart = actorServer.requests.length;
+      const targetedRefresh = await json(server.baseUrl, `/api/actors/${discovered.actor.id}/refresh`, {
+        method: "POST",
+      });
+      assert.equal(targetedRefresh.actor.id, discovered.actor.id);
+      assert.equal(targetedRefresh.actor.operationalState, expectedState);
+      assert.equal(Number.isNaN(Date.parse(targetedRefresh.actor.statusRespondedAt)), false);
+      const targetedPollRequests = actorServer.requests.slice(targetedRefreshStart)
+        .filter((request) => request.adminCommand === "SEQ status" || (request.adminCommand === "list" && request.params === "SEQ"));
+      assert.deepEqual(targetedPollRequests, [
+        { adminCommand: "SEQ status", params: "", shouldLog: false },
+        { adminCommand: "list", params: "SEQ", shouldLog: false },
+      ]);
+    }
+    actorServer.setOperationalState({ open: true, disconnected: false, rewinding: false, active: true });
     assert.equal(actorServer.requestConnections.at(-2), persistentConnection);
     assert.equal(actorServer.requestConnections.at(-1), persistentConnection);
     const auditAfterTargetedRefresh = await json(server.baseUrl, `/api/audit?actorId=${discovered.actor.id}&limit=20`);
@@ -331,7 +355,7 @@ test("standalone server persists settings, actors, and admin action audit in SQL
       body: JSON.stringify({ force: true }),
     });
     const failedHealthActor = failedHealthCheck.actors.find((actor) => actor.id === discovered.actor.id);
-    assert.equal(failedHealthActor?.status, "unhealthy");
+    assert.equal(failedHealthActor?.status, "offline");
     assert.equal(failedHealthActor?.statusRespondedAt, statusRespondedAtBeforeHealth);
     assert.equal(actorServer.requestConnections.at(-1), persistentConnection);
 
@@ -340,7 +364,7 @@ test("standalone server persists settings, actors, and admin action audit in SQL
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ force: true }),
     });
-    assert.equal(recoveredHealthCheck.actors.find((actor) => actor.id === discovered.actor.id)?.status, "healthy");
+    assert.equal(recoveredHealthCheck.actors.find((actor) => actor.id === discovered.actor.id)?.status, "online");
     assert.equal(actorServer.requestConnections.at(-1), persistentConnection);
 
     const falseHealthCheck = await json(server.baseUrl, "/api/actors/health", {
@@ -348,21 +372,21 @@ test("standalone server persists settings, actors, and admin action audit in SQL
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ force: true }),
     });
-    assert.equal(falseHealthCheck.actors.find((actor) => actor.id === discovered.actor.id)?.status, "unhealthy");
+    assert.equal(falseHealthCheck.actors.find((actor) => actor.id === discovered.actor.id)?.status, "offline");
 
     const invalidHealthCheck = await json(server.baseUrl, "/api/actors/health", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ force: true }),
     });
-    assert.equal(invalidHealthCheck.actors.find((actor) => actor.id === discovered.actor.id)?.status, "unhealthy");
+    assert.equal(invalidHealthCheck.actors.find((actor) => actor.id === discovered.actor.id)?.status, "offline");
 
     const validHealthCheck = await json(server.baseUrl, "/api/actors/health", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ force: true }),
     });
-    assert.equal(validHealthCheck.actors.find((actor) => actor.id === discovered.actor.id)?.status, "healthy");
+    assert.equal(validHealthCheck.actors.find((actor) => actor.id === discovered.actor.id)?.status, "online");
 
     await json(server.baseUrl, "/api/actors/refresh", {
       method: "POST",
@@ -474,25 +498,25 @@ test("standalone server persists settings, actors, and admin action audit in SQL
     for (let attempt = 0; attempt < 50; attempt += 1) {
       const payload = await json(server.baseUrl, "/api/actors");
       disconnectedActor = payload.actors.find((actor) => actor.id === discovered.actor.id);
-      if (disconnectedActor?.status === "unhealthy") break;
+      if (disconnectedActor?.status === "offline") break;
       await new Promise((resolveWait) => setTimeout(resolveWait, 20));
     }
-    assert.equal(disconnectedActor?.status, "unhealthy");
+    assert.equal(disconnectedActor?.status, "offline");
 
     const reconnected = await json(server.baseUrl, "/api/actors/refresh", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ force: true }),
     });
-    assert.equal(reconnected.actors.find((actor) => actor.id === discovered.actor.id)?.status, "unhealthy");
+    assert.equal(reconnected.actors.find((actor) => actor.id === discovered.actor.id)?.status, "offline");
     assert.notEqual(actorServer.requestConnections.at(-1), persistentConnection);
     assert.equal(actorServer.requestConnections.at(-2), actorServer.requestConnections.at(-1));
-    const healthyAgain = await json(server.baseUrl, "/api/actors/health", {
+    const onlineAgain = await json(server.baseUrl, "/api/actors/health", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ force: true }),
     });
-    assert.equal(healthyAgain.actors.find((actor) => actor.id === discovered.actor.id)?.status, "healthy");
+    assert.equal(onlineAgain.actors.find((actor) => actor.id === discovered.actor.id)?.status, "online");
 
     const action = await json(server.baseUrl, "/api/actors/demo-seq-01/actions", {
       method: "POST",
@@ -594,6 +618,7 @@ test("actor migrations preserve audit references and initialize status metadata"
       "0005_outgoing_invaders",
       "0006_skinny_redwing",
       "0007_abandoned_romulus",
+      "0008_broken_storm",
     ];
     for (const [index, name] of migrationNames.entries()) {
       if (index === 5) {
@@ -612,15 +637,15 @@ test("actor migrations preserve audit references and initialize status metadata"
       database.transaction(() => statements.forEach((statement) => database.exec(statement)))();
     }
     assert.deepEqual(database.prepare("SELECT id, status FROM actors ORDER BY id").all(), [
-      { id: "a", status: "healthy" },
-      { id: "b", status: "healthy" },
-      { id: "c", status: "unhealthy" },
-      { id: "d", status: "unhealthy" },
+      { id: "a", status: "online" },
+      { id: "b", status: "online" },
+      { id: "c", status: "offline" },
+      { id: "d", status: "offline" },
     ]);
     assert.deepEqual(database.prepare("SELECT actor_id AS actorId FROM command_audit").get(), { actorId: "a" });
     assert.deepEqual(
-      database.prepare("SELECT outbound_sequence AS outboundSequence, accounts, clock_tick_interval AS clockTickInterval, status_responded_at AS statusRespondedAt FROM actors WHERE id = 'a'").get(),
-      { outboundSequence: "Not reported", accounts: "Not reported", clockTickInterval: "Not reported", statusRespondedAt: null },
+      database.prepare("SELECT outbound_sequence AS outboundSequence, accounts, clock_tick_interval AS clockTickInterval, status_responded_at AS statusRespondedAt, operational_state AS operationalState FROM actors WHERE id = 'a'").get(),
+      { outboundSequence: "Not reported", accounts: "Not reported", clockTickInterval: "Not reported", statusRespondedAt: null, operationalState: "inactive" },
     );
     assert.deepEqual(database.pragma("foreign_key_check"), []);
   } finally {
@@ -648,6 +673,8 @@ test("deployment and UI conventions stay explicit", async () => {
   assert.match(page, /Keep polling actors when nobody is viewing CoralConsole/);
   assert.match(page, /disabled=\{settingsDraft\.keepPollingWithoutViewers\}/);
   assert.match(page, /actor\.kind === "sequencer"/);
+  assert.match(page, /\["all", "online", "offline"\]/);
+  assert.match(page, /actors online/);
   assert.match(page, /<small>SESSION<\/small>[\s\S]*<small>SEQUENCE<\/small>[\s\S]*<small>ACCOUNTS<\/small>[\s\S]*<small>CLOCK TICK<\/small>/);
   assert.match(page, /Shared topology · Persisted in SQLite/);
   assert.match(actorDetail, /\/actions/);
@@ -656,6 +683,8 @@ test("deployment and UI conventions stay explicit", async () => {
   assert.match(actorDetail, /Recent activity/);
   assert.match(actorDetail, /<BrandIcon \/>/);
   assert.match(actorDetail, /Refresh status/);
+  assert.match(actorDetail, /state-\$\{actor\.operationalState\}/);
+  assert.match(actorDetail, /operationalStateLabel\(actor\.operationalState\)/);
   assert.match(actorDetail, /\/api\/actors\/\$\{encodeURIComponent\(actor\.id\)\}\/refresh/);
   assert.match(actorDetail, /formatLastStatusResponse\(actor\.statusRespondedAt\)/);
   assert.match(actorDetail, /<dt>Session<\/dt>[\s\S]*<dt>Sequence<\/dt>[\s\S]*<dt>Accounts<\/dt>[\s\S]*<dt>Clock Tick<\/dt>/);
