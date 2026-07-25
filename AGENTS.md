@@ -70,6 +70,8 @@ Actors receive JSON shaped as:
 }
 ```
 
+The optional `shouldLog` boolean defaults to `true` at the actor. Omit it for discovery and operator-triggered admin actions. Server-driven monitoring requests over the persistent actor connection—`list`, `status`, and `healthCheck`, including post-action reconciliation—must send `"shouldLog": false` so routine polling does not fill actor logs.
+
 ## Code structure
 
 - `app/page.tsx` owns the shared topology UI, first-run settings, refresh polling, add-actor flow, and one-time browser migration.

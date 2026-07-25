@@ -274,8 +274,8 @@ test("standalone server persists settings, actors, and admin action audit in SQL
     assert.equal(firstRefreshedActor?.actions.includes("healthCheck"), true);
     const persistentConnection = actorServer.requestConnections.at(-1);
     assert.deepEqual(actorServer.requests.slice(-2), [
-      { adminCommand: "SEQ status", params: "" },
-      { adminCommand: "list", params: "SEQ" },
+      { adminCommand: "SEQ status", params: "", shouldLog: false },
+      { adminCommand: "list", params: "SEQ", shouldLog: false },
     ]);
     assert.equal(actorServer.requestConnections.at(-2), persistentConnection);
     const connectionsAfterFirstRefresh = actorServer.connectionCount;
@@ -283,7 +283,7 @@ test("standalone server persists settings, actors, and admin action audit in SQL
     for (let attempt = 0; attempt < 100 && actorServer.requests.at(-1)?.adminCommand !== "SEQ healthCheck"; attempt += 1) {
       await new Promise((resolveWait) => setTimeout(resolveWait, 20));
     }
-    assert.deepEqual(actorServer.requests.at(-1), { adminCommand: "SEQ healthCheck", params: "" });
+    assert.deepEqual(actorServer.requests.at(-1), { adminCommand: "SEQ healthCheck", params: "", shouldLog: false });
     assert.equal(actorServer.requestConnections.at(-1), persistentConnection);
     assert.equal(actorServer.connectionCount, connectionsAfterFirstRefresh);
 
@@ -330,8 +330,8 @@ test("standalone server persists settings, actors, and admin action audit in SQL
       body: JSON.stringify({ force: true }),
     });
     assert.deepEqual(actorServer.requests.slice(-2), [
-      { adminCommand: "SEQ status", params: "" },
-      { adminCommand: "list", params: "SEQ" },
+      { adminCommand: "SEQ status", params: "", shouldLog: false },
+      { adminCommand: "list", params: "SEQ", shouldLog: false },
     ]);
     assert.equal(actorServer.requestConnections.at(-2), persistentConnection);
     assert.equal(actorServer.requestConnections.at(-1), persistentConnection);
@@ -345,9 +345,9 @@ test("standalone server persists settings, actors, and admin action audit in SQL
     });
     assert.deepEqual(actorServer.requests.slice(manualStatusStart, manualStatusStart + 4), [
       { adminCommand: "SEQ status", params: "" },
-      { adminCommand: "SEQ healthCheck", params: "" },
-      { adminCommand: "SEQ status", params: "" },
-      { adminCommand: "list", params: "SEQ" },
+      { adminCommand: "SEQ healthCheck", params: "", shouldLog: false },
+      { adminCommand: "SEQ status", params: "", shouldLog: false },
+      { adminCommand: "list", params: "SEQ", shouldLog: false },
     ]);
     assert.notEqual(actorServer.requestConnections[manualStatusStart], persistentConnection);
     assert.deepEqual(
@@ -379,9 +379,9 @@ test("standalone server persists settings, actors, and admin action audit in SQL
     assert.equal(slowActionReply.result, true);
     assert.deepEqual(actorServer.requests.slice(slowActionStart, slowActionStart + 4), [
       { adminCommand: "SEQ slowAction", params: "" },
-      { adminCommand: "SEQ healthCheck", params: "" },
-      { adminCommand: "SEQ status", params: "" },
-      { adminCommand: "list", params: "SEQ" },
+      { adminCommand: "SEQ healthCheck", params: "", shouldLog: false },
+      { adminCommand: "SEQ status", params: "", shouldLog: false },
+      { adminCommand: "list", params: "SEQ", shouldLog: false },
     ]);
     assert.notEqual(actorServer.requestConnections[slowActionStart], persistentConnection);
     assert.deepEqual(

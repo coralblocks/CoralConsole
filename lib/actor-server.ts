@@ -8,6 +8,12 @@ const STATUS_CONNECTION_LOST = "The persistent status connection was lost.";
 
 type StatusDisconnectHandler = (message: string) => void;
 
+type PersistentActorRequest = {
+  actorId: string;
+  onDisconnect: StatusDisconnectHandler;
+  shouldLog?: boolean;
+};
+
 type StatusConnection = {
   actorId: string;
   agent: HttpAgent;
@@ -119,7 +125,7 @@ function observeStatusSocket(connection: StatusConnection, socket: Socket) {
 function postActorRequest(
   target: URL,
   body: string,
-  persistentStatus?: { actorId: string; onDisconnect: StatusDisconnectHandler },
+  persistentStatus?: PersistentActorRequest,
 ) {
   return new Promise<{ status: number; text: string }>((resolve, reject) => {
     const send = target.protocol === "https:" ? requestHttps : requestHttp;
@@ -224,12 +230,17 @@ export async function callActorEndpoint(
   port: number,
   adminAction: string,
   params = "",
-  persistentStatus?: { actorId: string; onDisconnect: StatusDisconnectHandler },
+  persistentStatus?: PersistentActorRequest,
 ) {
   const target = actorUrl(host, port);
 
   try {
-    const upstream = await postActorRequest(target, JSON.stringify({ adminCommand: adminAction, params }), persistentStatus);
+    const requestBody = {
+      adminCommand: adminAction,
+      params,
+      ...(persistentStatus?.shouldLog === undefined ? {} : { shouldLog: persistentStatus.shouldLog }),
+    };
+    const upstream = await postActorRequest(target, JSON.stringify(requestBody), persistentStatus);
     let payload: AdminActionReply;
     try {
       payload = parseAdminActionReply(upstream.text);
@@ -363,7 +374,7 @@ function actorFromStatus(actor: Actor, statusDetails: string): Actor {
 }
 
 export async function refreshActorStatus(actor: Actor, onDisconnect: StatusDisconnectHandler) {
-  const persistentStatus = { actorId: actor.id, onDisconnect };
+  const persistentStatus = { actorId: actor.id, onDisconnect, shouldLog: false };
   const reply = await callActorEndpoint(
     actor.host,
     actor.port,
@@ -405,7 +416,7 @@ export async function checkActorHealth(actor: Actor, onDisconnect: StatusDisconn
       actor.port,
       `${actor.name} healthCheck`,
       "",
-      { actorId: actor.id, onDisconnect },
+      { actorId: actor.id, onDisconnect, shouldLog: false },
     );
     if (!(reply.results || "").startsWith("ALIVE")) {
       return {
