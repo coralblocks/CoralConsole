@@ -58,6 +58,7 @@ async function startMockActorServer() {
             "SEQ status",
             ...(scopedListCount > 1 ? ["SEQ healthCheck"] : []),
             "SEQ rollSessionAuto",
+            "SEQ slowAction",
             "SEQ invalidResult",
             "SEQ dropConnection",
             "",
@@ -80,6 +81,8 @@ async function startMockActorServer() {
           ].join("\n");
         } else if (input.adminCommand === "SEQ rollSessionAuto" && input.params === "") {
           results = "As a safeguard, pass 'true' to indicate you really want to do this!";
+        } else if (input.adminCommand === "SEQ slowAction" && input.params === "") {
+          results = "Slow action complete";
         } else if (input.adminCommand === "SEQ healthCheck" && input.params === "") {
           healthCheckCount += 1;
           results = healthCheckCount === 2 ? "NOT HEALTHY"
@@ -109,11 +112,18 @@ async function startMockActorServer() {
           "",
           responseBody,
         ].join("\r\n");
-        if (shouldClose) {
-          socket.end(response);
-          return;
+        const sendResponse = () => {
+          if (shouldClose) {
+            socket.end(response);
+            return;
+          }
+          socket.write(response);
+        };
+        if (input.adminCommand === "SEQ slowAction") {
+          setTimeout(sendResponse, 150);
+        } else {
+          sendResponse();
         }
-        socket.write(response);
       }
     });
   });
@@ -295,15 +305,57 @@ test("standalone server persists settings, actors, and admin action audit in SQL
     assert.equal(actorServer.requestConnections.at(-1), persistentConnection);
     assert.equal(actorServer.connectionCount, connectionsAfterFirstRefresh);
 
+    const manualStatusStart = actorServer.requests.length;
     await json(server.baseUrl, `/api/actors/${discovered.actor.id}/actions`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ action: "status", params: "" }),
     });
-    assert.notEqual(actorServer.requestConnections.at(-1), persistentConnection);
+    assert.deepEqual(actorServer.requests.slice(manualStatusStart, manualStatusStart + 4), [
+      { adminCommand: "SEQ status", params: "" },
+      { adminCommand: "SEQ healthCheck", params: "" },
+      { adminCommand: "SEQ status", params: "" },
+      { adminCommand: "list", params: "SEQ" },
+    ]);
+    assert.notEqual(actorServer.requestConnections[manualStatusStart], persistentConnection);
+    assert.deepEqual(
+      actorServer.requestConnections.slice(manualStatusStart + 1, manualStatusStart + 4),
+      [persistentConnection, persistentConnection, persistentConnection],
+    );
     const successAudit = await json(server.baseUrl, `/api/audit?actorId=${discovered.actor.id}&query=status&outcome=success&limit=20`);
     assert.equal(successAudit.entries[0].outcome, "success");
     assert.equal("success" in successAudit.entries[0], false);
+
+    const slowActionStart = actorServer.requests.length;
+    const slowAction = json(server.baseUrl, `/api/actors/${discovered.actor.id}/actions`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "slowAction", params: "" }),
+    });
+    for (let attempt = 0; attempt < 50 && actorServer.requests.length === slowActionStart; attempt += 1) {
+      await new Promise((resolveWait) => setTimeout(resolveWait, 10));
+    }
+    assert.deepEqual(actorServer.requests[slowActionStart], { adminCommand: "SEQ slowAction", params: "" });
+    const requestsDuringSlowAction = actorServer.requests.length;
+    await json(server.baseUrl, "/api/actors/health", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ force: true }),
+    });
+    assert.equal(actorServer.requests.length, requestsDuringSlowAction);
+    const slowActionReply = await slowAction;
+    assert.equal(slowActionReply.result, true);
+    assert.deepEqual(actorServer.requests.slice(slowActionStart, slowActionStart + 4), [
+      { adminCommand: "SEQ slowAction", params: "" },
+      { adminCommand: "SEQ healthCheck", params: "" },
+      { adminCommand: "SEQ status", params: "" },
+      { adminCommand: "list", params: "SEQ" },
+    ]);
+    assert.notEqual(actorServer.requestConnections[slowActionStart], persistentConnection);
+    assert.deepEqual(
+      actorServer.requestConnections.slice(slowActionStart + 1, slowActionStart + 4),
+      [persistentConnection, persistentConnection, persistentConnection],
+    );
 
     const failedResponse = await fetch(`${server.baseUrl}/api/actors/${discovered.actor.id}/actions`, {
       method: "POST",

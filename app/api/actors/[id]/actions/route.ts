@@ -1,5 +1,6 @@
 import { ActorCallError, callActorEndpoint } from "@/lib/actor-server";
 import { apiErrorResponse, apiJson, ApiError, clientIp, mutationAllowed, readJson } from "@/lib/http";
+import { runCoordinatedAdminAction } from "@/lib/refresh";
 import { getActor, purgeExpiredAudit, recordAudit } from "@/lib/repository";
 import type { AdminActionReply } from "@/lib/types";
 
@@ -30,12 +31,13 @@ export async function POST(request: Request, { params: routeParams }: { params: 
     if (actionParams.length > MAX_PARAMS) throw new ApiError("Admin action parameters are too long.");
 
     scopedAction = action === "list" ? "list" : `${actor.name} ${action}`;
-    let reply: AdminActionReply;
-    if (actor.demo) {
-      reply = { result: true, adminCommand: scopedAction, params: actionParams, results: `${action} simulated successfully on ${actor.name}` };
-    } else {
-      reply = await callActorEndpoint(actor.host, actor.port, scopedAction, actionParams);
-    }
+    const actionActor = actor;
+    const reply = await runCoordinatedAdminAction<AdminActionReply>(actionActor.id, async () => {
+      if (actionActor.demo) {
+        return { result: true, adminCommand: scopedAction, params: actionParams, results: `${action} simulated successfully on ${actionActor.name}` };
+      }
+      return callActorEndpoint(actionActor.host, actionActor.port, scopedAction, actionParams);
+    });
     const output = bounded(reply.results || "");
     recordAudit({
       actorId: actor.id,

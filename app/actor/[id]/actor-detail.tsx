@@ -121,7 +121,13 @@ export default function ActorDetail({ actorId }: { actorId: string }) {
       setReply({ result: false, error: requestError instanceof Error ? requestError.message : "Action failed." });
     } finally {
       setRunning(false);
-      void loadAudit().catch(() => undefined);
+      void Promise.all([
+        loadAudit(),
+        apiRequest<{ actor: Actor }>(`/api/actors/${encodeURIComponent(actor.id)}`, { cache: "no-store" }),
+      ]).then(([, actorPayload]) => {
+        setActor(actorPayload.actor);
+        setAction((current) => actorPayload.actor.actions.includes(current) ? current : actorPayload.actor.actions[0] || "list");
+      }).catch(() => undefined);
     }
   }
 
