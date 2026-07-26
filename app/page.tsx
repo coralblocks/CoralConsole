@@ -457,6 +457,7 @@ export default function Home() {
           <div className="pulse-counts" aria-label="Actor connectivity and operational state counts">
             <div className="pulse-count status-online" aria-label={`${onlineCount} Online`}><span><i /><strong>{onlineCount}</strong></span><small>ONLINE</small></div>
             <div className="pulse-count status-offline" aria-label={`${offlineCount} Offline`}><span><i /><strong>{offlineCount}</strong></span><small>OFFLINE</small></div>
+            <span className="pulse-count-divider" aria-hidden="true" />
             {PULSE_OPERATIONAL_STATES.map((state) => (
               <div className={`pulse-count state-${state}`} key={state} aria-label={`${operationalStateCounts[state]} ${operationalStateLabel(state)}`}>
                 <span><i /><strong>{operationalStateCounts[state]}</strong></span>
