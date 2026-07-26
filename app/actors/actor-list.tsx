@@ -20,9 +20,12 @@ export default function ActorList() {
   const dragOriginalRef = useRef<Actor[]>([]);
   const dragCommittedRef = useRef(false);
   const draggedIdRef = useRef("");
+  const noticeFadeTimerRef = useRef<number | undefined>(undefined);
+  const noticeClearTimerRef = useRef<number | undefined>(undefined);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const [noticeFading, setNoticeFading] = useState(false);
   const [editingId, setEditingId] = useState("");
   const [draftHost, setDraftHost] = useState("");
   const [draftPort, setDraftPort] = useState("");
@@ -42,6 +45,21 @@ export default function ActorList() {
     replaceActors(payload.actors);
   }, [replaceActors]);
 
+  function showNotice(message: string, autoDismiss = false) {
+    if (noticeFadeTimerRef.current !== undefined) window.clearTimeout(noticeFadeTimerRef.current);
+    if (noticeClearTimerRef.current !== undefined) window.clearTimeout(noticeClearTimerRef.current);
+    noticeFadeTimerRef.current = undefined;
+    noticeClearTimerRef.current = undefined;
+    setNoticeFading(false);
+    setNotice(message);
+    if (!message || !autoDismiss) return;
+    noticeFadeTimerRef.current = window.setTimeout(() => setNoticeFading(true), 2400);
+    noticeClearTimerRef.current = window.setTimeout(() => {
+      setNotice("");
+      setNoticeFading(false);
+    }, 3000);
+  }
+
   useEffect(() => {
     let active = true;
     void Promise.all([
@@ -59,6 +77,11 @@ export default function ActorList() {
     return () => { active = false; };
   }, [replaceActors]);
 
+  useEffect(() => () => {
+    if (noticeFadeTimerRef.current !== undefined) window.clearTimeout(noticeFadeTimerRef.current);
+    if (noticeClearTimerRef.current !== undefined) window.clearTimeout(noticeClearTimerRef.current);
+  }, []);
+
   useEffect(() => {
     if (editingId || draggedId) return;
     const timer = window.setInterval(() => {
@@ -73,7 +96,7 @@ export default function ActorList() {
     setDraftHost(actor.host);
     setDraftPort(String(actor.port));
     setError("");
-    setNotice("");
+    showNotice("");
   }
 
   function cancelEditing() {
@@ -102,7 +125,7 @@ export default function ActorList() {
     }
     setSavingId(actor.id);
     setError("");
-    setNotice("");
+    showNotice("");
     try {
       const payload = await apiRequest<{ actor: Actor }>(`/api/actors/${encodeURIComponent(actor.id)}`, {
         method: "PATCH",
@@ -111,7 +134,7 @@ export default function ActorList() {
       });
       replaceActors(actorsRef.current.map((current) => current.id === actor.id ? payload.actor : current));
       cancelEditing();
-      setNotice(`${actor.name} endpoint saved. CoralConsole is checking the new address.`);
+      showNotice(`${actor.name} endpoint saved. CoralConsole is checking the new address.`);
       void refreshEditedActor(actor.id);
     } catch (requestError) {
       setError(requestError instanceof Error ? requestError.message : "Actor endpoint could not be saved.");
@@ -133,11 +156,11 @@ export default function ActorList() {
     if (actor.demo || !window.confirm(`Remove ${actor.name} from CoralConsole? This cannot be undone.`)) return;
     setRemovingId(actor.id);
     setError("");
-    setNotice("");
+    showNotice("");
     try {
       await apiRequest<{ removed: boolean }>(`/api/actors/${encodeURIComponent(actor.id)}`, { method: "DELETE" });
       replaceActors(actorsRef.current.filter((current) => current.id !== actor.id));
-      setNotice(`${actor.name} was removed from CoralConsole.`);
+      showNotice(`${actor.name} was removed from CoralConsole.`);
     } catch (requestError) {
       setError(requestError instanceof Error ? requestError.message : "Actor could not be removed.");
     } finally {
@@ -154,6 +177,7 @@ export default function ActorList() {
     dragCommittedRef.current = false;
     draggedIdRef.current = actorId;
     setDraggedId(actorId);
+    showNotice("");
     event.dataTransfer.effectAllowed = "move";
     event.dataTransfer.setData("text/plain", actorId);
   }
@@ -180,12 +204,17 @@ export default function ActorList() {
 
   async function saveOrder(event: DragEvent<HTMLTableRowElement>) {
     event.preventDefault();
+    const orderChanged = actorsRef.current.some((actor, index) => actor.id !== dragOriginalRef.current[index]?.id);
     dragCommittedRef.current = true;
     draggedIdRef.current = "";
     setDraggedId("");
+    if (!orderChanged) {
+      replaceActors(dragOriginalRef.current);
+      return;
+    }
     setOrdering(true);
     setError("");
-    setNotice("");
+    showNotice("");
     try {
       const payload = await apiRequest<{ actors: Actor[] }>("/api/actors/order", {
         method: "PATCH",
@@ -193,7 +222,7 @@ export default function ActorList() {
         body: JSON.stringify({ actorIds: actorsRef.current.map((actor) => actor.id) }),
       });
       replaceActors(payload.actors);
-      setNotice("Actor order saved.");
+      showNotice("Actor order saved.", true);
     } catch (requestError) {
       setError(requestError instanceof Error ? requestError.message : "Actor order could not be saved.");
       await loadActors().catch(() => replaceActors(dragOriginalRef.current));
@@ -225,13 +254,13 @@ export default function ActorList() {
         </div>
 
         {error && <p className="page-alert actor-list-alert" role="alert">{error}</p>}
-        {notice && <p className="actor-list-notice" role="status">{notice}</p>}
+        {notice && <p className={`actor-list-notice${noticeFading ? " actor-list-notice-fading" : ""}`} role="status">{notice}</p>}
 
         <section className="actor-list-table-wrap" aria-live="polite" aria-busy={loading || ordering}>
           {loading ? <p className="empty-audit">Loading actors…</p> : !actors.length ? <p className="empty-audit">No actors have been added to CoralConsole.</p> : (
             <table className="actor-list-table">
               <thead>
-                <tr><th>REST IP</th><th>REST PORT</th><th>Name</th><th>Type</th><th>Class</th><th>Online?</th><th>Edit</th><th>Remove</th></tr>
+                <tr><th>Name</th><th>Type</th><th>Class</th><th>REST IP</th><th>REST PORT</th><th>Online?</th><th>Edit</th><th>Remove</th></tr>
               </thead>
               <tbody>
                 {actors.map((actor) => {
@@ -250,17 +279,17 @@ export default function ActorList() {
                       <td>
                         <span className="actor-list-endpoint">
                           <span className="actor-drag-handle" title="Drag to reorder" aria-label={`Drag ${actor.name} to reorder`}><GripVertical aria-hidden="true" /></span>
-                          {editing
-                            ? <input aria-label={`${actor.name} REST IP`} value={draftHost} onChange={(event) => setDraftHost(event.target.value)} onKeyDown={(event) => handleEditKey(event, actor)} autoFocus />
-                            : <code>{actor.host}</code>}
+                          <strong>{actor.name}</strong>
                         </span>
                       </td>
+                      <td>{ACTOR_META[actor.kind].label}</td>
+                      <td><code>{actor.className}</code></td>
+                      <td>{editing
+                        ? <input aria-label={`${actor.name} REST IP`} value={draftHost} onChange={(event) => setDraftHost(event.target.value)} onKeyDown={(event) => handleEditKey(event, actor)} autoFocus />
+                        : <code>{actor.host}</code>}</td>
                       <td>{editing
                         ? <input aria-label={`${actor.name} REST port`} inputMode="numeric" value={draftPort} onChange={(event) => setDraftPort(event.target.value)} onKeyDown={(event) => handleEditKey(event, actor)} />
                         : <code>{actor.port}</code>}</td>
-                      <td><strong>{actor.name}</strong></td>
-                      <td>{ACTOR_META[actor.kind].label}</td>
-                      <td><code>{actor.className}</code></td>
                       <td><span className={`actor-list-status status-${actor.status}`}><i />{statusLabel(actor.status)}</span></td>
                       <td>{editing ? <span className="actor-list-edit-actions">
                         <button type="button" onClick={() => void saveEndpoint(actor)} disabled={saving}>{saving ? "Saving…" : "Save"}</button>

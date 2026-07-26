@@ -491,7 +491,7 @@ export default function Home() {
           <div className="section-heading topology-heading">
             <div><p className="eyebrow">Topology</p><h2>Actor Map</h2></div>
             <div className="topology-heading-actions">
-              <button className="button button-primary" type="button" onClick={() => setAddOpen(true)}>＋ Add Actor</button>
+              <button className="button button-ghost" type="button" onClick={() => setAddOpen(true)}>＋ Add Actor</button>
               <Link className="button button-ghost" href="/actors" target="_blank" rel="noopener noreferrer">List Actors</Link>
               <button
                 className="button button-ghost refresh-button"

@@ -753,7 +753,7 @@ test("deployment and UI conventions stay explicit", async () => {
   assert.match(page, /operationalStateForDisplay\(actor\.status, actor\.operationalState\) === filter/);
   assert.match(page, /aria-pressed=\{filter === value\}/);
   assert.match(page, /className="section-heading topology-heading"/);
-  assert.match(page, />＋ Add Actor<\/button>/);
+  assert.match(page, /className="button button-ghost" type="button" onClick=\{\(\) => setAddOpen\(true\)\}>＋ Add Actor<\/button>/);
   assert.match(page, /href="\/actors"[\s\S]*target="_blank"[\s\S]*List Actors/);
   assert.match(page, /\{refreshing \? "Refreshing…" : "Refresh Now"\}/);
   assert.match(page, /online in the console/);
@@ -804,30 +804,41 @@ test("deployment and UI conventions stay explicit", async () => {
   assert.match(styles, /\.group-heading > span \{[^}]*font-size: 11px/);
   assert.match(styles, /\.topology-heading \{[^}]*display: grid[^}]*grid-template-columns: minmax\(0, 1fr\) auto/);
   assert.match(styles, /\.topology-heading-actions \{[^}]*grid-column: 2[^}]*grid-row: 1[^}]*justify-self: end/);
+  assert.match(styles, /\.topology-heading-actions \.button \{[^}]*font-weight: 500/);
   assert.match(styles, /\.topology-heading \.filters \{[^}]*grid-column: 1 \/ -1[^}]*grid-row: 2/);
   assert.match(styles, /\.filters \{[^}]*overflow-x: auto/);
   assert.doesNotMatch(styles, /\.pulse-panel \{[^}]*scroll-margin-top/);
   assert.match(styles, /\.pulse-count \{[^}]*cursor: pointer/);
+  assert.match(styles, /\.pulse-count \{[^}]*justify-items: center[^}]*text-align: center/);
   assert.match(styles, /\.pulse-footer \{[^}]*grid-template-columns: repeat\(2, minmax\(0, 1fr\)\)/);
   assert.match(styles, /\.pulse-total strong \{[^}]*font-size: 17px/);
   assert.match(styles, /\.pulse-session \{[^}]*border-left: 1px solid/);
   assert.match(styles, /\.pulse-session strong \{[^}]*font-size: 14px/);
   assert.match(styles, /\.actor-groups \{[^}]*grid-template-columns: 1fr/);
+  assert.match(styles, /\.system-overview \{[^}]*grid-template-columns: 1fr/);
   assert.doesNotMatch(styles, /\.sequencer-groups/);
   assert.doesNotMatch(styles, /\.actor-groups \{[^}]*repeat\(2/);
   assert.doesNotMatch(page, /className="sequencer-groups"/);
   assert.match(page, /id: "replayer"[\s\S]*id: "persistence"[\s\S]*id: "transport"[\s\S]*id: "customer"/);
   assert.match(page, /visibleActors\.filter\(\(actor\) => group\.kinds\.includes\(actor\.kind\)\)/);
   assert.match(page, /Shared topology · Persisted in SQLite/);
-  for (const heading of ["REST IP", "REST PORT", "Name", "Type", "Class", "Online?", "Edit", "Remove"]) {
+  assert.match(actorList, /<tr><th>Name<\/th><th>Type<\/th><th>Class<\/th><th>REST IP<\/th><th>REST PORT<\/th><th>Online\?<\/th><th>Edit<\/th><th>Remove<\/th><\/tr>/);
+  for (const heading of ["Name", "Type", "Class", "REST IP", "REST PORT", "Online?", "Edit", "Remove"]) {
     assert.match(actorList, new RegExp(`<th>${heading.replace("?", "\\?")}<\\/th>`));
   }
   assert.match(actorList, /draggable=\{!editingId && !ordering\}/);
+  assert.match(actorList, /const orderChanged = actorsRef\.current\.some/);
+  assert.match(actorList, /showNotice\("Actor order saved\.", true\)/);
+  assert.match(actorList, /setNoticeFading\(true\), 2400/);
+  assert.match(actorList, /\}, 3000\)/);
   assert.match(actorList, /\/api\/actors\/order/);
   assert.match(actorList, /method: "PATCH"/);
   assert.match(actorList, /window\.confirm/);
   assert.doesNotMatch(actorList, /Back to topology|Return to topology/);
   assert.match(styles, /\.actor-list-table-wrap \{/);
+  assert.match(styles, /\.actor-list-table thead \{[^}]*background:/);
+  assert.match(styles, /\.actor-list-table th \{[^}]*font-size: 10px/);
+  assert.match(styles, /\.actor-list-title > p:last-child \{[^}]*max-width: none/);
   assert.match(actorDetail, /\/actions/);
   assert.match(actorDetail, /\/api\/actors\/refresh/);
   assert.doesNotMatch(actorDetail, /\/api\/actors\/health/);
