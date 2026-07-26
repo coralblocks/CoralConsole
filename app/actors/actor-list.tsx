@@ -43,6 +43,7 @@ export default function ActorList() {
   const [draggedId, setDraggedId] = useState("");
   const [orderingKind, setOrderingKind] = useState<ActorKind | null>(null);
   const [pollIntervalSeconds, setPollIntervalSeconds] = useState(5);
+  const [addOpen, setAddOpen] = useState(false);
   const [addKind, setAddKind] = useState<ActorKind | null>(null);
   const [connectHost, setConnectHost] = useState("");
   const [connectPort, setConnectPort] = useState("30001");
@@ -129,13 +130,15 @@ export default function ActorList() {
     showFeedback(actor.kind, "");
   }
 
-  function openAddActor(kind: ActorKind) {
+  function openAddActor(kind: ActorKind | null = null) {
     setAddKind(kind);
+    setAddOpen(true);
     setConnectError("");
   }
 
   function closeAddActor() {
     if (connecting) return;
+    setAddOpen(false);
     setAddKind(null);
     setConnectError("");
   }
@@ -158,6 +161,7 @@ export default function ActorList() {
       replaceActors([...actorsRef.current.filter((actor) => actor.id !== payload.actor.id), payload.actor]);
       setConnectHost("");
       setConnectPort("30001");
+      setAddOpen(false);
       setAddKind(null);
       showFeedback(payload.actor.kind, `${payload.actor.name} was added to CoralConsole.`, "notice", 7000);
     } catch (requestError) {
@@ -325,8 +329,13 @@ export default function ActorList() {
 
       <section className="actor-list-main">
         <div className="actor-list-title">
-          <p className="eyebrow">Shared topology registry</p>
-          <h1>List Actors</h1>
+          <div className="actor-list-title-heading">
+            <div>
+              <p className="eyebrow">Shared topology registry</p>
+              <h1>List Actors</h1>
+            </div>
+            <button className="actor-list-global-add-button" type="button" onClick={() => openAddActor()}><span aria-hidden="true">＋</span>Add Actor</button>
+          </div>
           <p>Edit REST endpoints, remove actors, or drag rows into the precedence order CoralConsole should retain within each actor type.</p>
         </div>
 
@@ -421,11 +430,11 @@ export default function ActorList() {
           )}
       </section>
 
-      {addKind && (
+      {addOpen && (
         <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) closeAddActor(); }}>
-          <section className={`add-modal actor-${addKind}`} role="dialog" aria-modal="true" aria-labelledby="actor-list-add-title">
+          <section className={`add-modal${addKind ? ` actor-${addKind}` : ""}`} role="dialog" aria-modal="true" aria-labelledby="actor-list-add-title">
             <button className="modal-close" type="button" onClick={closeAddActor} aria-label="Close add actor dialog">×</button>
-            <p className="eyebrow">Add to {groupLabel(addKind)}</p>
+            <p className="eyebrow">{addKind ? `Add to ${groupLabel(addKind)}` : "Auto-discovery"}</p>
             <h2 id="actor-list-add-title">Connect an actor</h2>
             <p>Enter the actor’s network address. The server will discover its role and actions, then place it in the appropriate actor table.</p>
             <div className="actor-type-list" aria-label="Supported actor types">{ACTOR_KINDS.filter((kind) => kind !== "link").map((kind) => <span className={kind === addKind ? "selected" : ""} key={kind}>{ACTOR_META[kind].label}</span>)}</div>

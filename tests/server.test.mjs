@@ -893,9 +893,12 @@ test("deployment and UI conventions stay explicit", async () => {
   assert.match(styles, /\.actor-list-col-edit \{[^}]*width: 142px/);
   assert.match(styles, /\.actor-list-feedback \{[^}]*height: 42px/);
   assert.match(actorList, /className="actor-list-add-button"/);
-  assert.match(actorList, /<section className=\{`add-modal actor-\$\{addKind\}`\}/);
+  assert.match(actorList, /className="actor-list-global-add-button"/);
+  assert.match(actorList, /onClick=\{\(\) => openAddActor\(\)\}/);
+  assert.match(actorList, /<section className=\{`add-modal\$\{addKind \? ` actor-\$\{addKind\}` : ""\}`\}/);
   assert.match(styles, /\.actor-list-notice \{[^}]*var\(--actor-soft\)[^}]*var\(--actor-color\)/);
   assert.match(styles, /\.actor-list-add-button \{[^}]*background: var\(--actor-soft\)/);
+  assert.match(styles, /\.actor-list-global-add-button \{[^}]*background: transparent[^}]*border: 1px solid var\(--line\)/);
   assert.match(styles, /\.actor-list-edit-button, \.actor-list-edit-actions button \{[^}]*font-size: 10px/);
   assert.match(styles, /\.actor-list-table th:first-child, \.actor-list-table td:first-child \{[^}]*padding-left: 30px/);
   assert.match(styles, /\.actor-list-table \{[^}]*min-width: 0/);

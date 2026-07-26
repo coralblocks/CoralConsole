@@ -366,8 +366,12 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 
 .actor-list-main { margin: 0 auto; max-width: 1600px; min-height: calc(100vh - 78px); padding: 64px clamp(24px, 5vw, 80px) 80px; }
 .actor-list-title { margin-bottom: 28px; }
+.actor-list-title-heading { align-items: flex-end; display: flex; gap: 24px; justify-content: space-between; }
+.actor-list-title-heading .eyebrow { margin-bottom: 13px; }
 .actor-list-title h1 { font-size: clamp(42px, 5vw, 68px); letter-spacing: -.06em; line-height: 1; margin: 0; }
 .actor-list-title > p:last-child { color: var(--muted); line-height: 1.6; margin: 15px 0 0; max-width: none; white-space: nowrap; }
+.actor-list-global-add-button { align-items: center; background: transparent; border: 1px solid var(--line); border-radius: 9px; color: var(--ink); cursor: pointer; display: inline-flex; font-size: 10px; font-weight: 700; gap: 6px; justify-content: center; margin: 0 18px 5px 0; min-height: 38px; padding: 0 12px; white-space: nowrap; }
+.actor-list-global-add-button:hover { background: rgba(255, 255, 255, .72); border-color: color-mix(in srgb, var(--ink) 28%, var(--line)); }
 .actor-list-page-alert { margin: 0 0 24px; max-width: none; }
 .actor-list-groups { display: grid; gap: 24px; }
 .actor-list-group { background: color-mix(in srgb, var(--actor-soft) 24%, rgba(255, 254, 249, .94)); border: 1px solid color-mix(in srgb, var(--actor-color) 24%, var(--line)); border-radius: 22px; box-shadow: 0 20px 55px rgba(22, 53, 47, .065); overflow: hidden; }
@@ -448,6 +452,8 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 }
 
 @media (max-width: 720px) {
+  .actor-list-title-heading { align-items: flex-start; }
+  .actor-list-global-add-button { margin-right: 0; }
   .actor-list-title > p:last-child { white-space: normal; }
   .actor-list-group { border-radius: 18px; }
   .actor-list-group-heading { align-items: center; gap: 10px; grid-template-columns: minmax(0, 1fr) auto; min-height: 0; padding: 14px; }
@@ -520,6 +526,8 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   .topbar-actions .button-primary { min-width: 40px; padding-inline: 9px; }
   .topbar-actions .button-label { display: none; }
   .actor-list-table tbody tr { grid-template-columns: 1fr; }
+  .actor-list-title-heading { display: grid; gap: 18px; grid-template-columns: 1fr; }
+  .actor-list-global-add-button { justify-self: start; margin-bottom: 0; }
   .actor-list-table td, .actor-list-table td:nth-child(2), .actor-list-table td:nth-child(4), .actor-list-table td:nth-child(6) { border-right: 0; grid-column: 1; }
   .actor-list-table td:not(:last-child) { border-bottom: 1px solid var(--line); }
 }
