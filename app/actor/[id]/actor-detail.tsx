@@ -3,7 +3,7 @@
 import { FormEvent, useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { RefreshCw } from "lucide-react";
-import { ACTOR_META, operationalStateLabel, statusLabel, type Actor, type AdminActionReply } from "../../actor-ui";
+import { ACTOR_META, operationalStateForDisplay, operationalStateLabel, statusLabel, type Actor, type AdminActionReply } from "../../actor-ui";
 import type { AuditEntry, TopologySettings } from "@/lib/types";
 
 async function apiRequest<T>(url: string, init?: RequestInit): Promise<T> {
@@ -170,6 +170,7 @@ export default function ActorDetail({ actorId }: { actorId: string }) {
   }
 
   const Icon = actor ? ACTOR_META[actor.kind].icon : null;
+  const displayedState = actor ? operationalStateForDisplay(actor.status, actor.operationalState) : "unknown";
 
   return (
     <main className="console-shell actor-detail-page">
@@ -207,7 +208,7 @@ export default function ActorDetail({ actorId }: { actorId: string }) {
                   </div>
                 </div>
                 <div className="actor-status-badges">
-                  <span className={`actor-state-badge state-${actor.operationalState}`}>{operationalStateLabel(actor.operationalState)}</span>
+                  <span className={`actor-state-badge state-${displayedState}`}>{operationalStateLabel(displayedState)}</span>
                   <span className={`status-badge status-${actor.status}`}><i />{statusLabel(actor.status)}</span>
                 </div>
               </div>

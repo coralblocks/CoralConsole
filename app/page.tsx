@@ -5,6 +5,7 @@ import Link from "next/link";
 import {
   ACTOR_KINDS,
   ACTOR_META,
+  operationalStateForDisplay,
   operationalStateLabel,
   statusLabel,
   type Actor,
@@ -94,6 +95,7 @@ function normalizeSavedActors(value: unknown): Actor[] {
 function ActorCard({ actor }: { actor: Actor }) {
   const meta = ACTOR_META[actor.kind];
   const Icon = meta.icon;
+  const displayedState = operationalStateForDisplay(actor.status, actor.operationalState);
   return (
     <a
       className={`actor-card actor-${actor.kind}${actor.status === "offline" ? " actor-card-offline" : ""}`}
@@ -112,7 +114,7 @@ function ActorCard({ actor }: { actor: Actor }) {
           <small>{actor.className}</small>
         </span>
         <span className="actor-card-status">
-          <span className={`actor-state-badge state-${actor.operationalState}`}>{operationalStateLabel(actor.operationalState)}</span>
+          <span className={`actor-state-badge state-${displayedState}`}>{operationalStateLabel(displayedState)}</span>
         </span>
       </span>
     </a>

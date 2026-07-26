@@ -671,9 +671,10 @@ test("actor migrations preserve audit references and initialize status metadata"
 });
 
 test("deployment and UI conventions stay explicit", async () => {
-  const [page, actorDetail, styles, layout, viewerPresence, guide, compose, dockerfile, dockerStart, dockerStop, dockerBackup, gitMergeToMain] = await Promise.all([
+  const [page, actorDetail, actorUi, styles, layout, viewerPresence, guide, compose, dockerfile, dockerStart, dockerStop, dockerBackup, gitMergeToMain] = await Promise.all([
     readFile(join(projectRoot, "app/page.tsx"), "utf8"),
     readFile(join(projectRoot, "app/actor/[id]/actor-detail.tsx"), "utf8"),
+    readFile(join(projectRoot, "app/actor-ui.tsx"), "utf8"),
     readFile(join(projectRoot, "app/globals.css"), "utf8"),
     readFile(join(projectRoot, "app/layout.tsx"), "utf8"),
     readFile(join(projectRoot, "app/viewer-presence.tsx"), "utf8"),
@@ -701,7 +702,9 @@ test("deployment and UI conventions stay explicit", async () => {
   assert.match(page, /actor\.status === "offline" \? " actor-card-offline" : ""/);
   assert.match(page, /details, \$\{statusLabel\(actor\.status\)\} \(opens in a new tab\)/);
   assert.doesNotMatch(page, /status-dot/);
-  assert.match(page, /state-\$\{actor\.operationalState\}/);
+  assert.match(page, /operationalStateForDisplay\(actor\.status, actor\.operationalState\)/);
+  assert.match(page, /state-\$\{displayedState\}/);
+  assert.match(actorUi, /return status === "offline" \? "unknown" : state/);
   assert.doesNotMatch(page, /className="actor-data|className="actor-foot/);
   assert.match(page, /ACTOR_KINDS\.filter\(\(kind\) => kind !== "link"\)\.map/);
   assert.match(styles, /\.group-cards \{[^}]*grid-template-columns: 1fr/);
@@ -717,15 +720,16 @@ test("deployment and UI conventions stay explicit", async () => {
   assert.match(actorDetail, /<BrandIcon \/>/);
   assert.match(actorDetail, /Refresh actor status/);
   assert.match(actorDetail, /actor\.status === "offline" \? " actor-detail-offline" : ""/);
-  assert.match(actorDetail, /state-\$\{actor\.operationalState\}/);
-  assert.match(actorDetail, /operationalStateLabel\(actor\.operationalState\)/);
+  assert.match(actorDetail, /operationalStateForDisplay\(actor\.status, actor\.operationalState\)/);
+  assert.match(actorDetail, /state-\$\{displayedState\}/);
+  assert.match(actorDetail, /operationalStateLabel\(displayedState\)/);
   assert.match(actorDetail, /\/api\/actors\/\$\{encodeURIComponent\(actor\.id\)\}\/refresh/);
   assert.match(actorDetail, /formatLastActorStatusResponse\(actor\.actorStatusRespondedAt\)/);
   assert.match(actorDetail, /<dt>REST endpoint<\/dt>[\s\S]*<dt>Last response<\/dt>[\s\S]*actor\.actorStatusFields\.map/);
   assert.doesNotMatch(actorDetail, /Back to topology/);
   assert.doesNotMatch(actorDetail, /Return to topology/);
   assert.match(styles, /\.status-refresh-button \{[^}]*background: color-mix/);
-  for (const state of ["active", "inactive", "closed", "rewinding", "disconnected"]) {
+  for (const state of ["active", "inactive", "closed", "rewinding", "disconnected", "unknown"]) {
     assert.match(styles, new RegExp(`\\.actor-state-badge\\.state-${state} \\{`));
   }
   assert.match(layout, /ViewerPresence/);

@@ -185,6 +185,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .actor-state-badge.state-closed { background: var(--coral-soft); color: #9a3f38; }
 .actor-state-badge.state-rewinding { background: var(--violet-soft); color: #6a4ca1; }
 .actor-state-badge.state-disconnected { background: #fff0ce; color: #8b6519; }
+.actor-state-badge.state-unknown { background: #e5eae8; color: #526560; }
 .status-badge { background: var(--lime-soft); color: #587318; gap: 5px; }
 .status-badge i { background: currentColor; border-radius: 50%; height: 5px; width: 5px; }
 .status-badge.status-offline { background: var(--coral-soft); color: #9a3f38; }
