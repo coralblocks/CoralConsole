@@ -714,6 +714,11 @@ test("deployment and UI conventions stay explicit", async () => {
   assert.match(styles, /background-image: repeating-linear-gradient/);
   assert.match(styles, /\.actor-detail-panel\.actor-detail-offline \.inspector-head \{[^}]*background-color: var\(--panel\)/);
   assert.match(styles, /\.actor-state-badge \{[^}]*font-weight: 800/);
+  assert.match(styles, /\.actor-card \.actor-state-badge \{[^}]*font-size: 7px/);
+  assert.match(styles, /\.actor-state-badge, \.status-badge \{[^}]*font-size: 8px/);
+  assert.match(styles, /\.actor-card-sequence \{[^}]*font-size: 8px/);
+  assert.match(styles, /\.actor-heading small \{[^}]*font-size: 8px/);
+  assert.match(styles, /\.inspector-head p \{[^}]*font-size: 9px/);
   assert.doesNotMatch(styles, /\.sequencer-groups \.group-cards/);
   assert.match(page, /Shared topology · Persisted in SQLite/);
   assert.match(actorDetail, /\/actions/);

@@ -165,20 +165,20 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .actor-heading { display: grid; flex: 1; margin-left: 9px; min-width: 0; }
 .actor-name-line { align-items: center; display: flex; gap: 7px; min-width: 0; }
 .actor-heading strong { font-size: 10px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.actor-heading small { color: var(--muted); font-family: var(--font-plex-mono), monospace; font-size: 7px; margin-top: 3px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.actor-card-sequence { background: color-mix(in srgb, var(--actor-soft) 72%, white); border-radius: 5px; color: color-mix(in srgb, var(--actor-color) 60%, var(--ink)); flex: 0 0 auto; font-family: var(--font-plex-mono), monospace; font-size: 7px; padding: 3px 5px; }
+.actor-heading small { color: var(--muted); font-family: var(--font-plex-mono), monospace; font-size: 8px; margin-top: 3px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.actor-card-sequence { background: color-mix(in srgb, var(--actor-soft) 72%, white); border-radius: 5px; color: color-mix(in srgb, var(--actor-color) 60%, var(--ink)); flex: 0 0 auto; font-family: var(--font-plex-mono), monospace; font-size: 8px; padding: 3px 5px; }
 .actor-card-status { align-items: center; display: flex; flex: 0 0 auto; gap: 7px; margin-left: 10px; }
-.actor-card .actor-state-badge { font-size: 6px; padding: 5px 6px; }
+.actor-card .actor-state-badge { font-size: 7px; padding: 5px 6px; }
 .empty-group { color: var(--muted); font-size: 11px; grid-column: 1/-1; margin: 13px 0; text-align: center; }
 
 .inspector { overflow: hidden; position: sticky; top: 100px; }
 .inspector-accent { background: var(--actor-color); height: 5px; }
 .inspector-head { align-items: center; display: flex; padding: 23px 21px 19px; }
 .inspector-head > div { margin-left: 11px; min-width: 0; }
-.inspector-head p { color: var(--muted); font-family: var(--font-plex-mono), monospace; font-size: 8px; letter-spacing: .04em; margin: 0 0 4px; }
+.inspector-head p { color: var(--muted); font-family: var(--font-plex-mono), monospace; font-size: 9px; letter-spacing: .04em; margin: 0 0 4px; }
 .inspector-head h1, .inspector-head h2 { font-size: 16px; margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .actor-status-badges { align-items: center; display: flex; gap: 7px; margin-left: auto; }
-.actor-state-badge, .status-badge { align-items: center; border-radius: 999px; display: flex; font-family: var(--font-plex-mono), monospace; font-size: 7px; padding: 7px 8px; text-transform: uppercase; }
+.actor-state-badge, .status-badge { align-items: center; border-radius: 999px; display: flex; font-family: var(--font-plex-mono), monospace; font-size: 8px; padding: 7px 8px; text-transform: uppercase; }
 .actor-state-badge { background: #ecebe4; color: var(--muted); font-weight: 800; }
 .actor-state-badge.state-active { background: var(--cyan-soft); color: #167b70; }
 .actor-state-badge.state-inactive { background: #ecebe4; color: var(--muted); }
