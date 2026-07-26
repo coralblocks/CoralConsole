@@ -833,7 +833,13 @@ test("deployment and UI conventions stay explicit", async () => {
   assert.match(styles, /\.actor-card-sequence \{[^}]*font-size: 9px/);
   assert.match(styles, /\.actor-heading small \{[^}]*font-size: 9px/);
   assert.match(styles, /\.inspector-head p \{[^}]*font-size: 10px/);
-  assert.match(styles, /\.group-heading > span \{[^}]*font-size: 11px/);
+  assert.match(page, /function ActorGroupCountLink\(\{ count, label \}: \{ count: number; label: string \}\)/);
+  assert.match(page, /className="group-count-link"[\s\S]*href="\/actors"[\s\S]*target="_blank"[\s\S]*rel="noopener noreferrer"/);
+  assert.match(page, /<ActorGroupCountLink count=\{primarySequencers\.length\} label="Primary Sequencer" \/>/);
+  assert.match(page, /<ActorGroupCountLink count=\{backupSequencers\.length\} label="Backup Sequencer" \/>/);
+  assert.match(page, /<ActorGroupCountLink count=\{grouped\.length\} label=\{group\.eyebrow\} \/>/);
+  assert.match(styles, /\.group-count-link \{[^}]*font-size: 11px[^}]*transition:/);
+  assert.match(styles, /\.group-count-link:hover \{[^}]*transform: translateY\(-1px\)/);
   assert.match(styles, /\.topology-heading \{[^}]*display: grid[^}]*grid-template-columns: minmax\(0, 1fr\) auto/);
   assert.match(styles, /\.topology-heading-actions \{[^}]*grid-column: 2[^}]*grid-row: 1[^}]*justify-self: end/);
   assert.match(styles, /\.topology-heading-actions \.button \{[^}]*font-weight: 500/);

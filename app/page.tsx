@@ -67,6 +67,20 @@ function actorsInPanelOrder(source: Actor[], kinds: ActorKind[]) {
     });
 }
 
+function ActorGroupCountLink({ count, label }: { count: number; label: string }) {
+  return (
+    <a
+      className="group-count-link"
+      href="/actors"
+      target="_blank"
+      rel="noopener noreferrer"
+      aria-label={`Edit ${label} actors (opens in a new tab)`}
+    >
+      {count}
+    </a>
+  );
+}
+
 const DEFAULT_SETTINGS: TopologySettings = {
   topologyName: "Coral topology",
   backgroundColor: "#f4f1e9",
@@ -538,18 +552,18 @@ export default function Home() {
             {!ready && <p className="workspace-loading">Loading shared topology…</p>}
             <div className="actor-groups">
               <section className="actor-group group-sequencer sequencer-primary" aria-labelledby="group-sequencer-primary">
-                <div className="group-heading"><div><p>Sequencer Fabric</p><h3 id="group-sequencer-primary">Primary Sequencer</h3></div><span>{primarySequencers.length}</span></div>
+                <div className="group-heading"><div><p>Sequencer Fabric</p><h3 id="group-sequencer-primary">Primary Sequencer</h3></div><ActorGroupCountLink count={primarySequencers.length} label="Primary Sequencer" /></div>
                 <div className="group-cards">{primarySequencers.map((actor) => <ActorCard key={actor.id} actor={actor} />)}{!primarySequencers.length && <p className="empty-group">No primary sequencer matches this filter.</p>}</div>
               </section>
               <section className="actor-group group-backup-sequencer sequencer-backups" aria-labelledby="group-sequencer-backups">
-                <div className="group-heading"><div><p>Sequencer Fabric</p><h3 id="group-sequencer-backups">Backup Sequencers</h3></div><span>{backupSequencers.length}</span></div>
+                <div className="group-heading"><div><p>Sequencer Fabric</p><h3 id="group-sequencer-backups">Backup Sequencers</h3></div><ActorGroupCountLink count={backupSequencers.length} label="Backup Sequencer" /></div>
                 <div className="group-cards">{backupSequencers.map((actor) => <ActorCard key={actor.id} actor={actor} />)}{!backupSequencers.length && <p className="empty-group">No backup sequencers match this filter.</p>}</div>
               </section>
               {GROUPS.map((group) => {
                 const grouped = actorsInPanelOrder(visibleActors, group.kinds);
                 return (
                   <section className={`actor-group group-${group.id}`} key={group.id} aria-labelledby={`group-${group.id}`}>
-                    <div className="group-heading"><div><p>{group.eyebrow}</p><h3 id={`group-${group.id}`}>{group.title}</h3></div><span>{grouped.length}</span></div>
+                    <div className="group-heading"><div><p>{group.eyebrow}</p><h3 id={`group-${group.id}`}>{group.title}</h3></div><ActorGroupCountLink count={grouped.length} label={group.eyebrow} /></div>
                     <div className="group-cards">{grouped.map((actor) => <ActorCard key={actor.id} actor={actor} />)}{!grouped.length && <p className="empty-group">No matching actors</p>}</div>
                   </section>
                 );
