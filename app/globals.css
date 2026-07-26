@@ -127,7 +127,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .pulse-total, .pulse-session { display: grid; gap: 3px; min-width: 0; }
 .pulse-session { border-left: 1px solid rgba(255,255,255,.12); padding-left: 18px; }
 .pulse-total strong, .pulse-session strong { font-family: var(--font-plex-mono), monospace; }
-.pulse-total strong { font-size: 15px; }
+.pulse-total strong { font-size: 17px; }
 .pulse-session strong { font-size: 14px; }
 .pulse-total span, .pulse-session span { color: #9fb0ab; font-size: 9px; }
 

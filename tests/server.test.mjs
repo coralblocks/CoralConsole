@@ -762,7 +762,7 @@ test("deployment and UI conventions stay explicit", async () => {
   assert.doesNotMatch(styles, /\.pulse-panel \{[^}]*scroll-margin-top/);
   assert.match(styles, /\.pulse-count \{[^}]*cursor: pointer/);
   assert.match(styles, /\.pulse-footer \{[^}]*grid-template-columns: repeat\(2, minmax\(0, 1fr\)\)/);
-  assert.match(styles, /\.pulse-total strong \{[^}]*font-size: 15px/);
+  assert.match(styles, /\.pulse-total strong \{[^}]*font-size: 17px/);
   assert.match(styles, /\.pulse-session \{[^}]*border-left: 1px solid/);
   assert.match(styles, /\.pulse-session strong \{[^}]*font-size: 14px/);
   assert.doesNotMatch(styles, /\.sequencer-groups \.group-cards/);
