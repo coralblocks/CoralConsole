@@ -56,6 +56,17 @@ const GROUPS: { id: string; kinds: ActorKind[]; eyebrow: string; title: string }
   { id: "customer", kinds: ["node", "application"], eyebrow: "Application Layer", title: "Nodes · Applications" },
 ];
 
+function actorsInPanelOrder(source: Actor[], kinds: ActorKind[]) {
+  const kindOrder = new Map(kinds.map((kind, index) => [kind, index]));
+  return source
+    .filter((actor) => kindOrder.has(actor.kind))
+    .sort((left, right) => {
+      const kindDifference = kindOrder.get(left.kind)! - kindOrder.get(right.kind)!;
+      if (kindDifference) return kindDifference;
+      return (left.sortOrder ?? Number.MAX_SAFE_INTEGER) - (right.sortOrder ?? Number.MAX_SAFE_INTEGER);
+    });
+}
+
 const DEFAULT_SETTINGS: TopologySettings = {
   topologyName: "Coral topology",
   backgroundColor: "#f4f1e9",
@@ -267,8 +278,8 @@ export default function Home() {
   ])) as Record<ActorOperationalState, number>;
   const disconnectedCount = operationalStateCounts.disconnected;
   const connectedCount = onlineCount - disconnectedCount - operationalStateCounts.closed;
-  const primarySequencers = visibleActors.filter((actor) => actor.kind === "sequencer");
-  const backupSequencers = visibleActors.filter((actor) => actor.kind === "backup-sequencer");
+  const primarySequencers = actorsInPanelOrder(visibleActors, ["sequencer"]);
+  const backupSequencers = actorsInPanelOrder(visibleActors, ["backup-sequencer"]);
   const sessionSequencer = actors.find((actor) => actor.kind === "sequencer" && actor.status === "online")
     || actors.find((actor) => actor.kind === "sequencer");
   const visibleSummaryKinds = SUMMARY_ACTOR_KINDS.filter((kind) => settings.summaryActorKinds.includes(kind));
@@ -535,7 +546,7 @@ export default function Home() {
                 <div className="group-cards">{backupSequencers.map((actor) => <ActorCard key={actor.id} actor={actor} />)}{!backupSequencers.length && <p className="empty-group">No backup sequencers match this filter.</p>}</div>
               </section>
               {GROUPS.map((group) => {
-                const grouped = visibleActors.filter((actor) => group.kinds.includes(actor.kind));
+                const grouped = actorsInPanelOrder(visibleActors, group.kinds);
                 return (
                   <section className={`actor-group group-${group.id}`} key={group.id} aria-labelledby={`group-${group.id}`}>
                     <div className="group-heading"><div><p>{group.eyebrow}</p><h3 id={`group-${group.id}`}>{group.title}</h3></div><span>{grouped.length}</span></div>

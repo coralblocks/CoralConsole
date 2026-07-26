@@ -823,7 +823,7 @@ test("deployment and UI conventions stay explicit", async () => {
   assert.match(actorUi, /return status === "offline" \? "unknown" : state/);
   assert.doesNotMatch(page, /className="actor-data|className="actor-foot/);
   assert.match(page, /ACTOR_KINDS\.filter\(\(kind\) => kind !== "link"\)\.map/);
-  assert.match(styles, /\.group-cards \{[^}]*grid-template-columns: repeat\(2, minmax\(0, 1fr\)\)/);
+  assert.match(styles, /\.group-cards \{[^}]*grid-auto-flow: row[^}]*grid-template-columns: repeat\(2, minmax\(0, 1fr\)\)/);
   assert.match(styles, /\.actor-card\.actor-card-offline,\s*\.actor-detail-panel\.actor-detail-offline \.inspector-head/);
   assert.match(styles, /background-image: repeating-linear-gradient/);
   assert.match(styles, /\.actor-detail-panel\.actor-detail-offline \.inspector-head \{[^}]*background-color: var\(--panel\)/);
@@ -851,8 +851,11 @@ test("deployment and UI conventions stay explicit", async () => {
   assert.doesNotMatch(styles, /\.sequencer-groups/);
   assert.doesNotMatch(styles, /\.actor-groups \{[^}]*repeat\(2/);
   assert.doesNotMatch(page, /className="sequencer-groups"/);
-  assert.match(page, /id: "replayer"[\s\S]*id: "persistence"[\s\S]*id: "transport"[\s\S]*id: "customer"/);
-  assert.match(page, /visibleActors\.filter\(\(actor\) => group\.kinds\.includes\(actor\.kind\)\)/);
+  assert.match(page, /id: "replayer", kinds: \["replayer"\][\s\S]*id: "persistence", kinds: \["archiver", "logger"\][\s\S]*id: "transport"[\s\S]*kinds: \["bridge", "dispatcher", "multimqapp"\][\s\S]*id: "customer", kinds: \["node", "application"\]/);
+  assert.match(page, /function actorsInPanelOrder\(source: Actor\[\], kinds: ActorKind\[\]\)/);
+  assert.match(page, /kindOrder\.get\(left\.kind\)! - kindOrder\.get\(right\.kind\)!/);
+  assert.match(page, /left\.sortOrder \?\? Number\.MAX_SAFE_INTEGER/);
+  assert.match(page, /const grouped = actorsInPanelOrder\(visibleActors, group\.kinds\)/);
   assert.match(page, /Shared topology · Persisted in SQLite/);
   assert.match(actorList, /<tr><th>Name<\/th><th>Class<\/th><th>REST IP<\/th><th>PORT<\/th><th>Online\?<\/th><th>Edit<\/th><th>Remove<\/th><\/tr>/);
   for (const heading of ["Name", "Class", "REST IP", "PORT", "Online?", "Edit", "Remove"]) {
