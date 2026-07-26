@@ -45,19 +45,19 @@ export default function ActorList() {
     replaceActors(payload.actors);
   }, [replaceActors]);
 
-  function showNotice(message: string, autoDismiss = false) {
+  function showNotice(message: string, dismissAfterMs?: number) {
     if (noticeFadeTimerRef.current !== undefined) window.clearTimeout(noticeFadeTimerRef.current);
     if (noticeClearTimerRef.current !== undefined) window.clearTimeout(noticeClearTimerRef.current);
     noticeFadeTimerRef.current = undefined;
     noticeClearTimerRef.current = undefined;
     setNoticeFading(false);
     setNotice(message);
-    if (!message || !autoDismiss) return;
-    noticeFadeTimerRef.current = window.setTimeout(() => setNoticeFading(true), 2400);
+    if (!message || !dismissAfterMs) return;
+    noticeFadeTimerRef.current = window.setTimeout(() => setNoticeFading(true), Math.max(0, dismissAfterMs - 600));
     noticeClearTimerRef.current = window.setTimeout(() => {
       setNotice("");
       setNoticeFading(false);
-    }, 3000);
+    }, dismissAfterMs);
   }
 
   useEffect(() => {
@@ -134,7 +134,7 @@ export default function ActorList() {
       });
       replaceActors(actorsRef.current.map((current) => current.id === actor.id ? payload.actor : current));
       cancelEditing();
-      showNotice(`${actor.name} endpoint saved. CoralConsole is checking the new address.`);
+      showNotice(`${actor.name} endpoint saved. CoralConsole is checking the new address.`, 5000);
       void refreshEditedActor(actor.id);
     } catch (requestError) {
       setError(requestError instanceof Error ? requestError.message : "Actor endpoint could not be saved.");
@@ -160,7 +160,7 @@ export default function ActorList() {
     try {
       await apiRequest<{ removed: boolean }>(`/api/actors/${encodeURIComponent(actor.id)}`, { method: "DELETE" });
       replaceActors(actorsRef.current.filter((current) => current.id !== actor.id));
-      showNotice(`${actor.name} was removed from CoralConsole.`);
+      showNotice(`${actor.name} was removed from CoralConsole.`, 5000);
     } catch (requestError) {
       setError(requestError instanceof Error ? requestError.message : "Actor could not be removed.");
     } finally {
@@ -222,7 +222,7 @@ export default function ActorList() {
         body: JSON.stringify({ actorIds: actorsRef.current.map((actor) => actor.id) }),
       });
       replaceActors(payload.actors);
-      showNotice("Actor order saved.", true);
+      showNotice("Actor order saved.", 3000);
     } catch (requestError) {
       setError(requestError instanceof Error ? requestError.message : "Actor order could not be saved.");
       await loadActors().catch(() => replaceActors(dragOriginalRef.current));
@@ -253,14 +253,16 @@ export default function ActorList() {
           <p>Edit REST endpoints, remove actors, or drag rows into the precedence order you want CoralConsole to retain.</p>
         </div>
 
-        {error && <p className="page-alert actor-list-alert" role="alert">{error}</p>}
-        {notice && <p className={`actor-list-notice${noticeFading ? " actor-list-notice-fading" : ""}`} role="status">{notice}</p>}
+        <div className="actor-list-feedback">
+          {error && <p className="page-alert actor-list-alert" role="alert">{error}</p>}
+          {notice && <p className={`actor-list-notice${noticeFading ? " actor-list-notice-fading" : ""}`} role="status">{notice}</p>}
+        </div>
 
         <section className="actor-list-table-wrap" aria-live="polite" aria-busy={loading || ordering}>
           {loading ? <p className="empty-audit">Loading actors…</p> : !actors.length ? <p className="empty-audit">No actors have been added to CoralConsole.</p> : (
             <table className="actor-list-table">
               <thead>
-                <tr><th>Name</th><th>Type</th><th>Class</th><th>REST IP</th><th>REST PORT</th><th>Online?</th><th>Edit</th><th>Remove</th></tr>
+                <tr><th>Name</th><th>Type</th><th>Class</th><th>REST IP</th><th>PORT</th><th>Online?</th><th>Edit</th><th>Remove</th></tr>
               </thead>
               <tbody>
                 {actors.map((actor) => {
@@ -287,7 +289,7 @@ export default function ActorList() {
                       <td data-label="REST IP">{editing
                         ? <input aria-label={`${actor.name} REST IP`} value={draftHost} onChange={(event) => setDraftHost(event.target.value)} onKeyDown={(event) => handleEditKey(event, actor)} autoFocus />
                         : <code>{actor.host}</code>}</td>
-                      <td data-label="REST PORT">{editing
+                      <td data-label="PORT">{editing
                         ? <input aria-label={`${actor.name} REST port`} inputMode="numeric" value={draftPort} onChange={(event) => setDraftPort(event.target.value)} onKeyDown={(event) => handleEditKey(event, actor)} />
                         : <code>{actor.port}</code>}</td>
                       <td data-label="Online?"><span className={`actor-list-status status-${actor.status}`}><i />{statusLabel(actor.status)}</span></td>
@@ -295,7 +297,7 @@ export default function ActorList() {
                         <button type="button" onClick={() => void saveEndpoint(actor)} disabled={saving}>{saving ? "Saving…" : "Save"}</button>
                         <button type="button" onClick={cancelEditing} disabled={saving}>Cancel</button>
                       </span> : <button className="actor-list-edit-button" type="button" onClick={() => startEditing(actor)} disabled={Boolean(editingId) || actor.demo}>{actor.demo ? "Sample" : "Edit"}</button>}</td>
-                      <td data-label="Remove"><button className="actor-list-remove-button" type="button" onClick={() => void removeActor(actor)} disabled={Boolean(removingId) || actor.demo}>{removingId === actor.id ? "Removing…" : actor.demo ? "Sample" : "Remove"}</button></td>
+                      <td data-label="Remove"><button className="actor-list-remove-button" type="button" onClick={() => void removeActor(actor)} disabled={Boolean(editingId) || Boolean(removingId) || actor.demo}>{removingId === actor.id ? "Removing…" : actor.demo ? "Sample" : "Remove"}</button></td>
                     </tr>
                   );
                 })}

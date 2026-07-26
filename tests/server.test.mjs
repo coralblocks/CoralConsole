@@ -822,17 +822,17 @@ test("deployment and UI conventions stay explicit", async () => {
   assert.match(page, /id: "replayer"[\s\S]*id: "persistence"[\s\S]*id: "transport"[\s\S]*id: "customer"/);
   assert.match(page, /visibleActors\.filter\(\(actor\) => group\.kinds\.includes\(actor\.kind\)\)/);
   assert.match(page, /Shared topology · Persisted in SQLite/);
-  assert.match(actorList, /<tr><th>Name<\/th><th>Type<\/th><th>Class<\/th><th>REST IP<\/th><th>REST PORT<\/th><th>Online\?<\/th><th>Edit<\/th><th>Remove<\/th><\/tr>/);
-  for (const heading of ["Name", "Type", "Class", "REST IP", "REST PORT", "Online?", "Edit", "Remove"]) {
+  assert.match(actorList, /<tr><th>Name<\/th><th>Type<\/th><th>Class<\/th><th>REST IP<\/th><th>PORT<\/th><th>Online\?<\/th><th>Edit<\/th><th>Remove<\/th><\/tr>/);
+  for (const heading of ["Name", "Type", "Class", "REST IP", "PORT", "Online?", "Edit", "Remove"]) {
     assert.match(actorList, new RegExp(`<th>${heading.replace("?", "\\?")}<\\/th>`));
   }
   assert.match(actorList, /draggable=\{!editingId && !ordering\}/);
   assert.match(actorList, /<td data-label="Name">/);
   assert.match(actorList, /<td data-label="Online\?">/);
   assert.match(actorList, /const orderChanged = actorsRef\.current\.some/);
-  assert.match(actorList, /showNotice\("Actor order saved\.", true\)/);
-  assert.match(actorList, /setNoticeFading\(true\), 2400/);
-  assert.match(actorList, /\}, 3000\)/);
+  assert.match(actorList, /showNotice\("Actor order saved\.", 3000\)/);
+  assert.match(actorList, /CoralConsole is checking the new address\.`, 5000\)/);
+  assert.match(actorList, /disabled=\{Boolean\(editingId\) \|\| Boolean\(removingId\) \|\| actor\.demo\}/);
   assert.match(actorList, /\/api\/actors\/order/);
   assert.match(actorList, /method: "PATCH"/);
   assert.match(actorList, /window\.confirm/);
@@ -841,6 +841,8 @@ test("deployment and UI conventions stay explicit", async () => {
   assert.match(styles, /\.actor-list-table thead \{[^}]*background:/);
   assert.match(styles, /\.actor-list-table th \{[^}]*font-size: 10px/);
   assert.match(styles, /\.actor-list-title > p:last-child \{[^}]*max-width: none/);
+  assert.match(styles, /\.actor-list-feedback \{[^}]*height: 52px/);
+  assert.match(styles, /\.actor-list-table th:first-child, \.actor-list-table td:first-child \{[^}]*padding-left: 18px/);
   assert.match(styles, /\.actor-list-table \{[^}]*min-width: 0/);
   assert.match(styles, /@media \(max-width: 720px\) \{[\s\S]*\.actor-list-table tbody tr \{[^}]*grid-template-columns: repeat\(2, minmax\(0, 1fr\)\)/);
   assert.match(actorDetail, /\/actions/);
