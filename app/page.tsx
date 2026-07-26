@@ -28,6 +28,21 @@ const ACTOR_FILTERS = [
   "disconnected",
 ] as const;
 type ActorFilter = typeof ACTOR_FILTERS[number];
+const PULSE_OPERATIONAL_STATES: ActorOperationalState[] = [
+  "closed",
+  "rewinding",
+  "active",
+  "inactive",
+  "disconnected",
+];
+
+function actorCountLabel(count: number, state: string) {
+  return `${count} ${count === 1 ? "Actor" : "Actors"} ${state}`;
+}
+
+function actorNoun(count: number) {
+  return count === 1 ? "actor" : "actors";
+}
 
 const GROUPS: { id: string; kinds: ActorKind[]; eyebrow: string; title: string }[] = [
   { id: "replayer", kinds: ["replayer"], eyebrow: "Replayer Fabric", title: "Replayers" },
@@ -267,6 +282,12 @@ export default function Home() {
   }, [actors, filter]);
   const onlineCount = actors.filter((actor) => actor.status === "online").length;
   const offlineCount = actors.filter((actor) => actor.status === "offline").length;
+  const operationalStateCounts = Object.fromEntries(PULSE_OPERATIONAL_STATES.map((state) => [
+    state,
+    actors.filter((actor) => operationalStateForDisplay(actor.status, actor.operationalState) === state).length,
+  ])) as Record<ActorOperationalState, number>;
+  const disconnectedCount = operationalStateCounts.disconnected;
+  const connectedCount = onlineCount - disconnectedCount - operationalStateCounts.closed;
   const primarySequencers = visibleActors.filter((actor) => actor.kind === "sequencer");
   const backupSequencers = visibleActors.filter((actor) => actor.kind === "backup-sequencer");
   const sessionSequencer = actors.find((actor) => actor.kind === "sequencer" && actor.status === "online")
@@ -421,11 +442,27 @@ export default function Home() {
         <aside className="pulse-panel" aria-label="System Pulse">
           <div className="pulse-heading">
             <div className="health-orbit" aria-hidden="true"><span /><span /><span /></div>
-            <div><small>System Pulse</small><strong>{offlineCount ? `${offlineCount} actor${offlineCount === 1 ? "" : "s"} offline` : actors.length ? "All actors online" : "Waiting for actors"}</strong><span>{onlineCount} of {actors.length} actors online</span></div>
+            <div className="pulse-copy">
+              <small>System Pulse</small>
+              <div className="pulse-summary">
+                <strong>{offlineCount ? actorCountLabel(offlineCount, "Offline") : actors.length ? "All Actors Online" : "Waiting for Actors"}</strong>
+                <span>{onlineCount} of {actors.length} {actorNoun(actors.length)} online in the console</span>
+              </div>
+              <div className="pulse-summary pulse-summary-sequencer">
+                <strong>{actorCountLabel(disconnectedCount, "Disconnected")}</strong>
+                <span>{connectedCount} of {actors.length} {actorNoun(actors.length)} connected to the sequencer</span>
+              </div>
+            </div>
           </div>
-          <div className="connectivity-counts">
-            <div className="connectivity-count online"><i /><p><strong>{onlineCount}</strong><small>ONLINE</small></p></div>
-            <div className="connectivity-count offline"><i /><p><strong>{offlineCount}</strong><small>OFFLINE</small></p></div>
+          <div className="pulse-counts" aria-label="Actor connectivity and operational state counts">
+            <div className="pulse-count status-online" aria-label={`${onlineCount} Online`}><span><i /><strong>{onlineCount}</strong></span><small>ONLINE</small></div>
+            <div className="pulse-count status-offline" aria-label={`${offlineCount} Offline`}><span><i /><strong>{offlineCount}</strong></span><small>OFFLINE</small></div>
+            {PULSE_OPERATIONAL_STATES.map((state) => (
+              <div className={`pulse-count state-${state}`} key={state} aria-label={`${operationalStateCounts[state]} ${operationalStateLabel(state)}`}>
+                <span><i /><strong>{operationalStateCounts[state]}</strong></span>
+                <small>{operationalStateLabel(state)}</small>
+              </div>
+            ))}
           </div>
           <div className="pulse-session">
             <small>Active session</small>

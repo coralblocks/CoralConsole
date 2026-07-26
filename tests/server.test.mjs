@@ -696,9 +696,13 @@ test("deployment and UI conventions stay explicit", async () => {
   assert.match(page, /aria-pressed=\{filter === value\}/);
   assert.match(page, /className="section-heading topology-heading"/);
   assert.match(page, /\{refreshing \? "Refreshing…" : "Refresh Now"\}/);
-  assert.match(page, /actors online/);
+  assert.match(page, /online in the console/);
+  assert.match(page, /connected to the sequencer/);
+  assert.match(page, /onlineCount - disconnectedCount - operationalStateCounts\.closed/);
+  assert.match(page, /count === 1 \? "Actor" : "Actors"/);
   assert.match(page, /<small>ONLINE<\/small>/);
   assert.match(page, /<small>OFFLINE<\/small>/);
+  assert.match(page, /PULSE_OPERATIONAL_STATES\.map/);
   assert.match(page, /sessionSequencer\?\.sessionStarted && <span>Started \{sessionSequencer\.sessionStarted\}<\/span>/);
   assert.doesNotMatch(page, /Start time not reported/);
   assert.match(page, /Immediately poll actorStatus and list for every actor/);
