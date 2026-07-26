@@ -89,7 +89,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .health-orbit span:nth-child(3) { background: var(--violet); bottom: 7px; left: auto; right: 10px; top: auto; }
 
 .system-overview { display: grid; gap: 18px; grid-template-columns: minmax(0, 1fr) 500px; margin: 0 auto 28px; max-width: 1600px; padding: 0 clamp(24px, 5vw, 80px); width: 100%; }
-.actor-summary { background: var(--line); border: 1px solid var(--line); border-radius: 18px; display: grid; gap: 1px; grid-template-columns: repeat(var(--summary-columns, 5), minmax(0, 1fr)); overflow: hidden; }
+.actor-summary { background: var(--line); border: 1px solid var(--line); border-radius: 18px; display: grid; gap: 1px; grid-template-columns: repeat(var(--summary-columns, 3), minmax(0, 1fr)); overflow: hidden; }
 .system-overview.summary-counts-hidden { grid-template-columns: 500px; justify-content: end; }
 .actor-metric { --actor-color: var(--coral); --actor-soft: var(--coral-soft); align-items: center; background: rgba(255, 254, 249, .94); display: flex; gap: 13px; min-height: 88px; min-width: 0; padding: 14px 16px; }
 .actor-type-icon { align-items: center; background: var(--actor-soft); border: 1px solid color-mix(in srgb, var(--actor-color) 25%, transparent); border-radius: 13px; color: color-mix(in srgb, var(--actor-color) 65%, var(--ink)); display: flex; flex: 0 0 50px; height: 50px; justify-content: center; }

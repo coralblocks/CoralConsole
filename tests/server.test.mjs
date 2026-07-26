@@ -703,6 +703,7 @@ test("deployment and UI conventions stay explicit", async () => {
   assert.match(page, /<small>ONLINE<\/small>/);
   assert.match(page, /<small>OFFLINE<\/small>/);
   assert.match(page, /PULSE_OPERATIONAL_STATES\.map/);
+  assert.match(page, /"--summary-columns": Math\.min\(3, visibleSummaryKinds\.length\)/);
   assert.match(page, /sessionSequencer\?\.sessionStarted && <span>Started \{sessionSequencer\.sessionStarted\}<\/span>/);
   assert.doesNotMatch(page, /Start time not reported/);
   assert.match(page, /Immediately poll actorStatus and list for every actor/);

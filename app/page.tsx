@@ -426,7 +426,7 @@ export default function Home() {
         {visibleSummaryKinds.length > 0 && <div
           className="actor-summary"
           aria-label="Actor type counts"
-          style={{ "--summary-columns": Math.min(5, visibleSummaryKinds.length) } as CSSProperties}
+          style={{ "--summary-columns": Math.min(3, visibleSummaryKinds.length) } as CSSProperties}
         >
           {visibleSummaryKinds.map((kind) => {
             const count = actors.filter((actor) => actor.kind === kind).length;
