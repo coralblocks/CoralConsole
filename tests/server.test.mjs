@@ -839,10 +839,10 @@ test("deployment and UI conventions stay explicit", async () => {
   assert.doesNotMatch(actorList, /Back to topology|Return to topology/);
   assert.match(styles, /\.actor-list-table-wrap \{/);
   assert.match(styles, /\.actor-list-table thead \{[^}]*background:/);
-  assert.match(styles, /\.actor-list-table th \{[^}]*font-size: 10px/);
+  assert.match(styles, /\.actor-list-table th \{[^}]*font-size: 13px/);
   assert.match(styles, /\.actor-list-title > p:last-child \{[^}]*max-width: none/);
   assert.match(styles, /\.actor-list-feedback \{[^}]*height: 52px/);
-  assert.match(styles, /\.actor-list-table th:first-child, \.actor-list-table td:first-child \{[^}]*padding-left: 18px/);
+  assert.match(styles, /\.actor-list-table th:first-child, \.actor-list-table td:first-child \{[^}]*padding-left: 30px/);
   assert.match(styles, /\.actor-list-table \{[^}]*min-width: 0/);
   assert.match(styles, /@media \(max-width: 720px\) \{[\s\S]*\.actor-list-table tbody tr \{[^}]*grid-template-columns: repeat\(2, minmax\(0, 1fr\)\)/);
   assert.match(actorDetail, /\/actions/);
