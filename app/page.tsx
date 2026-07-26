@@ -46,13 +46,13 @@ function actorNoun(count: number) {
 
 const GROUPS: { id: string; kinds: ActorKind[]; eyebrow: string; title: string }[] = [
   { id: "replayer", kinds: ["replayer"], eyebrow: "Replayer Fabric", title: "Replayers" },
+  { id: "persistence", kinds: ["archiver", "logger"], eyebrow: "Persistence & audit", title: "Archiver · Logger" },
   {
     id: "transport",
     kinds: ["bridge", "dispatcher", "multimqapp"],
     eyebrow: "Transport layer",
     title: "Bridge · Dispatcher · MultiMqApp",
   },
-  { id: "persistence", kinds: ["archiver", "logger"], eyebrow: "Persistence & audit", title: "Archiver · Logger" },
   { id: "customer", kinds: ["node", "application"], eyebrow: "Application Layer", title: "Nodes · Applications" },
 ];
 
@@ -521,7 +521,7 @@ export default function Home() {
 
           <div className="topology-canvas">
             {!ready && <p className="workspace-loading">Loading shared topology…</p>}
-            <div className="sequencer-groups">
+            <div className="actor-groups">
               <section className="actor-group group-sequencer sequencer-primary" aria-labelledby="group-sequencer-primary">
                 <div className="group-heading"><div><p>Sequencer Fabric</p><h3 id="group-sequencer-primary">Primary Sequencer</h3></div><span>{primarySequencers.length}</span></div>
                 <div className="group-cards">{primarySequencers.map((actor) => <ActorCard key={actor.id} actor={actor} />)}{!primarySequencers.length && <p className="empty-group">No primary sequencer matches this filter.</p>}</div>
@@ -530,8 +530,6 @@ export default function Home() {
                 <div className="group-heading"><div><p>Sequencer Fabric</p><h3 id="group-sequencer-backups">Backup Sequencers</h3></div><span>{backupSequencers.length}</span></div>
                 <div className="group-cards">{backupSequencers.map((actor) => <ActorCard key={actor.id} actor={actor} />)}{!backupSequencers.length && <p className="empty-group">No backup sequencers match this filter.</p>}</div>
               </section>
-            </div>
-            <div className="actor-groups">
               {GROUPS.map((group) => {
                 const grouped = group.kinds.flatMap((kind) => visibleActors.filter((actor) => actor.kind === kind));
                 return (

@@ -151,9 +151,8 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .filters button.active { color: #126b67; font-weight: 800; }
 .filters button.active:focus-visible { outline: none; }
 .topology-canvas { background-image: radial-gradient(rgba(16,43,38,.12) .7px, transparent .7px); background-size: 16px 16px; min-height: 680px; padding: 35px; position: relative; }
-.actor-groups { display: grid; gap: 14px; grid-template-columns: repeat(2, minmax(0, 1fr)); position: relative; z-index: 1; }
+.actor-groups { display: grid; gap: 14px; grid-template-columns: 1fr; position: relative; z-index: 1; }
 .actor-group { background: rgba(244, 241, 233, .88); border: 1px solid var(--line); border-radius: 16px; padding: 17px; }
-.sequencer-groups { display: grid; gap: 14px; grid-template-columns: repeat(2, minmax(0, 1fr)); margin-bottom: 14px; position: relative; z-index: 1; }
 .sequencer-primary { background: color-mix(in srgb, #ffdeda 38%, rgba(244, 241, 233, .9)); border-color: color-mix(in srgb, #d9584e 42%, var(--line)); }
 .sequencer-backups { background: color-mix(in srgb, #fff4f2 68%, rgba(244, 241, 233, .9)); border-color: color-mix(in srgb, #f3aaa2 34%, var(--line)); }
 .group-replayer { background: color-mix(in srgb, var(--cyan-soft) 46%, rgba(244, 241, 233, .92)); border-color: color-mix(in srgb, var(--cyan) 32%, var(--line)); }
@@ -376,7 +375,6 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   .system-overview { grid-template-columns: 1fr; }
   .system-overview.summary-counts-hidden { grid-template-columns: 1fr; }
   .inspector { position: relative; top: auto; }
-  .actor-groups { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 
 @media (max-width: 700px) {
@@ -400,7 +398,6 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   .actor-detail-panel .admin-block { padding: 24px 20px 20px; }
   .section-heading { align-items: start; flex-direction: column; padding: 20px; }
   .filters { overflow-x: auto; width: 100%; }
-  .sequencer-groups { grid-template-columns: 1fr; }
   .filters button { flex: 1; white-space: nowrap; }
   .topology-canvas { min-height: auto; padding: 20px 12px; }
   .actor-groups, .group-cards { grid-template-columns: 1fr; }

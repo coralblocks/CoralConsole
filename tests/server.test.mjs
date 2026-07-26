@@ -772,7 +772,11 @@ test("deployment and UI conventions stay explicit", async () => {
   assert.match(styles, /\.pulse-total strong \{[^}]*font-size: 17px/);
   assert.match(styles, /\.pulse-session \{[^}]*border-left: 1px solid/);
   assert.match(styles, /\.pulse-session strong \{[^}]*font-size: 14px/);
-  assert.doesNotMatch(styles, /\.sequencer-groups \.group-cards/);
+  assert.match(styles, /\.actor-groups \{[^}]*grid-template-columns: 1fr/);
+  assert.doesNotMatch(styles, /\.sequencer-groups/);
+  assert.doesNotMatch(styles, /\.actor-groups \{[^}]*repeat\(2/);
+  assert.doesNotMatch(page, /className="sequencer-groups"/);
+  assert.match(page, /id: "replayer"[\s\S]*id: "persistence"[\s\S]*id: "transport"[\s\S]*id: "customer"/);
   assert.match(page, /Shared topology · Persisted in SQLite/);
   assert.match(actorDetail, /\/actions/);
   assert.match(actorDetail, /\/api\/actors\/refresh/);
