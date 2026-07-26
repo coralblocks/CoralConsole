@@ -318,6 +318,15 @@ export default function ActorList() {
                     <div className="actor-list-table-wrap" aria-labelledby={headingId} aria-busy={orderingKind === kind}>
                       {groupActors.length === 0 ? <p className="empty-audit">No actors of this type remain.</p> : (
                         <table className="actor-list-table">
+                          <colgroup>
+                            <col className="actor-list-col-name" />
+                            <col className="actor-list-col-class" />
+                            <col className="actor-list-col-host" />
+                            <col className="actor-list-col-port" />
+                            <col className="actor-list-col-status" />
+                            <col className="actor-list-col-edit" />
+                            <col className="actor-list-col-remove" />
+                          </colgroup>
                           <thead>
                             <tr><th>Name</th><th>Class</th><th>REST IP</th><th>PORT</th><th>Online?</th><th>Edit</th><th>Remove</th></tr>
                           </thead>
