@@ -106,8 +106,8 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .pulse-summary strong { font-size: 15px; margin-top: 3px; }
 .pulse-heading span { color: #9fb0ab; font-size: 10px; margin-top: 3px; }
 .pulse-summary-sequencer { border-left: 1px solid rgba(255,255,255,.1); padding-left: 14px; }
-.pulse-counts { display: grid; gap: 6px; grid-template-columns: repeat(2, minmax(60px, 1fr)) 1px repeat(5, minmax(60px, 1fr)); margin: 15px 0; overflow-x: auto; }
-.pulse-count-divider { align-self: stretch; background: rgba(255,255,255,.1); margin: 4px 0; }
+.pulse-counts { display: grid; gap: 6px; grid-template-columns: repeat(2, minmax(60px, 1fr)) 5px repeat(5, minmax(60px, 1fr)); margin: 15px -2px; overflow-x: auto; }
+.pulse-count-divider { align-self: stretch; border-left: 2px solid rgba(255,255,255,.1); justify-self: center; margin: 4px 0; }
 .pulse-count { background: rgba(255,255,255,.07); border: 1px solid rgba(255,255,255,.1); border-radius: 9px; display: grid; gap: 3px; min-width: 0; padding: 8px 4px; }
 .pulse-count > span { align-items: center; display: flex; gap: 6px; }
 .pulse-count i { background: #a5b8b2; border-radius: 50%; box-shadow: 0 0 0 3px rgba(165,184,178,.09); flex: 0 0 6px; height: 6px; width: 6px; }
