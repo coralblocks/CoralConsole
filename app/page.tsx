@@ -100,7 +100,7 @@ function ActorCard({ actor }: { actor: Actor }) {
       href={`/actor/${encodeURIComponent(actor.id)}`}
       target="_blank"
       rel="noopener noreferrer"
-      aria-label={`${actor.name} details (opens in a new tab)`}
+      aria-label={`${actor.name} details, ${statusLabel(actor.status)} (opens in a new tab)`}
     >
       <span className="actor-card-head">
         <span className="actor-avatar" aria-hidden="true"><Icon /></span>
@@ -113,7 +113,6 @@ function ActorCard({ actor }: { actor: Actor }) {
         </span>
         <span className="actor-card-status">
           <span className={`actor-state-badge state-${actor.operationalState}`}>{operationalStateLabel(actor.operationalState)}</span>
-          <span className={`status-dot status-${actor.status}`} aria-label={statusLabel(actor.status)} />
         </span>
       </span>
     </a>

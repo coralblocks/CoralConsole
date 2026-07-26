@@ -192,7 +192,7 @@ export default function ActorDetail({ actorId }: { actorId: string }) {
           </div>
         ) : (
           <div className="actor-detail-layout">
-            <section className={`inspector actor-detail-panel actor-${actor.kind}`} aria-label={`${actor.name} details`}>
+            <section className={`inspector actor-detail-panel actor-${actor.kind}${actor.status === "offline" ? " actor-detail-offline" : ""}`} aria-label={`${actor.name} details`}>
               <div className="inspector-accent" />
               <div className="inspector-head">
                 <span className="actor-avatar large" aria-hidden="true">{Icon && <Icon />}</span>
