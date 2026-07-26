@@ -125,8 +125,8 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .pulse-count small { color: #a5b8b2; font-family: var(--font-plex-mono), monospace; font-size: 7px; overflow: hidden; text-overflow: ellipsis; text-transform: uppercase; white-space: nowrap; }
 .pulse-footer { border-top: 1px solid rgba(255,255,255,.12); display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); padding-top: 13px; }
 .pulse-total, .pulse-session { display: grid; gap: 3px; min-width: 0; }
-.pulse-total { color: inherit; cursor: pointer; text-decoration: none; }
-.pulse-total:hover span { color: #c7d6d2; text-decoration: underline; }
+.pulse-total { appearance: none; background: transparent; border: 0; color: inherit; cursor: pointer; font: inherit; padding: 0; text-align: left; }
+.pulse-total:hover span { color: #c7d6d2; }
 .pulse-session { border-left: 1px solid rgba(255,255,255,.12); padding-left: 18px; }
 .pulse-total strong, .pulse-session strong { font-family: var(--font-plex-mono), monospace; }
 .pulse-total strong { font-size: 17px; }

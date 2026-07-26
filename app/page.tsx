@@ -465,17 +465,18 @@ export default function Home() {
             ))}
           </div>
           <div className="pulse-footer">
-            <a
+            <button
               className="pulse-total"
-              href="#topology"
+              type="button"
               aria-label={`Show all ${actors.length} ${actorNoun(actors.length)} in the Actor Map`}
               aria-controls="topology"
+              aria-pressed={filter === "all"}
               onClick={() => setFilter("all")}
             >
               <small>Total actors</small>
               <strong>{actors.length}</strong>
               <span>Added to CoralConsole</span>
-            </a>
+            </button>
             <div className="pulse-session">
               <small>Active session</small>
               <strong>{sessionSequencer?.session || "Not discovered"}</strong>
