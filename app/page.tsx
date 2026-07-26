@@ -490,15 +490,19 @@ export default function Home() {
         <div className="topology-panel">
           <div className="section-heading topology-heading">
             <div><p className="eyebrow">Topology</p><h2>Actor Map</h2></div>
-            <button
-              className="button button-ghost refresh-button"
-              type="button"
-              onClick={() => void refreshActors(true)}
-              disabled={refreshing || !actors.length}
-              title="Immediately poll actorStatus and list for every actor"
-            >
-              {refreshing ? "Refreshing…" : "Refresh Now"}
-            </button>
+            <div className="topology-heading-actions">
+              <button className="button button-primary" type="button" onClick={() => setAddOpen(true)}>＋ Add Actor</button>
+              <Link className="button button-ghost" href="/actors" target="_blank" rel="noopener noreferrer">List Actors</Link>
+              <button
+                className="button button-ghost refresh-button"
+                type="button"
+                onClick={() => void refreshActors(true)}
+                disabled={refreshing || !actors.length}
+                title="Immediately poll actorStatus and list for every actor"
+              >
+                {refreshing ? "Refreshing…" : "Refresh Now"}
+              </button>
+            </div>
             <div className="filters" aria-label="Filter actors" ref={filterBarRef}>
               <span className="filter-selection-indicator" aria-hidden="true" />
               {ACTOR_FILTERS.map((value) => (
@@ -531,7 +535,7 @@ export default function Home() {
                 <div className="group-cards">{backupSequencers.map((actor) => <ActorCard key={actor.id} actor={actor} />)}{!backupSequencers.length && <p className="empty-group">No backup sequencers match this filter.</p>}</div>
               </section>
               {GROUPS.map((group) => {
-                const grouped = group.kinds.flatMap((kind) => visibleActors.filter((actor) => actor.kind === kind));
+                const grouped = visibleActors.filter((actor) => group.kinds.includes(actor.kind));
                 return (
                   <section className={`actor-group group-${group.id}`} key={group.id} aria-labelledby={`group-${group.id}`}>
                     <div className="group-heading"><div><p>{group.eyebrow}</p><h3 id={`group-${group.id}`}>{group.title}</h3></div><span>{grouped.length}</span></div>

@@ -40,6 +40,7 @@ export const actors = sqliteTable("actors", {
     .$type<ActorStatusField[]>()
     .notNull()
     .default([]),
+  sortOrder: integer("sort_order").notNull().default(0),
   sessionStarted: text("session_started"),
   actorStatusRespondedAt: text("status_responded_at"),
   lastSeen: text("last_seen").notNull().default("Never"),

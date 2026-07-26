@@ -37,7 +37,7 @@ One process-level scheduler owns actor polling independently of browser tabs. Ea
 ## Data ownership and persistence
 
 - `topology_settings` stores the singleton shared name, color, actor polling interval, idle-polling policy, viewer grace period, retention, summary-count visibility, and first-run status.
-- `actors` stores endpoint, discovered identity, type, Online/Offline connectivity, the separate operational state, actions, the full ordered actorStatus field list, derived common metadata, and timestamps. Host plus port is unique. The legacy SQL column name `status_responded_at` records the latest successful actorStatus response time.
+- `actors` stores endpoint, discovered identity, type, Online/Offline connectivity, the separate operational state, actions, the full ordered actorStatus field list, derived common metadata, persisted sort order, and timestamps. Host plus port is unique. The legacy SQL column name `status_responded_at` records the latest successful actorStatus response time.
 - The legacy-named `command_audit` table stores the actor snapshot, scoped admin action, parameters, plain-text output, four-state outcome, error, duration, timestamp, source IP (when trusted), and truncation state. Actor deletion retains audit rows with a null actor reference.
 - Audit parameters are capped at 8 KiB and output at 256 KiB. Older rows are purged according to the shared retention setting.
 - `localStorage` is device-specific only: `coral-console-intro` stores intro visibility. `coral-console-actors` is a legacy import source and must not become the canonical topology again.
@@ -49,7 +49,8 @@ The same-origin API surface is:
 
 - `GET/PATCH /api/settings`
 - `GET/POST /api/actors`
-- `GET/DELETE /api/actors/<id>`
+- `GET/PATCH/DELETE /api/actors/<id>`
+- `PATCH /api/actors/order`
 - `POST /api/actors/<id>/refresh`
 - `POST /api/actors/refresh`
 - `POST /api/actors/<id>/actions`
@@ -76,6 +77,7 @@ The optional `shouldLog` boolean defaults to `true` at the actor. Omit it for di
 
 - `app/page.tsx` owns the shared topology UI, first-run settings, refresh polling, add-actor flow, and one-time browser migration.
 - `app/actor-ui.tsx` owns shared actor labels, icons, and UI metadata.
+- `app/actors/` renders the dedicated actor registry tab for endpoint editing, persisted drag ordering, and confirmed deletion.
 - `app/actor/[id]/` loads direct actor details from SQLite and runs audited admin actions in a dedicated tab.
 - `app/audit/` renders searchable global admin action history.
 - `app/viewer-presence.tsx` owns per-tab presence heartbeats and best-effort departure reporting.
@@ -125,9 +127,10 @@ The raw TCP mock actor in the integration suite must handle `ECONNRESET` and `EP
 - Use **Replayer Fabric / Replayers**, **Transport layer / Bridge · Dispatcher · MultiMqApp**, **Persistence & audit / Archiver · Logger**, and **Application Layer / Nodes · Applications**. Keep Link supported by discovery but hidden from the topology, summary, and add-actor supported-type list for now; render Node before Application.
 - Keep the header brand square and aligned. Keep the hero optional through the persistent Hide intro / Show intro control.
 - Keep summary and Actor Map on the same responsive gutters. Order summary counts as Sequencer, Backup Sequencers, Replayers, Archivers, Loggers, Bridges, Dispatchers, Nodes, Applications, and MultiMqApps. Never show Links. Show all other actor types, including MultiMqApps at zero, by default; Settings may independently hide any of these counts without changing actor visibility elsewhere. Never render more than three actor-type count cells per row.
+- Keep Add Actor, List Actors, and Refresh Now together in that order at the upper right of the Actor Map. List Actors opens `/actors` in a new tab with no back link; endpoint edits, removals, and row ordering persist in SQLite, endpoint edits close the actor’s old monitoring connection, and removals require confirmation.
 - System Pulse shows Online and Offline counts alongside Closed, Rewinding, Active, Inactive, and Disconnected counts using their established state colors. Its connected-to-Sequencer total includes only Online actors that are neither Closed nor Disconnected; use singular “Actor” when a headline count is one. Its footer shows the total number of actors added to CoralConsole immediately before Active Session, separated by a solid vertical divider. Its icon selects All Actors and anchors the panel to the viewport top, while its summaries and count cells select the corresponding animated Actor Map filter.
 - Use pictorial Lucide icons, consistent role colors, readable status text, keyboard focus, reduced-motion support, and responsive behavior down to 320 px.
-- Use the same full-width actor-card layout in every topology group; multiple actors stack within their group rather than switching non-Sequencer types to narrower cards.
+- Use the same two-column actor-card grid in every full-width topology group. A single actor remains one column wide; additional actors fill rows from left to right.
 - Actor cards are links that open `/actor/<id>` in a new browser tab. Do not use scripted popups or browser-local actor snapshots.
 - Because actor details open in a dedicated tab, their header does not include a redundant Back to topology link.
 - Every actor card is concise and type-independent: icon, actor/account name, sequence immediately to the name's right, class, and operational-state badge only. Show `?` instead of the last sequence on an Offline topology card, while Actor Details keeps the last recorded sequence. Do not show an Online/Offline dot on topology cards; preserve connectivity in the accessible card label. Never add endpoint, session, accounts, clock tick, signal, or footer metadata below the icon.

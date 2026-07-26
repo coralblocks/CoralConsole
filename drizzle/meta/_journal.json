@@ -78,6 +78,13 @@
       "when": 1785078661505,
       "tag": "0010_polite_ultimates",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "6",
+      "when": 1785089487455,
+      "tag": "0011_rare_captain_america",
+      "breakpoints": true
     }
   ]
 }

@@ -42,6 +42,7 @@ export type Actor = {
   accounts: string;
   clockTickInterval: string;
   actorStatusFields: ActorStatusField[];
+  sortOrder?: number;
   sessionStarted?: string;
   actorStatusRespondedAt?: string;
   lastSeen: string;

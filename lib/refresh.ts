@@ -97,6 +97,15 @@ export function runCoordinatedAdminAction<T>(actorId: string, action: () => Prom
   });
 }
 
+export function runExclusiveActorMutation<T>(actorId: string, mutation: () => Promise<T> | T) {
+  const state = operationState(actorId);
+  state.manualActions += 1;
+  return enqueueActorOperation(actorId, state, async () => mutation()).finally(() => {
+    state.manualActions -= 1;
+    cleanupOperationState(actorId, state);
+  });
+}
+
 async function refreshWithLimit() {
   const actors = listActors();
   let cursor = 0;

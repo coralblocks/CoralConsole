@@ -307,6 +307,19 @@ test("standalone server persists settings, actors, and admin action audit in SQL
     ]);
     assert.deepEqual(actorServer.requestConnections, [1, 2, 3]);
 
+    const orderBefore = await json(server.baseUrl, "/api/actors");
+    const reorderedIds = [
+      discovered.actor.id,
+      ...orderBefore.actors.filter((actor) => actor.id !== discovered.actor.id).map((actor) => actor.id),
+    ];
+    const reordered = await json(server.baseUrl, "/api/actors/order", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ actorIds: reorderedIds }),
+    });
+    assert.deepEqual(reordered.actors.map((actor) => actor.id), reorderedIds);
+    assert.deepEqual(reordered.actors.map((actor) => actor.sortOrder), reorderedIds.map((_, index) => index));
+
     const firstRefresh = await json(server.baseUrl, "/api/actors/refresh", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -601,6 +614,23 @@ test("standalone server persists settings, actors, and admin action audit in SQL
     }
     assert.ok(actorServer.requests.length > requestsAfterGrace);
 
+    const duplicateEndpointResponse = await fetch(`${server.baseUrl}/api/actors/${discovered.actor.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ host: actorPayload.actors[0].host, port: actorPayload.actors[0].port }),
+    });
+    assert.equal(duplicateEndpointResponse.status, 409);
+    assert.match((await duplicateEndpointResponse.json()).error, /already exists/i);
+
+    const editedEndpoint = await json(server.baseUrl, `/api/actors/${discovered.actor.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ host: "localhost", port: actorServer.port }),
+    });
+    assert.equal(editedEndpoint.actor.host, "localhost");
+    assert.equal(editedEndpoint.actor.port, actorServer.port);
+    assert.equal(editedEndpoint.actor.status, "offline");
+
     await stopServer(server.child);
     server = await startServer(databasePath, port);
     const persistedSettings = await json(server.baseUrl, "/api/settings");
@@ -613,7 +643,9 @@ test("standalone server persists settings, actors, and admin action audit in SQL
     assert.equal(persistedSettings.settings.viewerGracePeriodSeconds, 5);
     assert.deepEqual(persistedSettings.settings.summaryActorKinds, ["sequencer", "replayer", "application"]);
     assert.equal(persistedAudit.entries.length, 1);
-    assert.equal(persistedActors.actors.some((actor) => actor.host === "127.0.0.1" && actor.port === actorServer.port), true);
+    assert.equal(persistedActors.actors[0].id, discovered.actor.id);
+    assert.equal(persistedActors.actors[0].host, "localhost");
+    assert.equal(persistedActors.actors[0].port, actorServer.port);
   } finally {
     if (server) await stopServer(server.child);
     if (actorServer) await new Promise((resolveClose) => actorServer.server.close(resolveClose));
@@ -637,6 +669,7 @@ test("actor migrations preserve audit references and initialize status metadata"
       "0008_broken_storm",
       "0009_familiar_scarecrow",
       "0010_polite_ultimates",
+      "0011_rare_captain_america",
     ];
     for (const [index, name] of migrationNames.entries()) {
       if (index === 5) {
@@ -673,6 +706,10 @@ test("actor migrations preserve audit references and initialize status metadata"
       { outboundSequence: "Not reported", accounts: "Not reported", clockTickInterval: "Not reported", actorStatusFields: "[]", actorStatusRespondedAt: null, operationalState: "inactive" },
     );
     assert.deepEqual(
+      database.prepare("SELECT id, sort_order AS sortOrder FROM actors ORDER BY sort_order").all(),
+      [{ id: "a", sortOrder: 0 }, { id: "b", sortOrder: 1 }, { id: "c", sortOrder: 2 }, { id: "d", sortOrder: 3 }],
+    );
+    assert.deepEqual(
       database.prepare("SELECT poll_interval_seconds AS pollIntervalSeconds FROM topology_settings WHERE id = 1").get(),
       { pollIntervalSeconds: 7 },
     );
@@ -684,8 +721,9 @@ test("actor migrations preserve audit references and initialize status metadata"
 });
 
 test("deployment and UI conventions stay explicit", async () => {
-  const [page, actorDetail, actorUi, styles, layout, viewerPresence, guide, compose, dockerfile, dockerStart, dockerStop, dockerBackup, gitMergeToMain, devCompose, devDockerfile, devStart, dockerRelease, nextConfig] = await Promise.all([
+  const [page, actorList, actorDetail, actorUi, styles, layout, viewerPresence, guide, compose, dockerfile, dockerStart, dockerStop, dockerBackup, gitMergeToMain, devCompose, devDockerfile, devStart, dockerRelease, nextConfig] = await Promise.all([
     readFile(join(projectRoot, "app/page.tsx"), "utf8"),
+    readFile(join(projectRoot, "app/actors/actor-list.tsx"), "utf8"),
     readFile(join(projectRoot, "app/actor/[id]/actor-detail.tsx"), "utf8"),
     readFile(join(projectRoot, "app/actor-ui.tsx"), "utf8"),
     readFile(join(projectRoot, "app/globals.css"), "utf8"),
@@ -715,6 +753,8 @@ test("deployment and UI conventions stay explicit", async () => {
   assert.match(page, /operationalStateForDisplay\(actor\.status, actor\.operationalState\) === filter/);
   assert.match(page, /aria-pressed=\{filter === value\}/);
   assert.match(page, /className="section-heading topology-heading"/);
+  assert.match(page, />＋ Add Actor<\/button>/);
+  assert.match(page, /href="\/actors"[\s\S]*target="_blank"[\s\S]*List Actors/);
   assert.match(page, /\{refreshing \? "Refreshing…" : "Refresh Now"\}/);
   assert.match(page, /online in the console/);
   assert.match(page, /connected to the sequencer/);
@@ -763,7 +803,7 @@ test("deployment and UI conventions stay explicit", async () => {
   assert.match(styles, /\.inspector-head p \{[^}]*font-size: 10px/);
   assert.match(styles, /\.group-heading > span \{[^}]*font-size: 11px/);
   assert.match(styles, /\.topology-heading \{[^}]*display: grid[^}]*grid-template-columns: minmax\(0, 1fr\) auto/);
-  assert.match(styles, /\.topology-heading \.refresh-button \{[^}]*grid-column: 2[^}]*grid-row: 1[^}]*justify-self: end/);
+  assert.match(styles, /\.topology-heading-actions \{[^}]*grid-column: 2[^}]*grid-row: 1[^}]*justify-self: end/);
   assert.match(styles, /\.topology-heading \.filters \{[^}]*grid-column: 1 \/ -1[^}]*grid-row: 2/);
   assert.match(styles, /\.filters \{[^}]*overflow-x: auto/);
   assert.doesNotMatch(styles, /\.pulse-panel \{[^}]*scroll-margin-top/);
@@ -777,7 +817,17 @@ test("deployment and UI conventions stay explicit", async () => {
   assert.doesNotMatch(styles, /\.actor-groups \{[^}]*repeat\(2/);
   assert.doesNotMatch(page, /className="sequencer-groups"/);
   assert.match(page, /id: "replayer"[\s\S]*id: "persistence"[\s\S]*id: "transport"[\s\S]*id: "customer"/);
+  assert.match(page, /visibleActors\.filter\(\(actor\) => group\.kinds\.includes\(actor\.kind\)\)/);
   assert.match(page, /Shared topology · Persisted in SQLite/);
+  for (const heading of ["REST IP", "REST PORT", "Name", "Type", "Class", "Online?", "Edit", "Remove"]) {
+    assert.match(actorList, new RegExp(`<th>${heading.replace("?", "\\?")}<\\/th>`));
+  }
+  assert.match(actorList, /draggable=\{!editingId && !ordering\}/);
+  assert.match(actorList, /\/api\/actors\/order/);
+  assert.match(actorList, /method: "PATCH"/);
+  assert.match(actorList, /window\.confirm/);
+  assert.doesNotMatch(actorList, /Back to topology|Return to topology/);
+  assert.match(styles, /\.actor-list-table-wrap \{/);
   assert.match(actorDetail, /\/actions/);
   assert.match(actorDetail, /\/api\/actors\/refresh/);
   assert.doesNotMatch(actorDetail, /\/api\/actors\/health/);

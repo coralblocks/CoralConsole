@@ -1,4 +1,4 @@
-import { and, desc, eq, like, or, type SQL } from "drizzle-orm";
+import { and, asc, desc, eq, like, or, type SQL } from "drizzle-orm";
 import { getDb, getSqlite } from "@/db";
 import { actors, adminActionAudit, topologySettings, type ActorRow } from "@/db/schema";
 import { DEMO_ACTORS } from "./demo-actors";
@@ -33,9 +33,10 @@ function syncDemoMode() {
     return;
   }
   const now = new Date().toISOString();
-  for (const actor of DEMO_ACTORS) {
+  for (const [sortOrder, actor] of DEMO_ACTORS.entries()) {
     db.insert(actors).values({
       ...actor,
+      sortOrder,
       cluster: actor.cluster || null,
       sequencerRole: actor.sequencerRole || null,
       sessionStarted: actor.sessionStarted || null,
@@ -110,6 +111,7 @@ export function rowToActor(row: ActorRow): Actor {
     accounts: row.accounts,
     clockTickInterval: row.clockTickInterval,
     actorStatusFields: validActorStatusFields(row.actorStatusFields),
+    sortOrder: row.sortOrder,
     sessionStarted: row.sessionStarted || undefined,
     actorStatusRespondedAt: row.actorStatusRespondedAt || undefined,
     lastSeen: row.lastSeen,
@@ -143,7 +145,7 @@ export function saveSettings(settings: TopologySettings) {
 
 export function listActors() {
   syncDemoMode();
-  return getDb().select().from(actors).orderBy(actors.createdAt).all().map(rowToActor);
+  return getDb().select().from(actors).orderBy(asc(actors.sortOrder), asc(actors.createdAt), asc(actors.id)).all().map(rowToActor);
 }
 
 export function getActor(id: string) {
@@ -154,8 +156,12 @@ export function getActor(id: string) {
 
 export function createActor(actor: Actor) {
   const now = new Date().toISOString();
+  const nextSortOrder = getSqlite()
+    .prepare("SELECT COALESCE(MAX(sort_order), -1) + 1 AS nextSortOrder FROM actors")
+    .get() as { nextSortOrder: number };
   getDb().insert(actors).values({
     ...actor,
+    sortOrder: nextSortOrder.nextSortOrder,
     cluster: actor.cluster || null,
     sequencerRole: actor.sequencerRole || null,
     sessionStarted: actor.sessionStarted || null,
@@ -207,6 +213,27 @@ export function markActorOffline(actor: Actor, error: string) {
     lastError: error,
     updatedAt: new Date().toISOString(),
   }).where(eq(actors.id, actor.id)).run();
+}
+
+export function updateActorEndpoint(id: string, host: string, port: number) {
+  getDb().update(actors).set({
+    host,
+    port,
+    status: "offline",
+    lastError: "Endpoint changed; awaiting actorStatus.",
+    updatedAt: new Date().toISOString(),
+  }).where(eq(actors.id, id)).run();
+  return getActor(id);
+}
+
+export function reorderActors(actorIds: string[]) {
+  const sqlite = getSqlite();
+  const updateOrder = sqlite.prepare("UPDATE actors SET sort_order = ?, updated_at = ? WHERE id = ?");
+  const updatedAt = new Date().toISOString();
+  sqlite.transaction((ids: string[]) => {
+    ids.forEach((id, index) => updateOrder.run(index, updatedAt, id));
+  })(actorIds);
+  return listActors();
 }
 
 export function deleteActor(id: string) {
