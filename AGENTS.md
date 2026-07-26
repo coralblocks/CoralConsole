@@ -101,6 +101,8 @@ The optional `shouldLog` boolean defaults to `true` at the actor. Omit it for di
 
 Use the existing npm lockfile. Commit schema changes and their generated migration together. Validate with `npm run lint` and `npm test`; smoke-test Docker when deployment files or native dependencies change.
 
+The raw TCP mock actor in the integration suite must handle `ECONNRESET` and `EPIPE` as normal peer teardown while continuing to fail on every other socket error. Do not mask application failures with broad retries.
+
 ## Git workflow
 
 - Work directly on `main` and push completed changes to `origin/main` after validation.

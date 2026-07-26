@@ -35,6 +35,12 @@ async function startMockActorServer() {
     const connectionId = ++connectionCount;
     sockets.set(connectionId, socket);
     let received = Buffer.alloc(0);
+    socket.on("error", (error) => {
+      assert.ok(
+        error.code === "ECONNRESET" || error.code === "EPIPE",
+        `Unexpected mock actor socket error: ${error.message}`,
+      );
+    });
     socket.on("close", () => sockets.delete(connectionId));
     socket.on("data", (chunk) => {
       received = Buffer.concat([received, chunk]);
