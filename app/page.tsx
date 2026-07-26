@@ -96,6 +96,7 @@ function ActorCard({ actor }: { actor: Actor }) {
   const meta = ACTOR_META[actor.kind];
   const Icon = meta.icon;
   const displayedState = operationalStateForDisplay(actor.status, actor.operationalState);
+  const displayedSequence = actor.status === "offline" ? "?" : actor.outboundSequence;
   return (
     <a
       className={`actor-card actor-${actor.kind}${actor.status === "offline" ? " actor-card-offline" : ""}`}
@@ -109,7 +110,7 @@ function ActorCard({ actor }: { actor: Actor }) {
         <span className="actor-heading">
           <span className="actor-name-line">
             <strong>{actor.name}</strong>
-            <span className="actor-card-sequence" aria-label={`Sequence ${actor.outboundSequence}`} title="Sequence">{actor.outboundSequence}</span>
+            <span className="actor-card-sequence" aria-label={`Sequence ${displayedSequence}`} title="Sequence">{displayedSequence}</span>
           </span>
           <small>{actor.className}</small>
         </span>

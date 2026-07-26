@@ -700,6 +700,8 @@ test("deployment and UI conventions stay explicit", async () => {
   assert.match(page, /Immediately poll actorStatus and list for every actor/);
   assert.match(page, /actor-card-sequence/);
   assert.match(page, /actor\.status === "offline" \? " actor-card-offline" : ""/);
+  assert.match(page, /const displayedSequence = actor\.status === "offline" \? "\?" : actor\.outboundSequence/);
+  assert.match(page, /Sequence \$\{displayedSequence\}/);
   assert.match(page, /details, \$\{statusLabel\(actor\.status\)\} \(opens in a new tab\)/);
   assert.doesNotMatch(page, /status-dot/);
   assert.match(page, /operationalStateForDisplay\(actor\.status, actor\.operationalState\)/);
