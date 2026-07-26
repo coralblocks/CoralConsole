@@ -53,6 +53,7 @@ export const actors = sqliteTable("actors", {
 }, (table) => [
   uniqueIndex("actors_endpoint_unique").on(table.host, table.port),
   index("actors_kind_idx").on(table.kind),
+  index("actors_kind_order_idx").on(table.kind, table.sortOrder),
   index("actors_status_idx").on(table.status),
 ]);
 

@@ -85,6 +85,13 @@
       "when": 1785089487455,
       "tag": "0011_rare_captain_america",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "6",
+      "when": 1785096499300,
+      "tag": "0012_milky_kingpin",
+      "breakpoints": true
     }
   ]
 }

@@ -33,7 +33,10 @@ function syncDemoMode() {
     return;
   }
   const now = new Date().toISOString();
-  for (const [sortOrder, actor] of DEMO_ACTORS.entries()) {
+  const nextSortOrderByKind = new Map<ActorKind, number>();
+  for (const actor of DEMO_ACTORS) {
+    const sortOrder = nextSortOrderByKind.get(actor.kind) || 0;
+    nextSortOrderByKind.set(actor.kind, sortOrder + 1);
     db.insert(actors).values({
       ...actor,
       sortOrder,
@@ -157,8 +160,8 @@ export function getActor(id: string) {
 export function createActor(actor: Actor) {
   const now = new Date().toISOString();
   const nextSortOrder = getSqlite()
-    .prepare("SELECT COALESCE(MAX(sort_order), -1) + 1 AS nextSortOrder FROM actors")
-    .get() as { nextSortOrder: number };
+    .prepare("SELECT COALESCE(MAX(sort_order), -1) + 1 AS nextSortOrder FROM actors WHERE kind = ?")
+    .get(actor.kind) as { nextSortOrder: number };
   getDb().insert(actors).values({
     ...actor,
     sortOrder: nextSortOrder.nextSortOrder,
@@ -177,6 +180,12 @@ export function createActor(actor: Actor) {
 
 export function updateActor(actor: Actor, lastError: string | null = null) {
   const now = new Date().toISOString();
+  const stored = getDb().select({ kind: actors.kind }).from(actors).where(eq(actors.id, actor.id)).get();
+  const sortOrder = stored && stored.kind !== actor.kind
+    ? (getSqlite()
+      .prepare("SELECT COALESCE(MAX(sort_order), -1) + 1 AS nextSortOrder FROM actors WHERE kind = ?")
+      .get(actor.kind) as { nextSortOrder: number }).nextSortOrder
+    : undefined;
   getDb().update(actors).set({
     name: actor.name,
     kind: actor.kind,
@@ -201,6 +210,7 @@ export function updateActor(actor: Actor, lastError: string | null = null) {
     lastError,
     actions: actor.actions,
     demo: Boolean(actor.demo),
+    sortOrder,
     updatedAt: now,
   }).where(eq(actors.id, actor.id)).run();
   return getActor(actor.id);
@@ -226,12 +236,12 @@ export function updateActorEndpoint(id: string, host: string, port: number) {
   return getActor(id);
 }
 
-export function reorderActors(actorIds: string[]) {
+export function reorderActors(kind: ActorKind, actorIds: string[]) {
   const sqlite = getSqlite();
-  const updateOrder = sqlite.prepare("UPDATE actors SET sort_order = ?, updated_at = ? WHERE id = ?");
+  const updateOrder = sqlite.prepare("UPDATE actors SET sort_order = ?, updated_at = ? WHERE id = ? AND kind = ?");
   const updatedAt = new Date().toISOString();
   sqlite.transaction((ids: string[]) => {
-    ids.forEach((id, index) => updateOrder.run(index, updatedAt, id));
+    ids.forEach((id, index) => updateOrder.run(index, updatedAt, id, kind));
   })(actorIds);
   return listActors();
 }

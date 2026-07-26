@@ -2,7 +2,7 @@
 
 import { type DragEvent, type KeyboardEvent, useCallback, useEffect, useRef, useState } from "react";
 import { GripVertical } from "lucide-react";
-import { ACTOR_META, statusLabel, type Actor } from "../actor-ui";
+import { ACTOR_KINDS, ACTOR_META, statusLabel, type Actor, type ActorKind } from "../actor-ui";
 import type { TopologySettings } from "@/lib/types";
 
 async function apiRequest<T>(url: string, init?: RequestInit): Promise<T> {
@@ -14,25 +14,34 @@ async function apiRequest<T>(url: string, init?: RequestInit): Promise<T> {
 
 const BrandIcon = ACTOR_META.sequencer.icon;
 
+type GroupFeedback = {
+  message: string;
+  tone: "notice" | "error";
+  fading: boolean;
+};
+
+function groupLabel(kind: ActorKind) {
+  return kind === "sequencer" ? "Sequencers" : ACTOR_META[kind].summaryLabel;
+}
+
 export default function ActorList() {
   const [actors, setActors] = useState<Actor[]>([]);
   const actorsRef = useRef<Actor[]>([]);
   const dragOriginalRef = useRef<Actor[]>([]);
   const dragCommittedRef = useRef(false);
   const draggedIdRef = useRef("");
-  const noticeFadeTimerRef = useRef<number | undefined>(undefined);
-  const noticeClearTimerRef = useRef<number | undefined>(undefined);
+  const draggedKindRef = useRef<ActorKind | null>(null);
+  const feedbackTimersRef = useRef(new Map<ActorKind, { fade?: number; clear?: number }>());
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-  const [notice, setNotice] = useState("");
-  const [noticeFading, setNoticeFading] = useState(false);
+  const [pageError, setPageError] = useState("");
+  const [feedbackByKind, setFeedbackByKind] = useState<Partial<Record<ActorKind, GroupFeedback>>>({});
   const [editingId, setEditingId] = useState("");
   const [draftHost, setDraftHost] = useState("");
   const [draftPort, setDraftPort] = useState("");
   const [savingId, setSavingId] = useState("");
   const [removingId, setRemovingId] = useState("");
   const [draggedId, setDraggedId] = useState("");
-  const [ordering, setOrdering] = useState(false);
+  const [orderingKind, setOrderingKind] = useState<ActorKind | null>(null);
   const [pollIntervalSeconds, setPollIntervalSeconds] = useState(5);
 
   const replaceActors = useCallback((next: Actor[]) => {
@@ -45,19 +54,36 @@ export default function ActorList() {
     replaceActors(payload.actors);
   }, [replaceActors]);
 
-  function showNotice(message: string, dismissAfterMs?: number) {
-    if (noticeFadeTimerRef.current !== undefined) window.clearTimeout(noticeFadeTimerRef.current);
-    if (noticeClearTimerRef.current !== undefined) window.clearTimeout(noticeClearTimerRef.current);
-    noticeFadeTimerRef.current = undefined;
-    noticeClearTimerRef.current = undefined;
-    setNoticeFading(false);
-    setNotice(message);
+  function clearFeedbackTimers(kind: ActorKind) {
+    const timers = feedbackTimersRef.current.get(kind);
+    if (timers?.fade !== undefined) window.clearTimeout(timers.fade);
+    if (timers?.clear !== undefined) window.clearTimeout(timers.clear);
+    feedbackTimersRef.current.delete(kind);
+  }
+
+  function showFeedback(kind: ActorKind, message: string, tone: GroupFeedback["tone"] = "notice", dismissAfterMs?: number) {
+    clearFeedbackTimers(kind);
+    setFeedbackByKind((current) => {
+      const next = { ...current };
+      if (message) next[kind] = { message, tone, fading: false };
+      else delete next[kind];
+      return next;
+    });
     if (!message || !dismissAfterMs) return;
-    noticeFadeTimerRef.current = window.setTimeout(() => setNoticeFading(true), Math.max(0, dismissAfterMs - 600));
-    noticeClearTimerRef.current = window.setTimeout(() => {
-      setNotice("");
-      setNoticeFading(false);
+    const fade = window.setTimeout(() => {
+      setFeedbackByKind((current) => current[kind]
+        ? { ...current, [kind]: { ...current[kind]!, fading: true } }
+        : current);
+    }, Math.max(0, dismissAfterMs - 600));
+    const clear = window.setTimeout(() => {
+      setFeedbackByKind((current) => {
+        const next = { ...current };
+        delete next[kind];
+        return next;
+      });
+      feedbackTimersRef.current.delete(kind);
     }, dismissAfterMs);
+    feedbackTimersRef.current.set(kind, { fade, clear });
   }
 
   useEffect(() => {
@@ -70,7 +96,7 @@ export default function ActorList() {
       replaceActors(actorPayload.actors);
       setPollIntervalSeconds(settingsPayload.settings.pollIntervalSeconds);
     }).catch((requestError) => {
-      if (active) setError(requestError instanceof Error ? requestError.message : "Actors could not be loaded.");
+      if (active) setPageError(requestError instanceof Error ? requestError.message : "Actors could not be loaded.");
     }).finally(() => {
       if (active) setLoading(false);
     });
@@ -78,25 +104,24 @@ export default function ActorList() {
   }, [replaceActors]);
 
   useEffect(() => () => {
-    if (noticeFadeTimerRef.current !== undefined) window.clearTimeout(noticeFadeTimerRef.current);
-    if (noticeClearTimerRef.current !== undefined) window.clearTimeout(noticeClearTimerRef.current);
+    for (const kind of feedbackTimersRef.current.keys()) clearFeedbackTimers(kind);
   }, []);
 
   useEffect(() => {
-    if (editingId || draggedId) return;
+    if (editingId || draggedId || orderingKind) return;
     const timer = window.setInterval(() => {
       if (document.visibilityState !== "visible") return;
       void loadActors().catch(() => undefined);
     }, pollIntervalSeconds * 1000);
     return () => window.clearInterval(timer);
-  }, [draggedId, editingId, loadActors, pollIntervalSeconds]);
+  }, [draggedId, editingId, loadActors, orderingKind, pollIntervalSeconds]);
 
   function startEditing(actor: Actor) {
     setEditingId(actor.id);
     setDraftHost(actor.host);
     setDraftPort(String(actor.port));
-    setError("");
-    showNotice("");
+    setPageError("");
+    showFeedback(actor.kind, "");
   }
 
   function cancelEditing() {
@@ -120,12 +145,12 @@ export default function ActorList() {
     const host = draftHost.trim();
     const port = Number(draftPort);
     if (!host || !Number.isInteger(port) || port < 1 || port > 65535) {
-      setError("Enter a host and a valid REST admin port.");
+      showFeedback(actor.kind, "Enter a host and a valid REST admin port.", "error");
       return;
     }
     setSavingId(actor.id);
-    setError("");
-    showNotice("");
+    setPageError("");
+    showFeedback(actor.kind, "");
     try {
       const payload = await apiRequest<{ actor: Actor }>(`/api/actors/${encodeURIComponent(actor.id)}`, {
         method: "PATCH",
@@ -134,10 +159,10 @@ export default function ActorList() {
       });
       replaceActors(actorsRef.current.map((current) => current.id === actor.id ? payload.actor : current));
       cancelEditing();
-      showNotice(`${actor.name} endpoint saved. CoralConsole is checking the new address.`, 5000);
+      showFeedback(actor.kind, `${actor.name} endpoint saved. CoralConsole is checking the new address.`, "notice", 5000);
       void refreshEditedActor(actor.id);
     } catch (requestError) {
-      setError(requestError instanceof Error ? requestError.message : "Actor endpoint could not be saved.");
+      showFeedback(actor.kind, requestError instanceof Error ? requestError.message : "Actor endpoint could not be saved.", "error");
     } finally {
       setSavingId("");
     }
@@ -155,38 +180,39 @@ export default function ActorList() {
   async function removeActor(actor: Actor) {
     if (actor.demo || !window.confirm(`Remove ${actor.name} from CoralConsole? This cannot be undone.`)) return;
     setRemovingId(actor.id);
-    setError("");
-    showNotice("");
+    setPageError("");
+    showFeedback(actor.kind, "");
     try {
       await apiRequest<{ removed: boolean }>(`/api/actors/${encodeURIComponent(actor.id)}`, { method: "DELETE" });
       replaceActors(actorsRef.current.filter((current) => current.id !== actor.id));
-      showNotice(`${actor.name} was removed from CoralConsole.`, 5000);
+      showFeedback(actor.kind, `${actor.name} was removed from CoralConsole.`, "notice", 5000);
     } catch (requestError) {
-      setError(requestError instanceof Error ? requestError.message : "Actor could not be removed.");
+      showFeedback(actor.kind, requestError instanceof Error ? requestError.message : "Actor could not be removed.", "error");
     } finally {
       setRemovingId("");
     }
   }
 
-  function beginDrag(event: DragEvent<HTMLTableRowElement>, actorId: string) {
-    if (editingId || ordering) {
+  function beginDrag(event: DragEvent<HTMLTableRowElement>, actor: Actor) {
+    if (editingId || orderingKind) {
       event.preventDefault();
       return;
     }
     dragOriginalRef.current = [...actorsRef.current];
     dragCommittedRef.current = false;
-    draggedIdRef.current = actorId;
-    setDraggedId(actorId);
-    showNotice("");
+    draggedIdRef.current = actor.id;
+    draggedKindRef.current = actor.kind;
+    setDraggedId(actor.id);
+    showFeedback(actor.kind, "");
     event.dataTransfer.effectAllowed = "move";
-    event.dataTransfer.setData("text/plain", actorId);
+    event.dataTransfer.setData("text/plain", actor.id);
   }
 
-  function moveDraggedActor(event: DragEvent<HTMLTableRowElement>, targetId: string) {
+  function moveDraggedActor(event: DragEvent<HTMLTableRowElement>, targetActor: Actor) {
     event.preventDefault();
     event.dataTransfer.dropEffect = "move";
     const currentDraggedId = draggedIdRef.current;
-    if (!currentDraggedId || currentDraggedId === targetId) return;
+    if (!currentDraggedId || draggedKindRef.current !== targetActor.kind || currentDraggedId === targetActor.id) return;
     const targetRow = event.currentTarget.getBoundingClientRect();
     const placeAfterTarget = event.clientY > targetRow.top + targetRow.height / 2;
     setActors((current) => {
@@ -194,7 +220,7 @@ export default function ActorList() {
       const draggedIndex = next.findIndex((actor) => actor.id === currentDraggedId);
       if (draggedIndex < 0) return current;
       const [dragged] = next.splice(draggedIndex, 1);
-      const targetIndex = next.findIndex((actor) => actor.id === targetId);
+      const targetIndex = next.findIndex((actor) => actor.id === targetActor.id);
       if (!dragged || targetIndex < 0) return current;
       next.splice(targetIndex + (placeAfterTarget ? 1 : 0), 0, dragged);
       actorsRef.current = next;
@@ -202,40 +228,48 @@ export default function ActorList() {
     });
   }
 
-  async function saveOrder(event: DragEvent<HTMLTableRowElement>) {
+  async function saveOrder(event: DragEvent<HTMLTableRowElement>, kind: ActorKind) {
     event.preventDefault();
-    const orderChanged = actorsRef.current.some((actor, index) => actor.id !== dragOriginalRef.current[index]?.id);
+    const actorIds = actorsRef.current.filter((actor) => actor.kind === kind).map((actor) => actor.id);
+    const originalIds = dragOriginalRef.current.filter((actor) => actor.kind === kind).map((actor) => actor.id);
+    const orderChanged = actorIds.some((actorId, index) => actorId !== originalIds[index]);
     dragCommittedRef.current = true;
     draggedIdRef.current = "";
+    draggedKindRef.current = null;
     setDraggedId("");
     if (!orderChanged) {
       replaceActors(dragOriginalRef.current);
       return;
     }
-    setOrdering(true);
-    setError("");
-    showNotice("");
+    setOrderingKind(kind);
+    setPageError("");
+    showFeedback(kind, "");
     try {
       const payload = await apiRequest<{ actors: Actor[] }>("/api/actors/order", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ actorIds: actorsRef.current.map((actor) => actor.id) }),
+        body: JSON.stringify({ kind, actorIds }),
       });
       replaceActors(payload.actors);
-      showNotice("Actor order saved.", 3000);
+      showFeedback(kind, `${groupLabel(kind)} order saved.`, "notice", 3000);
     } catch (requestError) {
-      setError(requestError instanceof Error ? requestError.message : "Actor order could not be saved.");
+      showFeedback(kind, requestError instanceof Error ? requestError.message : "Actor order could not be saved.", "error");
       await loadActors().catch(() => replaceActors(dragOriginalRef.current));
     } finally {
-      setOrdering(false);
+      setOrderingKind(null);
     }
   }
 
   function finishDrag() {
     if (!dragCommittedRef.current) replaceActors(dragOriginalRef.current);
     draggedIdRef.current = "";
+    draggedKindRef.current = null;
     setDraggedId("");
   }
+
+  const actorGroups = ACTOR_KINDS
+    .map((kind) => ({ kind, actors: actors.filter((actor) => actor.kind === kind) }))
+    .filter((group) => group.actors.length > 0 || feedbackByKind[group.kind]);
 
   return (
     <main className="console-shell actor-list-page">
@@ -250,61 +284,81 @@ export default function ActorList() {
         <div className="actor-list-title">
           <p className="eyebrow">Shared topology registry</p>
           <h1>List Actors</h1>
-          <p>Edit REST endpoints, remove actors, or drag rows into the precedence order you want CoralConsole to retain.</p>
+          <p>Edit REST endpoints, remove actors, or drag rows into the precedence order CoralConsole should retain within each actor type.</p>
         </div>
 
-        <div className="actor-list-feedback">
-          {error && <p className="page-alert actor-list-alert" role="alert">{error}</p>}
-          {notice && <p className={`actor-list-notice${noticeFading ? " actor-list-notice-fading" : ""}`} role="status">{notice}</p>}
-        </div>
+        {pageError && <p className="page-alert actor-list-page-alert" role="alert">{pageError}</p>}
+        {loading ? <p className="empty-audit">Loading actors…</p> : !actors.length && actorGroups.length === 0
+          ? <p className="empty-audit">No actors have been added to CoralConsole.</p>
+          : (
+            <div className="actor-list-groups">
+              {actorGroups.map(({ kind, actors: groupActors }) => {
+                const feedback = feedbackByKind[kind];
+                const headingId = `actor-list-${kind}`;
+                return (
+                  <section className="actor-list-group" key={kind}>
+                    <div className="actor-list-group-heading">
+                      <div>
+                        <p className="eyebrow">Actor type</p>
+                        <h2 id={headingId}>{groupLabel(kind)}</h2>
+                      </div>
+                      <div className="actor-list-feedback">
+                        {feedback?.tone === "error" && <p className="page-alert actor-list-alert" role="alert">{feedback.message}</p>}
+                        {feedback?.tone === "notice" && <p className={`actor-list-notice${feedback.fading ? " actor-list-notice-fading" : ""}`} role="status">{feedback.message}</p>}
+                      </div>
+                    </div>
 
-        <section className="actor-list-table-wrap" aria-live="polite" aria-busy={loading || ordering}>
-          {loading ? <p className="empty-audit">Loading actors…</p> : !actors.length ? <p className="empty-audit">No actors have been added to CoralConsole.</p> : (
-            <table className="actor-list-table">
-              <thead>
-                <tr><th>Name</th><th>Type</th><th>Class</th><th>REST IP</th><th>PORT</th><th>Online?</th><th>Edit</th><th>Remove</th></tr>
-              </thead>
-              <tbody>
-                {actors.map((actor) => {
-                  const editing = editingId === actor.id;
-                  const saving = savingId === actor.id;
-                  return (
-                    <tr
-                      key={actor.id}
-                      draggable={!editingId && !ordering}
-                      className={draggedId === actor.id ? "actor-list-row-dragging" : ""}
-                      onDragStart={(event) => beginDrag(event, actor.id)}
-                      onDragOver={(event) => moveDraggedActor(event, actor.id)}
-                      onDrop={(event) => void saveOrder(event)}
-                      onDragEnd={finishDrag}
-                    >
-                      <td data-label="Name">
-                        <span className="actor-list-endpoint">
-                          <span className="actor-drag-handle" title="Drag to reorder" aria-label={`Drag ${actor.name} to reorder`}><GripVertical aria-hidden="true" /></span>
-                          <strong>{actor.name}</strong>
-                        </span>
-                      </td>
-                      <td data-label="Type">{ACTOR_META[actor.kind].label}</td>
-                      <td data-label="Class"><code>{actor.className}</code></td>
-                      <td data-label="REST IP">{editing
-                        ? <input aria-label={`${actor.name} REST IP`} value={draftHost} onChange={(event) => setDraftHost(event.target.value)} onKeyDown={(event) => handleEditKey(event, actor)} autoFocus />
-                        : <code>{actor.host}</code>}</td>
-                      <td data-label="PORT">{editing
-                        ? <input aria-label={`${actor.name} REST port`} inputMode="numeric" value={draftPort} onChange={(event) => setDraftPort(event.target.value)} onKeyDown={(event) => handleEditKey(event, actor)} />
-                        : <code>{actor.port}</code>}</td>
-                      <td data-label="Online?"><span className={`actor-list-status status-${actor.status}`}><i />{statusLabel(actor.status)}</span></td>
-                      <td data-label="Edit">{editing ? <span className="actor-list-edit-actions">
-                        <button type="button" onClick={() => void saveEndpoint(actor)} disabled={saving}>{saving ? "Saving…" : "Save"}</button>
-                        <button type="button" onClick={cancelEditing} disabled={saving}>Cancel</button>
-                      </span> : <button className="actor-list-edit-button" type="button" onClick={() => startEditing(actor)} disabled={Boolean(editingId) || actor.demo}>{actor.demo ? "Sample" : "Edit"}</button>}</td>
-                      <td data-label="Remove"><button className="actor-list-remove-button" type="button" onClick={() => void removeActor(actor)} disabled={Boolean(editingId) || Boolean(removingId) || actor.demo}>{removingId === actor.id ? "Removing…" : actor.demo ? "Sample" : "Remove"}</button></td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+                    <div className="actor-list-table-wrap" aria-labelledby={headingId} aria-busy={orderingKind === kind}>
+                      {groupActors.length === 0 ? <p className="empty-audit">No actors of this type remain.</p> : (
+                        <table className="actor-list-table">
+                          <thead>
+                            <tr><th>Name</th><th>Class</th><th>REST IP</th><th>PORT</th><th>Online?</th><th>Edit</th><th>Remove</th></tr>
+                          </thead>
+                          <tbody>
+                            {groupActors.map((actor) => {
+                              const editing = editingId === actor.id;
+                              const saving = savingId === actor.id;
+                              return (
+                                <tr
+                                  key={actor.id}
+                                  draggable={!editingId && !orderingKind}
+                                  className={draggedId === actor.id ? "actor-list-row-dragging" : ""}
+                                  onDragStart={(event) => beginDrag(event, actor)}
+                                  onDragOver={(event) => moveDraggedActor(event, actor)}
+                                  onDrop={(event) => void saveOrder(event, kind)}
+                                  onDragEnd={finishDrag}
+                                >
+                                  <td data-label="Name">
+                                    <span className="actor-list-endpoint">
+                                      <span className="actor-drag-handle" title={`Drag to reorder within ${groupLabel(kind)}`} aria-label={`Drag ${actor.name} to reorder within ${groupLabel(kind)}`}><GripVertical aria-hidden="true" /></span>
+                                      <strong>{actor.name}</strong>
+                                    </span>
+                                  </td>
+                                  <td data-label="Class"><code>{actor.className}</code></td>
+                                  <td data-label="REST IP">{editing
+                                    ? <input aria-label={`${actor.name} REST IP`} value={draftHost} onChange={(event) => setDraftHost(event.target.value)} onKeyDown={(event) => handleEditKey(event, actor)} autoFocus />
+                                    : <code>{actor.host}</code>}</td>
+                                  <td data-label="PORT">{editing
+                                    ? <input aria-label={`${actor.name} REST port`} inputMode="numeric" value={draftPort} onChange={(event) => setDraftPort(event.target.value)} onKeyDown={(event) => handleEditKey(event, actor)} />
+                                    : <code>{actor.port}</code>}</td>
+                                  <td data-label="Online?"><span className={`actor-list-status status-${actor.status}`}><i />{statusLabel(actor.status)}</span></td>
+                                  <td data-label="Edit">{editing ? <span className="actor-list-edit-actions">
+                                    <button type="button" onClick={() => void saveEndpoint(actor)} disabled={saving}>{saving ? "Saving…" : "Save"}</button>
+                                    <button type="button" onClick={cancelEditing} disabled={saving}>Cancel</button>
+                                  </span> : <button className="actor-list-edit-button" type="button" onClick={() => startEditing(actor)} disabled={Boolean(editingId) || actor.demo}>{actor.demo ? "Sample" : "Edit"}</button>}</td>
+                                  <td data-label="Remove"><button className="actor-list-remove-button" type="button" onClick={() => void removeActor(actor)} disabled={Boolean(editingId) || Boolean(removingId) || actor.demo}>{removingId === actor.id ? "Removing…" : actor.demo ? "Sample" : "Remove"}</button></td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      )}
+                    </div>
+                  </section>
+                );
+              })}
+            </div>
           )}
-        </section>
       </section>
     </main>
   );

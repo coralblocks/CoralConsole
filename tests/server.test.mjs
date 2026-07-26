@@ -308,17 +308,33 @@ test("standalone server persists settings, actors, and admin action audit in SQL
     assert.deepEqual(actorServer.requestConnections, [1, 2, 3]);
 
     const orderBefore = await json(server.baseUrl, "/api/actors");
+    const sequencersBefore = orderBefore.actors.filter((actor) => actor.kind === "sequencer");
     const reorderedIds = [
       discovered.actor.id,
-      ...orderBefore.actors.filter((actor) => actor.id !== discovered.actor.id).map((actor) => actor.id),
+      ...sequencersBefore.filter((actor) => actor.id !== discovered.actor.id).map((actor) => actor.id),
     ];
     const reordered = await json(server.baseUrl, "/api/actors/order", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ actorIds: reorderedIds }),
+      body: JSON.stringify({ kind: "sequencer", actorIds: reorderedIds }),
     });
-    assert.deepEqual(reordered.actors.map((actor) => actor.id), reorderedIds);
-    assert.deepEqual(reordered.actors.map((actor) => actor.sortOrder), reorderedIds.map((_, index) => index));
+    const reorderedSequencers = reordered.actors.filter((actor) => actor.kind === "sequencer");
+    assert.deepEqual(reorderedSequencers.map((actor) => actor.id), reorderedIds);
+    assert.deepEqual(reorderedSequencers.map((actor) => actor.sortOrder), reorderedIds.map((_, index) => index));
+    assert.deepEqual(
+      reordered.actors.filter((actor) => actor.kind === "replayer").map((actor) => actor.sortOrder),
+      [0, 1, 2],
+    );
+    const invalidOrder = await fetch(`${server.baseUrl}/api/actors/order`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        kind: "sequencer",
+        actorIds: [discovered.actor.id, orderBefore.actors.find((actor) => actor.kind === "replayer").id],
+      }),
+    });
+    assert.equal(invalidOrder.status, 400);
+    assert.match((await invalidOrder.json()).error, /every current actor of that type/);
 
     const firstRefresh = await json(server.baseUrl, "/api/actors/refresh", {
       method: "POST",
@@ -643,9 +659,13 @@ test("standalone server persists settings, actors, and admin action audit in SQL
     assert.equal(persistedSettings.settings.viewerGracePeriodSeconds, 5);
     assert.deepEqual(persistedSettings.settings.summaryActorKinds, ["sequencer", "replayer", "application"]);
     assert.equal(persistedAudit.entries.length, 1);
-    assert.equal(persistedActors.actors[0].id, discovered.actor.id);
-    assert.equal(persistedActors.actors[0].host, "localhost");
-    assert.equal(persistedActors.actors[0].port, actorServer.port);
+    const persistedActor = persistedActors.actors.find((actor) => actor.id === discovered.actor.id);
+    assert.equal(persistedActor.host, "localhost");
+    assert.equal(persistedActor.port, actorServer.port);
+    assert.equal(
+      persistedActors.actors.filter((actor) => actor.kind === "sequencer").at(0).id,
+      discovered.actor.id,
+    );
   } finally {
     if (server) await stopServer(server.child);
     if (actorServer) await new Promise((resolveClose) => actorServer.server.close(resolveClose));
@@ -670,14 +690,20 @@ test("actor migrations preserve audit references and initialize status metadata"
       "0009_familiar_scarecrow",
       "0010_polite_ultimates",
       "0011_rare_captain_america",
+      "0012_milky_kingpin",
     ];
     for (const [index, name] of migrationNames.entries()) {
       if (index === 5) {
         const insertActor = database.prepare(
           "INSERT INTO actors (id, name, kind, status, host, port, account, class_name, commands) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
         );
-        for (const [id, status] of [["a", "online"], ["b", "standby"], ["c", "warning"], ["d", "offline"]]) {
-          insertActor.run(id, id, "node", status, id, 30001, id, "Node", "[]");
+        for (const [id, status, kind] of [
+          ["a", "online", "node"],
+          ["b", "standby", "logger"],
+          ["c", "warning", "node"],
+          ["d", "offline", "logger"],
+        ]) {
+          insertActor.run(id, id, kind, status, id, 30001, id, "Node", "[]");
         }
         database.prepare(
           "INSERT INTO command_audit (actor_id, actor_name, actor_endpoint, command, output, duration_ms) VALUES (?, ?, ?, ?, ?, ?)",
@@ -706,9 +732,15 @@ test("actor migrations preserve audit references and initialize status metadata"
       { outboundSequence: "Not reported", accounts: "Not reported", clockTickInterval: "Not reported", actorStatusFields: "[]", actorStatusRespondedAt: null, operationalState: "inactive" },
     );
     assert.deepEqual(
-      database.prepare("SELECT id, sort_order AS sortOrder FROM actors ORDER BY sort_order").all(),
-      [{ id: "a", sortOrder: 0 }, { id: "b", sortOrder: 1 }, { id: "c", sortOrder: 2 }, { id: "d", sortOrder: 3 }],
+      database.prepare("SELECT id, kind, sort_order AS sortOrder FROM actors ORDER BY id").all(),
+      [
+        { id: "a", kind: "node", sortOrder: 0 },
+        { id: "b", kind: "logger", sortOrder: 0 },
+        { id: "c", kind: "node", sortOrder: 1 },
+        { id: "d", kind: "logger", sortOrder: 1 },
+      ],
     );
+    assert.equal(database.pragma("index_list('actors')").some((index) => index.name === "actors_kind_order_idx"), true);
     assert.deepEqual(
       database.prepare("SELECT poll_interval_seconds AS pollIntervalSeconds FROM topology_settings WHERE id = 1").get(),
       { pollIntervalSeconds: 7 },
@@ -822,16 +854,20 @@ test("deployment and UI conventions stay explicit", async () => {
   assert.match(page, /id: "replayer"[\s\S]*id: "persistence"[\s\S]*id: "transport"[\s\S]*id: "customer"/);
   assert.match(page, /visibleActors\.filter\(\(actor\) => group\.kinds\.includes\(actor\.kind\)\)/);
   assert.match(page, /Shared topology · Persisted in SQLite/);
-  assert.match(actorList, /<tr><th>Name<\/th><th>Type<\/th><th>Class<\/th><th>REST IP<\/th><th>PORT<\/th><th>Online\?<\/th><th>Edit<\/th><th>Remove<\/th><\/tr>/);
-  for (const heading of ["Name", "Type", "Class", "REST IP", "PORT", "Online?", "Edit", "Remove"]) {
+  assert.match(actorList, /<tr><th>Name<\/th><th>Class<\/th><th>REST IP<\/th><th>PORT<\/th><th>Online\?<\/th><th>Edit<\/th><th>Remove<\/th><\/tr>/);
+  for (const heading of ["Name", "Class", "REST IP", "PORT", "Online?", "Edit", "Remove"]) {
     assert.match(actorList, new RegExp(`<th>${heading.replace("?", "\\?")}<\\/th>`));
   }
-  assert.match(actorList, /draggable=\{!editingId && !ordering\}/);
+  assert.doesNotMatch(actorList, /<th>Type<\/th>|data-label="Type"/);
+  assert.match(actorList, /ACTOR_KINDS[\s\S]*actors\.filter\(\(actor\) => actor\.kind === kind\)/);
+  assert.match(actorList, /<h2 id=\{headingId\}>\{groupLabel\(kind\)\}<\/h2>/);
+  assert.match(actorList, /draggable=\{!editingId && !orderingKind\}/);
   assert.match(actorList, /<td data-label="Name">/);
   assert.match(actorList, /<td data-label="Online\?">/);
-  assert.match(actorList, /const orderChanged = actorsRef\.current\.some/);
-  assert.match(actorList, /showNotice\("Actor order saved\.", 3000\)/);
-  assert.match(actorList, /CoralConsole is checking the new address\.`, 5000\)/);
+  assert.match(actorList, /const actorIds = actorsRef\.current\.filter\(\(actor\) => actor\.kind === kind\)/);
+  assert.match(actorList, /JSON\.stringify\(\{ kind, actorIds \}\)/);
+  assert.match(actorList, /showFeedback\(kind, `\$\{groupLabel\(kind\)\} order saved\.`, "notice", 3000\)/);
+  assert.match(actorList, /CoralConsole is checking the new address\.`, "notice", 5000\)/);
   assert.match(actorList, /disabled=\{Boolean\(editingId\) \|\| Boolean\(removingId\) \|\| actor\.demo\}/);
   assert.match(actorList, /\/api\/actors\/order/);
   assert.match(actorList, /method: "PATCH"/);
@@ -841,7 +877,8 @@ test("deployment and UI conventions stay explicit", async () => {
   assert.match(styles, /\.actor-list-table thead \{[^}]*background:/);
   assert.match(styles, /\.actor-list-table th \{[^}]*font-size: 13px/);
   assert.match(styles, /\.actor-list-title > p:last-child \{[^}]*max-width: none/);
-  assert.match(styles, /\.actor-list-feedback \{[^}]*height: 52px/);
+  assert.match(styles, /\.actor-list-group-heading \{[^}]*grid-template-columns: minmax\(180px, 26%\) minmax\(0, 1fr\)/);
+  assert.match(styles, /\.actor-list-feedback \{[^}]*height: 42px/);
   assert.match(styles, /\.actor-list-table th:first-child, \.actor-list-table td:first-child \{[^}]*padding-left: 30px/);
   assert.match(styles, /\.actor-list-table \{[^}]*min-width: 0/);
   assert.match(styles, /@media \(max-width: 720px\) \{[\s\S]*\.actor-list-table tbody tr \{[^}]*grid-template-columns: repeat\(2, minmax\(0, 1fr\)\)/);
