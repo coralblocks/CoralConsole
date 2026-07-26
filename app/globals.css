@@ -101,7 +101,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .pulse-panel { background: var(--ink); border-radius: 18px; box-shadow: var(--shadow); color: white; padding: 18px; }
 .pulse-heading { align-items: flex-start; display: flex; gap: 14px; }
 .pulse-copy { display: grid; gap: 14px; grid-template-columns: repeat(2, minmax(0, 1fr)); min-width: 0; width: 100%; }
-.pulse-heading small, .pulse-session small { color: #a5b8b2; font-family: var(--font-plex-mono), monospace; font-size: 8px; letter-spacing: .12em; text-transform: uppercase; }
+.pulse-heading small, .pulse-footer small { color: #a5b8b2; font-family: var(--font-plex-mono), monospace; font-size: 8px; letter-spacing: .12em; text-transform: uppercase; }
 .pulse-copy > small { grid-column: 1 / -1; margin-bottom: -8px; }
 .pulse-summary { display: grid; min-width: 0; }
 .pulse-summary-button { appearance: none; background: transparent; border: 0; color: inherit; cursor: pointer; font: inherit; padding: 0; text-align: left; }
@@ -123,9 +123,11 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .pulse-count.state-disconnected i { background: var(--amber); box-shadow: 0 0 0 3px rgba(241,182,68,.1); }
 .pulse-count strong { font-size: 17px; line-height: 1; }
 .pulse-count small { color: #a5b8b2; font-family: var(--font-plex-mono), monospace; font-size: 7px; overflow: hidden; text-overflow: ellipsis; text-transform: uppercase; white-space: nowrap; }
-.pulse-session { border-top: 1px solid rgba(255,255,255,.12); display: grid; gap: 3px; padding-top: 13px; }
-.pulse-session strong { font-family: var(--font-plex-mono), monospace; font-size: 12px; }
-.pulse-session span { color: #9fb0ab; font-size: 9px; }
+.pulse-footer { border-top: 1px solid rgba(255,255,255,.12); display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); padding-top: 13px; }
+.pulse-total, .pulse-session { display: grid; gap: 3px; min-width: 0; }
+.pulse-session { border-left: 1px solid rgba(255,255,255,.12); padding-left: 18px; }
+.pulse-total strong, .pulse-session strong { font-family: var(--font-plex-mono), monospace; font-size: 12px; }
+.pulse-total span, .pulse-session span { color: #9fb0ab; font-size: 9px; }
 
 .workspace { margin: 0 auto; max-width: 1600px; padding: 0 clamp(24px, 5vw, 80px) 72px; }
 .topology-panel, .inspector { background: rgba(255, 254, 249, .8); border: 1px solid rgba(16, 43, 38, .1); border-radius: 22px; }

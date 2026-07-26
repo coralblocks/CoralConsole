@@ -718,6 +718,9 @@ test("deployment and UI conventions stay explicit", async () => {
   assert.match(page, /<small>ONLINE<\/small>/);
   assert.match(page, /<small>OFFLINE<\/small>/);
   assert.match(page, /PULSE_OPERATIONAL_STATES\.map/);
+  assert.match(page, /<small>Total actors<\/small>/);
+  assert.match(page, /<strong>\{actors\.length\}<\/strong>/);
+  assert.match(page, /Added to CoralConsole/);
   assert.match(page, /id="system-pulse"/);
   assert.match(page, /href="#system-pulse"/);
   assert.match(page, /onClick=\{\(\) => setFilter\("all"\)\}/);
@@ -758,6 +761,8 @@ test("deployment and UI conventions stay explicit", async () => {
   assert.match(styles, /\.filters \{[^}]*overflow-x: auto/);
   assert.doesNotMatch(styles, /\.pulse-panel \{[^}]*scroll-margin-top/);
   assert.match(styles, /\.pulse-count \{[^}]*cursor: pointer/);
+  assert.match(styles, /\.pulse-footer \{[^}]*grid-template-columns: repeat\(2, minmax\(0, 1fr\)\)/);
+  assert.match(styles, /\.pulse-session \{[^}]*border-left: 1px solid/);
   assert.doesNotMatch(styles, /\.sequencer-groups \.group-cards/);
   assert.match(page, /Shared topology · Persisted in SQLite/);
   assert.match(actorDetail, /\/actions/);

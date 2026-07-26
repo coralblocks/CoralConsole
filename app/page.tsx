@@ -464,10 +464,17 @@ export default function Home() {
               </button>
             ))}
           </div>
-          <div className="pulse-session">
-            <small>Active session</small>
-            <strong>{sessionSequencer?.session || "Not discovered"}</strong>
-            {sessionSequencer?.sessionStarted && <span>Started {sessionSequencer.sessionStarted}</span>}
+          <div className="pulse-footer">
+            <div className="pulse-total">
+              <small>Total actors</small>
+              <strong>{actors.length}</strong>
+              <span>Added to CoralConsole</span>
+            </div>
+            <div className="pulse-session">
+              <small>Active session</small>
+              <strong>{sessionSequencer?.session || "Not discovered"}</strong>
+              {sessionSequencer?.sessionStarted && <span>Started {sessionSequencer.sessionStarted}</span>}
+            </div>
           </div>
         </aside>
       </section>
