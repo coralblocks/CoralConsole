@@ -491,7 +491,7 @@ export default function Home() {
                 <button
                   key={value}
                   type="button"
-                  className={filter === value ? "active" : ""}
+                  className={`${filter === value ? "active" : ""}${value === "online" || value === "closed" ? " filter-section-start" : ""}`}
                   aria-pressed={filter === value}
                   onClick={() => setFilter(value)}
                 >
