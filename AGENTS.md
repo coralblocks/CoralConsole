@@ -121,7 +121,7 @@ The raw TCP mock actor in the integration suite must handle `ECONNRESET` and `EP
 
 - The topology is the primary view; do not turn it into generic dashboard chrome.
 - Split Sequencers into **Primary Sequencer** and **Backup Sequencers** panels, using a darker coral for Primary and a lighter coral for Backups.
-- Render Actor Map panels as a single full-width stack in this fixed order: **Primary Sequencer**, **Backup Sequencers**, **Replayers**, **Persistence & audit**, **Transport layer**, and **Application Layer**.
+- Render Actor Map panels as a single full-width stack in this fixed order: **Primary Sequencer**, **Backup Sequencers**, **Replayers**, **Persistence & audit**, **Transport layer**, and **Application Layer**. Inside every panel, keep a two-column actor-card grid; a single actor occupies one column and never expands across both.
 - Use **Replayer Fabric / Replayers**, **Transport layer / Bridge · Dispatcher · MultiMqApp**, **Persistence & audit / Archiver · Logger**, and **Application Layer / Nodes · Applications**. Keep Link supported by discovery but hidden from the topology, summary, and add-actor supported-type list for now; render Node before Application.
 - Keep the header brand square and aligned. Keep the hero optional through the persistent Hide intro / Show intro control.
 - Keep summary and Actor Map on the same responsive gutters. Order summary counts as Sequencer, Backup Sequencers, Replayers, Archivers, Loggers, Bridges, Dispatchers, Nodes, Applications, and MultiMqApps. Never show Links. Show all other actor types, including MultiMqApps at zero, by default; Settings may independently hide any of these counts without changing actor visibility elsewhere. Never render more than three actor-type count cells per row.

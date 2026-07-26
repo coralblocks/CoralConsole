@@ -751,7 +751,7 @@ test("deployment and UI conventions stay explicit", async () => {
   assert.match(actorUi, /return status === "offline" \? "unknown" : state/);
   assert.doesNotMatch(page, /className="actor-data|className="actor-foot/);
   assert.match(page, /ACTOR_KINDS\.filter\(\(kind\) => kind !== "link"\)\.map/);
-  assert.match(styles, /\.group-cards \{[^}]*grid-template-columns: 1fr/);
+  assert.match(styles, /\.group-cards \{[^}]*grid-template-columns: repeat\(2, minmax\(0, 1fr\)\)/);
   assert.match(styles, /\.actor-card\.actor-card-offline,\s*\.actor-detail-panel\.actor-detail-offline \.inspector-head/);
   assert.match(styles, /background-image: repeating-linear-gradient/);
   assert.match(styles, /\.actor-detail-panel\.actor-detail-offline \.inspector-head \{[^}]*background-color: var\(--panel\)/);
