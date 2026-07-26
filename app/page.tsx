@@ -282,6 +282,7 @@ export default function Home() {
   }, [actors, filter]);
   const onlineCount = actors.filter((actor) => actor.status === "online").length;
   const offlineCount = actors.filter((actor) => actor.status === "offline").length;
+  const pulseConnectivityFilter: ActorFilter = !actors.length ? "all" : offlineCount ? "offline" : "online";
   const operationalStateCounts = Object.fromEntries(PULSE_OPERATIONAL_STATES.map((state) => [
     state,
     actors.filter((actor) => operationalStateForDisplay(actor.status, actor.operationalState) === state).length,
@@ -439,30 +440,50 @@ export default function Home() {
             );
           })}
         </div>}
-        <aside className="pulse-panel" aria-label="System Pulse">
+        <aside className="pulse-panel" id="system-pulse" aria-label="System Pulse">
           <div className="pulse-heading">
-            <div className="health-orbit" aria-hidden="true"><span /><span /><span /></div>
+            <a className="health-orbit" href="#system-pulse" aria-label="Jump to System Pulse" aria-controls="topology" onClick={() => setFilter("all")}><span /><span /><span /></a>
             <div className="pulse-copy">
               <small>System Pulse</small>
-              <div className="pulse-summary">
+              <button
+                className="pulse-summary pulse-summary-button"
+                type="button"
+                aria-controls="topology"
+                aria-pressed={filter === pulseConnectivityFilter}
+                onClick={() => setFilter(pulseConnectivityFilter)}
+              >
                 <strong>{offlineCount ? actorCountLabel(offlineCount, "Offline") : actors.length ? "All Actors Online" : "Waiting for Actors"}</strong>
                 <span>{onlineCount} of {actors.length} {actorNoun(actors.length)} online in the console</span>
-              </div>
-              <div className="pulse-summary pulse-summary-sequencer">
+              </button>
+              <button
+                className="pulse-summary pulse-summary-button pulse-summary-sequencer"
+                type="button"
+                aria-controls="topology"
+                aria-pressed={filter === "disconnected"}
+                onClick={() => setFilter("disconnected")}
+              >
                 <strong>{actorCountLabel(disconnectedCount, "Disconnected")}</strong>
                 <span>{connectedCount} of {actors.length} {actorNoun(actors.length)} connected to the sequencer</span>
-              </div>
+              </button>
             </div>
           </div>
           <div className="pulse-counts" aria-label="Actor connectivity and operational state counts">
-            <div className="pulse-count status-online" aria-label={`${onlineCount} Online`}><span><i /><strong>{onlineCount}</strong></span><small>ONLINE</small></div>
-            <div className="pulse-count status-offline" aria-label={`${offlineCount} Offline`}><span><i /><strong>{offlineCount}</strong></span><small>OFFLINE</small></div>
+            <button className="pulse-count status-online" type="button" aria-label={`${onlineCount} Online`} aria-controls="topology" aria-pressed={filter === "online"} onClick={() => setFilter("online")}><span><i /><strong>{onlineCount}</strong></span><small>ONLINE</small></button>
+            <button className="pulse-count status-offline" type="button" aria-label={`${offlineCount} Offline`} aria-controls="topology" aria-pressed={filter === "offline"} onClick={() => setFilter("offline")}><span><i /><strong>{offlineCount}</strong></span><small>OFFLINE</small></button>
             <span className="pulse-count-divider" aria-hidden="true" />
             {PULSE_OPERATIONAL_STATES.map((state) => (
-              <div className={`pulse-count state-${state}`} key={state} aria-label={`${operationalStateCounts[state]} ${operationalStateLabel(state)}`}>
+              <button
+                className={`pulse-count state-${state}`}
+                type="button"
+                key={state}
+                aria-label={`${operationalStateCounts[state]} ${operationalStateLabel(state)}`}
+                aria-controls="topology"
+                aria-pressed={filter === state}
+                onClick={() => setFilter(state)}
+              >
                 <span><i /><strong>{operationalStateCounts[state]}</strong></span>
                 <small>{operationalStateLabel(state)}</small>
-              </div>
+              </button>
             ))}
           </div>
           <div className="pulse-session">
@@ -476,7 +497,7 @@ export default function Home() {
       <section className="workspace" id="topology">
         <div className="topology-panel">
           <div className="section-heading topology-heading">
-            <div><p className="eyebrow">Topology</p><h2>Actor map</h2></div>
+            <div><p className="eyebrow">Topology</p><h2>Actor Map</h2></div>
             <button
               className="button button-ghost refresh-button"
               type="button"

@@ -703,6 +703,14 @@ test("deployment and UI conventions stay explicit", async () => {
   assert.match(page, /<small>ONLINE<\/small>/);
   assert.match(page, /<small>OFFLINE<\/small>/);
   assert.match(page, /PULSE_OPERATIONAL_STATES\.map/);
+  assert.match(page, /id="system-pulse"/);
+  assert.match(page, /href="#system-pulse"/);
+  assert.match(page, /onClick=\{\(\) => setFilter\("all"\)\}/);
+  assert.match(page, /const pulseConnectivityFilter: ActorFilter = !actors\.length \? "all" : offlineCount \? "offline" : "online"/);
+  assert.match(page, /setFilter\(pulseConnectivityFilter\)/);
+  assert.match(page, /setFilter\("disconnected"\)/);
+  assert.match(page, /onClick=\{\(\) => setFilter\(state\)\}/);
+  assert.match(page, /<h2>Actor Map<\/h2>/);
   assert.match(page, /"--summary-columns": Math\.min\(3, visibleSummaryKinds\.length\)/);
   assert.match(page, /sessionSequencer\?\.sessionStarted && <span>Started \{sessionSequencer\.sessionStarted\}<\/span>/);
   assert.doesNotMatch(page, /Start time not reported/);
@@ -733,6 +741,8 @@ test("deployment and UI conventions stay explicit", async () => {
   assert.match(styles, /\.topology-heading \.refresh-button \{[^}]*grid-column: 2[^}]*grid-row: 1[^}]*justify-self: end/);
   assert.match(styles, /\.topology-heading \.filters \{[^}]*grid-column: 1 \/ -1[^}]*grid-row: 2/);
   assert.match(styles, /\.filters \{[^}]*overflow-x: auto/);
+  assert.doesNotMatch(styles, /\.pulse-panel \{[^}]*scroll-margin-top/);
+  assert.match(styles, /\.pulse-count \{[^}]*cursor: pointer/);
   assert.doesNotMatch(styles, /\.sequencer-groups \.group-cards/);
   assert.match(page, /Shared topology · Persisted in SQLite/);
   assert.match(actorDetail, /\/actions/);
