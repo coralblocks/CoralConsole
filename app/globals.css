@@ -119,7 +119,9 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .section-heading { align-items: center; border-bottom: 1px solid var(--line); display: flex; flex-wrap: wrap; gap: 20px; justify-content: space-between; padding: 24px 27px; }
 .section-heading .eyebrow { margin-bottom: 5px; }
 .section-heading h2 { font-size: 23px; letter-spacing: -.04em; margin: 0; }
-.topology-actions { align-items: center; display: flex; flex-wrap: wrap; gap: 10px; justify-content: flex-end; max-width: 100%; }
+.topology-heading { align-items: start; display: grid; grid-template-columns: minmax(0, 1fr) auto; }
+.topology-heading .refresh-button { grid-column: 2; grid-row: 1; justify-self: end; }
+.topology-heading .filters { grid-column: 1 / -1; grid-row: 2; justify-self: start; }
 .refresh-button { min-height: 36px; padding-inline: 12px; }
 .filters { background: #ecebe4; border-radius: 9px; display: flex; gap: 2px; max-width: 100%; overflow-x: auto; padding: 3px; }
 .filters button { background: transparent; border: 0; border-radius: 7px; color: var(--muted); cursor: pointer; font-family: var(--font-plex-mono), monospace; font-size: 9px; font-weight: 600; padding: 8px 10px; text-transform: capitalize; }
@@ -373,7 +375,6 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   .actor-detail-panel .detail-grid div { padding: 14px 18px; }
   .actor-detail-panel .admin-block { padding: 24px 20px 20px; }
   .section-heading { align-items: start; flex-direction: column; padding: 20px; }
-  .topology-actions { align-items: stretch; flex-direction: column; width: 100%; }
   .filters { overflow-x: auto; width: 100%; }
   .sequencer-groups { grid-template-columns: 1fr; }
   .filters button { flex: 1; white-space: nowrap; }

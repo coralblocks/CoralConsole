@@ -694,6 +694,8 @@ test("deployment and UI conventions stay explicit", async () => {
   assert.match(page, /\[\s*"all",\s*"online",\s*"offline",\s*"closed",\s*"rewinding",\s*"active",\s*"inactive",\s*"disconnected",?\s*\]/);
   assert.match(page, /operationalStateForDisplay\(actor\.status, actor\.operationalState\) === filter/);
   assert.match(page, /aria-pressed=\{filter === value\}/);
+  assert.match(page, /className="section-heading topology-heading"/);
+  assert.match(page, /\{refreshing \? "Refreshing…" : "Refresh Now"\}/);
   assert.match(page, /actors online/);
   assert.match(page, /<small>ONLINE<\/small>/);
   assert.match(page, /<small>OFFLINE<\/small>/);
@@ -722,7 +724,9 @@ test("deployment and UI conventions stay explicit", async () => {
   assert.match(styles, /\.actor-heading small \{[^}]*font-size: 9px/);
   assert.match(styles, /\.inspector-head p \{[^}]*font-size: 10px/);
   assert.match(styles, /\.group-heading > span \{[^}]*font-size: 11px/);
-  assert.match(styles, /\.section-heading \{[^}]*flex-wrap: wrap/);
+  assert.match(styles, /\.topology-heading \{[^}]*display: grid[^}]*grid-template-columns: minmax\(0, 1fr\) auto/);
+  assert.match(styles, /\.topology-heading \.refresh-button \{[^}]*grid-column: 2[^}]*grid-row: 1[^}]*justify-self: end/);
+  assert.match(styles, /\.topology-heading \.filters \{[^}]*grid-column: 1 \/ -1[^}]*grid-row: 2/);
   assert.match(styles, /\.filters \{[^}]*overflow-x: auto/);
   assert.doesNotMatch(styles, /\.sequencer-groups \.group-cards/);
   assert.match(page, /Shared topology · Persisted in SQLite/);

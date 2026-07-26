@@ -415,35 +415,33 @@ export default function Home() {
 
       <section className="workspace" id="topology">
         <div className="topology-panel">
-          <div className="section-heading">
+          <div className="section-heading topology-heading">
             <div><p className="eyebrow">Topology</p><h2>Actor map</h2></div>
-            <div className="topology-actions">
-              <button
-                className="button button-ghost refresh-button"
-                type="button"
-                onClick={() => void refreshActors(true)}
-                disabled={refreshing || !actors.length}
-                title="Immediately poll actorStatus and list for every actor"
-              >
-                {refreshing ? "Refreshing…" : "Refresh now"}
-              </button>
-              <div className="filters" aria-label="Filter actors">
-                {ACTOR_FILTERS.map((value) => (
-                  <button
-                    key={value}
-                    type="button"
-                    className={filter === value ? "active" : ""}
-                    aria-pressed={filter === value}
-                    onClick={() => setFilter(value)}
-                  >
-                    {value === "all"
-                      ? "All Actors"
-                      : value === "online" || value === "offline"
-                        ? statusLabel(value)
-                        : operationalStateLabel(value)}
-                  </button>
-                ))}
-              </div>
+            <button
+              className="button button-ghost refresh-button"
+              type="button"
+              onClick={() => void refreshActors(true)}
+              disabled={refreshing || !actors.length}
+              title="Immediately poll actorStatus and list for every actor"
+            >
+              {refreshing ? "Refreshing…" : "Refresh Now"}
+            </button>
+            <div className="filters" aria-label="Filter actors">
+              {ACTOR_FILTERS.map((value) => (
+                <button
+                  key={value}
+                  type="button"
+                  className={filter === value ? "active" : ""}
+                  aria-pressed={filter === value}
+                  onClick={() => setFilter(value)}
+                >
+                  {value === "all"
+                    ? "All Actors"
+                    : value === "online" || value === "offline"
+                      ? statusLabel(value)
+                      : operationalStateLabel(value)}
+                </button>
+              ))}
             </div>
           </div>
 
