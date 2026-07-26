@@ -126,7 +126,9 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .pulse-footer { border-top: 1px solid rgba(255,255,255,.12); display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); padding-top: 13px; }
 .pulse-total, .pulse-session { display: grid; gap: 3px; min-width: 0; }
 .pulse-session { border-left: 1px solid rgba(255,255,255,.12); padding-left: 18px; }
-.pulse-total strong, .pulse-session strong { font-family: var(--font-plex-mono), monospace; font-size: 12px; }
+.pulse-total strong, .pulse-session strong { font-family: var(--font-plex-mono), monospace; }
+.pulse-total strong { font-size: 15px; }
+.pulse-session strong { font-size: 14px; }
 .pulse-total span, .pulse-session span { color: #9fb0ab; font-size: 9px; }
 
 .workspace { margin: 0 auto; max-width: 1600px; padding: 0 clamp(24px, 5vw, 80px) 72px; }
