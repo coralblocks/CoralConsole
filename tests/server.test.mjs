@@ -827,6 +827,8 @@ test("deployment and UI conventions stay explicit", async () => {
     assert.match(actorList, new RegExp(`<th>${heading.replace("?", "\\?")}<\\/th>`));
   }
   assert.match(actorList, /draggable=\{!editingId && !ordering\}/);
+  assert.match(actorList, /<td data-label="Name">/);
+  assert.match(actorList, /<td data-label="Online\?">/);
   assert.match(actorList, /const orderChanged = actorsRef\.current\.some/);
   assert.match(actorList, /showNotice\("Actor order saved\.", true\)/);
   assert.match(actorList, /setNoticeFading\(true\), 2400/);
@@ -839,6 +841,8 @@ test("deployment and UI conventions stay explicit", async () => {
   assert.match(styles, /\.actor-list-table thead \{[^}]*background:/);
   assert.match(styles, /\.actor-list-table th \{[^}]*font-size: 10px/);
   assert.match(styles, /\.actor-list-title > p:last-child \{[^}]*max-width: none/);
+  assert.match(styles, /\.actor-list-table \{[^}]*min-width: 0/);
+  assert.match(styles, /@media \(max-width: 720px\) \{[\s\S]*\.actor-list-table tbody tr \{[^}]*grid-template-columns: repeat\(2, minmax\(0, 1fr\)\)/);
   assert.match(actorDetail, /\/actions/);
   assert.match(actorDetail, /\/api\/actors\/refresh/);
   assert.doesNotMatch(actorDetail, /\/api\/actors\/health/);

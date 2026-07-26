@@ -276,26 +276,26 @@ export default function ActorList() {
                       onDrop={(event) => void saveOrder(event)}
                       onDragEnd={finishDrag}
                     >
-                      <td>
+                      <td data-label="Name">
                         <span className="actor-list-endpoint">
                           <span className="actor-drag-handle" title="Drag to reorder" aria-label={`Drag ${actor.name} to reorder`}><GripVertical aria-hidden="true" /></span>
                           <strong>{actor.name}</strong>
                         </span>
                       </td>
-                      <td>{ACTOR_META[actor.kind].label}</td>
-                      <td><code>{actor.className}</code></td>
-                      <td>{editing
+                      <td data-label="Type">{ACTOR_META[actor.kind].label}</td>
+                      <td data-label="Class"><code>{actor.className}</code></td>
+                      <td data-label="REST IP">{editing
                         ? <input aria-label={`${actor.name} REST IP`} value={draftHost} onChange={(event) => setDraftHost(event.target.value)} onKeyDown={(event) => handleEditKey(event, actor)} autoFocus />
                         : <code>{actor.host}</code>}</td>
-                      <td>{editing
+                      <td data-label="REST PORT">{editing
                         ? <input aria-label={`${actor.name} REST port`} inputMode="numeric" value={draftPort} onChange={(event) => setDraftPort(event.target.value)} onKeyDown={(event) => handleEditKey(event, actor)} />
                         : <code>{actor.port}</code>}</td>
-                      <td><span className={`actor-list-status status-${actor.status}`}><i />{statusLabel(actor.status)}</span></td>
-                      <td>{editing ? <span className="actor-list-edit-actions">
+                      <td data-label="Online?"><span className={`actor-list-status status-${actor.status}`}><i />{statusLabel(actor.status)}</span></td>
+                      <td data-label="Edit">{editing ? <span className="actor-list-edit-actions">
                         <button type="button" onClick={() => void saveEndpoint(actor)} disabled={saving}>{saving ? "Saving…" : "Save"}</button>
                         <button type="button" onClick={cancelEditing} disabled={saving}>Cancel</button>
                       </span> : <button className="actor-list-edit-button" type="button" onClick={() => startEditing(actor)} disabled={Boolean(editingId) || actor.demo}>{actor.demo ? "Sample" : "Edit"}</button>}</td>
-                      <td><button className="actor-list-remove-button" type="button" onClick={() => void removeActor(actor)} disabled={Boolean(removingId) || actor.demo}>{removingId === actor.id ? "Removing…" : actor.demo ? "Sample" : "Remove"}</button></td>
+                      <td data-label="Remove"><button className="actor-list-remove-button" type="button" onClick={() => void removeActor(actor)} disabled={Boolean(removingId) || actor.demo}>{removingId === actor.id ? "Removing…" : actor.demo ? "Sample" : "Remove"}</button></td>
                     </tr>
                   );
                 })}
