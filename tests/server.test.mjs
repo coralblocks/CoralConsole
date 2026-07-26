@@ -877,7 +877,11 @@ test("deployment and UI conventions stay explicit", async () => {
   assert.match(styles, /\.actor-list-table thead \{[^}]*background:/);
   assert.match(styles, /\.actor-list-table th \{[^}]*font-size: 13px/);
   assert.match(styles, /\.actor-list-title > p:last-child \{[^}]*max-width: none/);
-  assert.match(styles, /\.actor-list-group-heading \{[^}]*grid-template-columns: minmax\(180px, 26%\) minmax\(0, 1fr\)/);
+  assert.match(actorList, /const GroupIcon = ACTOR_META\[kind\]\.icon/);
+  assert.match(actorList, /className=\{`actor-list-group actor-\$\{kind\}`\}/);
+  assert.match(actorList, /<span className="actor-avatar actor-list-group-icon"[^>]*><GroupIcon \/><\/span>/);
+  assert.match(actorList, /className="actor-list-group-count"/);
+  assert.match(styles, /\.actor-list-group-heading \{[^}]*grid-template-columns: minmax\(250px, auto\) minmax\(0, 1fr\)/);
   assert.match(styles, /\.actor-list-feedback \{[^}]*height: 42px/);
   assert.match(styles, /\.actor-list-table th:first-child, \.actor-list-table td:first-child \{[^}]*padding-left: 30px/);
   assert.match(styles, /\.actor-list-table \{[^}]*min-width: 0/);

@@ -295,12 +295,19 @@ export default function ActorList() {
               {actorGroups.map(({ kind, actors: groupActors }) => {
                 const feedback = feedbackByKind[kind];
                 const headingId = `actor-list-${kind}`;
+                const GroupIcon = ACTOR_META[kind].icon;
                 return (
-                  <section className="actor-list-group" key={kind}>
+                  <section className={`actor-list-group actor-${kind}`} key={kind}>
                     <div className="actor-list-group-heading">
-                      <div>
-                        <p className="eyebrow">Actor type</p>
-                        <h2 id={headingId}>{groupLabel(kind)}</h2>
+                      <div className="actor-list-group-identity">
+                        <span className="actor-avatar actor-list-group-icon" aria-hidden="true"><GroupIcon /></span>
+                        <div className="actor-list-group-title">
+                          <p className="eyebrow">Actor type</p>
+                          <div>
+                            <h2 id={headingId}>{groupLabel(kind)}</h2>
+                            <span className="actor-list-group-count" aria-label={`${groupActors.length} ${groupActors.length === 1 ? "actor" : "actors"}`}>{groupActors.length}</span>
+                          </div>
+                        </div>
                       </div>
                       <div className="actor-list-feedback">
                         {feedback?.tone === "error" && <p className="page-alert actor-list-alert" role="alert">{feedback.message}</p>}
