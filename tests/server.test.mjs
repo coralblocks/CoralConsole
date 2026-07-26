@@ -719,6 +719,7 @@ test("deployment and UI conventions stay explicit", async () => {
   assert.match(styles, /\.actor-card-sequence \{[^}]*font-size: 9px/);
   assert.match(styles, /\.actor-heading small \{[^}]*font-size: 9px/);
   assert.match(styles, /\.inspector-head p \{[^}]*font-size: 10px/);
+  assert.match(styles, /\.group-heading > span \{[^}]*font-size: 11px/);
   assert.doesNotMatch(styles, /\.sequencer-groups \.group-cards/);
   assert.match(page, /Shared topology · Persisted in SQLite/);
   assert.match(actorDetail, /\/actions/);

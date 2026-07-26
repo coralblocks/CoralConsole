@@ -137,7 +137,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .group-heading { align-items: center; display: flex; justify-content: space-between; margin-bottom: 13px; }
 .group-heading p { color: var(--muted); font-family: var(--font-plex-mono), monospace; font-size: 8px; letter-spacing: .1em; margin: 0 0 3px; text-transform: uppercase; }
 .group-heading h3 { font-size: 13px; margin: 0; }
-.group-heading > span { align-items: center; background: var(--panel); border: 1px solid var(--line); border-radius: 50%; display: flex; font-family: var(--font-plex-mono), monospace; font-size: 9px; height: 28px; justify-content: center; width: 28px; }
+.group-heading > span { align-items: center; background: var(--panel); border: 1px solid var(--line); border-radius: 50%; display: flex; font-family: var(--font-plex-mono), monospace; font-size: 11px; height: 28px; justify-content: center; width: 28px; }
 .group-cards { display: grid; gap: 9px; grid-template-columns: 1fr; }
 .actor-card { --actor-color: var(--coral); --actor-soft: var(--coral-soft); background: var(--panel); border: 1px solid #dfe2db; border-radius: 12px; color: var(--ink); cursor: pointer; display: block; min-width: 0; padding: 14px; text-align: left; text-decoration: none; transition: border .2s ease, box-shadow .2s ease, transform .2s ease; }
 .actor-card.actor-card-offline,
