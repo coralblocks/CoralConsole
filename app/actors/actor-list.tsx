@@ -1,6 +1,6 @@
 "use client";
 
-import { type DragEvent, type KeyboardEvent, useCallback, useEffect, useRef, useState } from "react";
+import { type DragEvent, type FormEvent, type KeyboardEvent, useCallback, useEffect, useRef, useState } from "react";
 import { GripVertical } from "lucide-react";
 import { ACTOR_KINDS, ACTOR_META, statusLabel, type Actor, type ActorKind } from "../actor-ui";
 import type { TopologySettings } from "@/lib/types";
@@ -43,6 +43,11 @@ export default function ActorList() {
   const [draggedId, setDraggedId] = useState("");
   const [orderingKind, setOrderingKind] = useState<ActorKind | null>(null);
   const [pollIntervalSeconds, setPollIntervalSeconds] = useState(5);
+  const [addKind, setAddKind] = useState<ActorKind | null>(null);
+  const [connectHost, setConnectHost] = useState("");
+  const [connectPort, setConnectPort] = useState("30001");
+  const [connectError, setConnectError] = useState("");
+  const [connecting, setConnecting] = useState(false);
 
   const replaceActors = useCallback((next: Actor[]) => {
     actorsRef.current = next;
@@ -124,6 +129,44 @@ export default function ActorList() {
     showFeedback(actor.kind, "");
   }
 
+  function openAddActor(kind: ActorKind) {
+    setAddKind(kind);
+    setConnectError("");
+  }
+
+  function closeAddActor() {
+    if (connecting) return;
+    setAddKind(null);
+    setConnectError("");
+  }
+
+  async function addActor(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const numericPort = Number(connectPort);
+    if (!connectHost.trim() || !Number.isInteger(numericPort) || numericPort < 1 || numericPort > 65535) {
+      setConnectError("Enter a host and a valid REST admin port.");
+      return;
+    }
+    setConnectError("");
+    setConnecting(true);
+    try {
+      const payload = await apiRequest<{ actor: Actor }>("/api/actors", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ host: connectHost.trim(), port: numericPort }),
+      });
+      replaceActors([...actorsRef.current.filter((actor) => actor.id !== payload.actor.id), payload.actor]);
+      setConnectHost("");
+      setConnectPort("30001");
+      setAddKind(null);
+      showFeedback(payload.actor.kind, `${payload.actor.name} was added to CoralConsole.`, "notice", 7000);
+    } catch (requestError) {
+      setConnectError(requestError instanceof Error ? requestError.message : "Could not reach this actor.");
+    } finally {
+      setConnecting(false);
+    }
+  }
+
   function cancelEditing() {
     setEditingId("");
     setDraftHost("");
@@ -159,7 +202,7 @@ export default function ActorList() {
       });
       replaceActors(actorsRef.current.map((current) => current.id === actor.id ? payload.actor : current));
       cancelEditing();
-      showFeedback(actor.kind, `${actor.name} endpoint saved. CoralConsole is checking the new address.`, "notice", 5000);
+      showFeedback(actor.kind, `${actor.name} endpoint saved. CoralConsole is checking the new address.`, "notice", 7000);
       void refreshEditedActor(actor.id);
     } catch (requestError) {
       showFeedback(actor.kind, requestError instanceof Error ? requestError.message : "Actor endpoint could not be saved.", "error");
@@ -185,7 +228,7 @@ export default function ActorList() {
     try {
       await apiRequest<{ removed: boolean }>(`/api/actors/${encodeURIComponent(actor.id)}`, { method: "DELETE" });
       replaceActors(actorsRef.current.filter((current) => current.id !== actor.id));
-      showFeedback(actor.kind, `${actor.name} was removed from CoralConsole.`, "notice", 5000);
+      showFeedback(actor.kind, `${actor.name} was removed from CoralConsole.`, "notice", 7000);
     } catch (requestError) {
       showFeedback(actor.kind, requestError instanceof Error ? requestError.message : "Actor could not be removed.", "error");
     } finally {
@@ -251,7 +294,7 @@ export default function ActorList() {
         body: JSON.stringify({ kind, actorIds }),
       });
       replaceActors(payload.actors);
-      showFeedback(kind, `${groupLabel(kind)} order saved.`, "notice", 3000);
+      showFeedback(kind, `${groupLabel(kind)} order saved.`, "notice", 7000);
     } catch (requestError) {
       showFeedback(kind, requestError instanceof Error ? requestError.message : "Actor order could not be saved.", "error");
       await loadActors().catch(() => replaceActors(dragOriginalRef.current));
@@ -313,6 +356,7 @@ export default function ActorList() {
                         {feedback?.tone === "error" && <p className="page-alert actor-list-alert" role="alert">{feedback.message}</p>}
                         {feedback?.tone === "notice" && <p className={`actor-list-notice${feedback.fading ? " actor-list-notice-fading" : ""}`} role="status">{feedback.message}</p>}
                       </div>
+                      <button className="actor-list-add-button" type="button" onClick={() => openAddActor(kind)}><span aria-hidden="true">＋</span>Add Actor</button>
                     </div>
 
                     <div className="actor-list-table-wrap" aria-labelledby={headingId} aria-busy={orderingKind === kind}>
@@ -376,6 +420,30 @@ export default function ActorList() {
             </div>
           )}
       </section>
+
+      {addKind && (
+        <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) closeAddActor(); }}>
+          <section className={`add-modal actor-${addKind}`} role="dialog" aria-modal="true" aria-labelledby="actor-list-add-title">
+            <button className="modal-close" type="button" onClick={closeAddActor} aria-label="Close add actor dialog">×</button>
+            <p className="eyebrow">Add to {groupLabel(addKind)}</p>
+            <h2 id="actor-list-add-title">Connect an actor</h2>
+            <p>Enter the actor’s network address. The server will discover its role and actions, then place it in the appropriate actor table.</p>
+            <div className="actor-type-list" aria-label="Supported actor types">{ACTOR_KINDS.filter((kind) => kind !== "link").map((kind) => <span className={kind === addKind ? "selected" : ""} key={kind}>{ACTOR_META[kind].label}</span>)}</div>
+            <form onSubmit={addActor}>
+              <label htmlFor="actor-list-host">IP address or host</label>
+              <input id="actor-list-host" value={connectHost} onChange={(event) => setConnectHost(event.target.value)} placeholder="10.42.0.10" autoFocus />
+              <label htmlFor="actor-list-port">REST admin port</label>
+              <input id="actor-list-port" value={connectPort} onChange={(event) => setConnectPort(event.target.value)} inputMode="numeric" placeholder="30001" />
+              {connectError && <p className="form-error" role="alert">{connectError}</p>}
+              <div className="modal-actions">
+                <button className="button button-ghost" type="button" onClick={closeAddActor} disabled={connecting}>Cancel</button>
+                <button className="button button-primary" type="submit" disabled={connecting}>{connecting ? "Discovering…" : "Discover actor"}</button>
+              </div>
+            </form>
+            <div className="privacy-note"><span aria-hidden="true">⌂</span><p><strong>Shared internal configuration</strong>The actor is contacted by this server and stored in its SQLite database.</p></div>
+          </section>
+        </div>
+      )}
     </main>
   );
 }
