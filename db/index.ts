@@ -31,7 +31,7 @@ function openDatabase(): DatabaseState {
   sqlite.prepare(`
     INSERT OR IGNORE INTO topology_settings
       (id, topology_name, background_color, poll_interval_seconds, audit_retention_days, setup_complete)
-    VALUES (1, 'Coral Topology', '#f4eee7', 30, 90, 0)
+    VALUES (1, 'Coral Topology', '#f4eee7', 5, 90, 0)
   `).run();
 
   return { sqlite, orm };

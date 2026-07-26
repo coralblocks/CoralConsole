@@ -2,7 +2,7 @@ import { Agent as HttpAgent, request as requestHttp } from "node:http";
 import { Agent as HttpsAgent, request as requestHttps } from "node:https";
 import type { Socket } from "node:net";
 import { sessionStartFromId } from "./session";
-import { BASELINE_ADMIN_ACTIONS, type Actor, type ActorKind, type ActorOperationalState, type ActorStatus, type ActorStatusField, type AdminActionReply, type AuditOutcome } from "./types";
+import { BASELINE_ADMIN_ACTIONS, type Actor, type ActorKind, type ActorOperationalState, type ActorStatusField, type AdminActionReply, type AuditOutcome } from "./types";
 
 const ACTOR_TIMEOUT_MS = 6500;
 const MONITORING_CONNECTION_LOST = "The persistent actor monitoring connection was lost.";
@@ -362,9 +362,6 @@ function sessionStartFromActorStatus(fields: ActorStatusField[], session: string
 
 function actorFromActorStatus(actor: Actor, actorStatusDetails: string): Actor {
   const fields = parseActorStatusFields(actorStatusDetails);
-  if (!fields.length) {
-    throw new ActorCallError("Actor actorStatus response did not contain any fields.", 502);
-  }
   const reportedKind = kindFromActorStatus(fields);
   const kind = reportedKind || actor.kind;
   const isSequencer = kind === "sequencer" || kind === "backup-sequencer";
@@ -379,7 +376,7 @@ function actorFromActorStatus(actor: Actor, actorStatusDetails: string): Actor {
     ...actor,
     name,
     kind: discoveredKind,
-    status: actor.status,
+    status: "online",
     operationalState: operationalStateFromActorStatus(fields, actor.operationalState),
     account: actorStatusValue(fields, "account") || name,
     className: actorStatusValue(fields, "class") || actor.className,
@@ -389,7 +386,7 @@ function actorFromActorStatus(actor: Actor, actorStatusDetails: string): Actor {
     outboundSequence: actorStatusValue(fields, "sequence") || actor.outboundSequence,
     accounts: actorStatusValue(fields, "accounts") || actor.accounts,
     clockTickInterval: actorStatusValue(fields, "clock tick interval") || actor.clockTickInterval,
-    actorStatusFields: fields,
+    actorStatusFields: fields.length ? fields : actor.actorStatusFields,
     sessionStarted: sessionStartFromActorStatus(fields, session),
     actorStatusRespondedAt: new Date().toISOString(),
     lastSeen: "just now",
@@ -405,7 +402,7 @@ export async function refreshActorStatus(actor: Actor, onDisconnect: MonitoringD
     "",
     persistentMonitoring,
   );
-  const refreshed = actorFromActorStatus(actor, reply.results || "");
+  const refreshed = actorFromActorStatus(actor, typeof reply.results === "string" ? reply.results : "");
 
   try {
     const listReply = await callActorEndpoint(
@@ -417,54 +414,10 @@ export async function refreshActorStatus(actor: Actor, onDisconnect: MonitoringD
     );
     const actions = actionsFromDiscovery(actor.name, listReply.results || "");
     return actions.length ? { ...refreshed, actions } : refreshed;
-  } catch (error) {
-    // A malformed list response must not override a valid actorStatus response.
-    // Transport failure means the persistent monitoring connection is offline.
-    if (error instanceof ActorCallError && error.outcome !== "unreachable") return refreshed;
-    throw error;
-  }
-}
-
-export type ActorHealthCheck = {
-  status: ActorStatus;
-  latency: string;
-  lastSeen: string;
-  error: string | null;
-};
-
-export async function checkActorHealth(actor: Actor, onDisconnect: MonitoringDisconnectHandler): Promise<ActorHealthCheck> {
-  try {
-    const reply = await callActorEndpoint(
-      actor.host,
-      actor.port,
-      `${actor.name} healthCheck`,
-      "",
-      { actorId: actor.id, onDisconnect, shouldLog: false },
-    );
-    if (!(reply.results || "").startsWith("ALIVE")) {
-      return {
-        status: "offline",
-        latency: "health check failed",
-        lastSeen: "just now",
-        error: "Actor health check response does not start with ALIVE.",
-      };
-    }
-    return {
-      status: "online",
-      latency: "connected",
-      lastSeen: "just now",
-      error: null,
-    };
-  } catch (error) {
-    const unreachable = error instanceof ActorCallError && error.outcome === "unreachable";
-    return {
-      status: "offline",
-      latency: unreachable ? "unreachable" : "health check failed",
-      lastSeen: unreachable
-        ? actor.lastSeen === "just now" ? "unreachable" : actor.lastSeen
-        : "just now",
-      error: error instanceof Error ? error.message : "Actor health check failed.",
-    };
+  } catch {
+    // Actor connectivity comes exclusively from actorStatus. A list failure
+    // must not override a valid actorStatus response.
+    return refreshed;
   }
 }
 
@@ -505,7 +458,8 @@ export async function discoverActor(host: string, port: number, id = crypto.rand
     actions,
   };
   try {
-    const actorStatusDetails = (await callActorEndpoint(host, port, `${scope} actorStatus`)).results || "";
+    const actorStatusReply = await callActorEndpoint(host, port, `${scope} actorStatus`);
+    const actorStatusDetails = typeof actorStatusReply.results === "string" ? actorStatusReply.results : "";
     return actorFromActorStatus(actor, actorStatusDetails);
   } catch {
     // Root and scoped list responses still provide a usable actor if metadata is temporarily unavailable.

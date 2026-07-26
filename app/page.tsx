@@ -59,8 +59,7 @@ const GROUPS: { id: string; kinds: ActorKind[]; eyebrow: string; title: string }
 const DEFAULT_SETTINGS: TopologySettings = {
   topologyName: "Coral topology",
   backgroundColor: "#f4f1e9",
-  pollIntervalSeconds: 30,
-  healthCheckIntervalSeconds: 5,
+  pollIntervalSeconds: 5,
   keepPollingWithoutViewers: false,
   viewerGracePeriodSeconds: 90,
   auditRetentionDays: 90,
@@ -236,32 +235,11 @@ export default function Home() {
     }
   }, []);
 
-  const checkActorsHealth = useCallback(async () => {
-    if (document.visibilityState !== "visible") return;
-    try {
-      const payload = await apiRequest<{ actors: Actor[] }>("/api/actors/health", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ force: false }),
-      });
-      setActors(payload.actors);
-      setPageError("");
-    } catch (error) {
-      setPageError(error instanceof Error ? error.message : "Actor health check failed.");
-    }
-  }, []);
-
   useEffect(() => {
     if (!ready || !settings.setupComplete) return;
     const timer = window.setInterval(() => void refreshActors(false), settings.pollIntervalSeconds * 1000);
     return () => window.clearInterval(timer);
   }, [ready, refreshActors, settings.pollIntervalSeconds, settings.setupComplete]);
-
-  useEffect(() => {
-    if (!ready || !settings.setupComplete) return;
-    const timer = window.setInterval(() => void checkActorsHealth(), settings.healthCheckIntervalSeconds * 1000);
-    return () => window.clearInterval(timer);
-  }, [checkActorsHealth, ready, settings.healthCheckIntervalSeconds, settings.setupComplete]);
 
   useEffect(() => {
     function closeOnEscape(event: KeyboardEvent) {
@@ -584,8 +562,7 @@ export default function Home() {
               <label htmlFor="topology-name">Topology name</label><input id="topology-name" value={settingsDraft.topologyName} onChange={(event) => setSettingsDraft((current) => ({ ...current, topologyName: event.target.value }))} autoFocus />
               <label htmlFor="background-color">Workspace color</label><div className="color-input"><input id="background-color" type="color" value={settingsDraft.backgroundColor} onChange={(event) => setSettingsDraft((current) => ({ ...current, backgroundColor: event.target.value }))} /><code>{settingsDraft.backgroundColor}</code></div>
               <div className="settings-grid">
-                <div><label htmlFor="poll-interval">Actor status refresh (seconds)</label><input id="poll-interval" type="number" min="10" max="300" value={settingsDraft.pollIntervalSeconds} onChange={(event) => setSettingsDraft((current) => ({ ...current, pollIntervalSeconds: Number(event.target.value) }))} /></div>
-                <div><label htmlFor="health-check-interval">Health check (seconds)</label><input id="health-check-interval" type="number" min="1" max="300" value={settingsDraft.healthCheckIntervalSeconds} onChange={(event) => setSettingsDraft((current) => ({ ...current, healthCheckIntervalSeconds: Number(event.target.value) }))} /></div>
+                <div><label htmlFor="poll-interval">Actor polling interval (seconds)</label><input id="poll-interval" type="number" min="1" max="300" value={settingsDraft.pollIntervalSeconds} onChange={(event) => setSettingsDraft((current) => ({ ...current, pollIntervalSeconds: Number(event.target.value) }))} /></div>
                 <div><label htmlFor="audit-retention">Audit retention (days)</label><input id="audit-retention" type="number" min="1" max="3650" value={settingsDraft.auditRetentionDays} onChange={(event) => setSettingsDraft((current) => ({ ...current, auditRetentionDays: Number(event.target.value) }))} /></div>
               </div>
               <fieldset className="polling-settings">

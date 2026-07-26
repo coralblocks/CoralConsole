@@ -1,11 +1,9 @@
-import { ActorCallError, checkActorHealth, closeAllActorMonitoringConnections, refreshActorStatus } from "./actor-server";
-import { getActor, getSettings, listActors, markActorOffline, recordActorHeartbeat, updateActor } from "./repository";
+import { closeAllActorMonitoringConnections, refreshActorStatus } from "./actor-server";
+import { getActor, getSettings, listActors, markActorOffline, updateActor } from "./repository";
 import { hasRecentViewer } from "./viewer-presence";
 
 let refreshPromise: Promise<ReturnType<typeof listActors>> | null = null;
 let lastRefreshAt = 0;
-let healthCheckPromise: Promise<ReturnType<typeof listActors>> | null = null;
-let lastHealthCheckAt = 0;
 
 type ActorOperationState = {
   manualActions: number;
@@ -69,27 +67,11 @@ async function refreshOneActor(actorId: string) {
     updateActor(await refreshActorStatus(actor, disconnectHandler(actorId)));
   } catch (error) {
     const message = error instanceof Error ? error.message : "Actor refresh failed.";
-    if (error instanceof ActorCallError && error.outcome !== "unreachable") {
-      updateActor(actor, message);
-    } else {
-      markActorOffline(actor, message);
-    }
-  }
-}
-
-async function healthCheckOneActor(actorId: string) {
-  const actor = getActor(actorId);
-  if (!actor || actor.demo) return;
-  try {
-    const heartbeat = await checkActorHealth(actor, disconnectHandler(actorId));
-    recordActorHeartbeat(actor.id, heartbeat);
-  } catch (error) {
-    markActorOffline(actor, error instanceof Error ? error.message : "Actor health check failed.");
+    markActorOffline(actor, message);
   }
 }
 
 async function reconcileActorAfterAdminAction(actorId: string) {
-  await healthCheckOneActor(actorId);
   await refreshOneActor(actorId);
 }
 
@@ -146,29 +128,6 @@ export async function refreshActorNow(actorId: string) {
   return getActor(actorId);
 }
 
-async function healthCheckWithLimit() {
-  const actors = listActors();
-  let cursor = 0;
-  const workers = Array.from({ length: Math.min(4, actors.length) }, async () => {
-    while (cursor < actors.length) {
-      const actor = actors[cursor++];
-      if (!actor || actor.demo) continue;
-      await runScheduledActorOperation(actor.id, () => healthCheckOneActor(actor.id));
-    }
-  });
-  await Promise.all(workers);
-  lastHealthCheckAt = Date.now();
-  return listActors();
-}
-
-export function checkActorsHealth(force = false) {
-  if (healthCheckPromise) return healthCheckPromise;
-  const intervalMs = getSettings().healthCheckIntervalSeconds * 1000;
-  if (!force && Date.now() - lastHealthCheckAt < intervalMs) return Promise.resolve(listActors());
-  healthCheckPromise = healthCheckWithLimit().finally(() => { healthCheckPromise = null; });
-  return healthCheckPromise;
-}
-
 type ActorSchedulerState = {
   polling: boolean;
   running: boolean;
@@ -196,7 +155,7 @@ export function ensureActorScheduler() {
       }
       const resumed = !state.polling;
       state.polling = true;
-      await Promise.allSettled([refreshActors(resumed), checkActorsHealth(resumed)]);
+      await refreshActors(resumed);
     } finally {
       state.running = false;
     }

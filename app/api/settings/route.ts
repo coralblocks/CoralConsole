@@ -20,15 +20,13 @@ export async function PATCH(request: Request) {
     const topologyName = (input.topologyName ?? current.topologyName).trim();
     const backgroundColor = input.backgroundColor ?? current.backgroundColor;
     const pollIntervalSeconds = Number(input.pollIntervalSeconds ?? current.pollIntervalSeconds);
-    const healthCheckIntervalSeconds = Number(input.healthCheckIntervalSeconds ?? current.healthCheckIntervalSeconds);
     const keepPollingWithoutViewers = input.keepPollingWithoutViewers ?? current.keepPollingWithoutViewers;
     const viewerGracePeriodSeconds = Number(input.viewerGracePeriodSeconds ?? current.viewerGracePeriodSeconds);
     const auditRetentionDays = Number(input.auditRetentionDays ?? current.auditRetentionDays);
     const requestedSummaryActorKinds = input.summaryActorKinds ?? current.summaryActorKinds;
     if (!topologyName || topologyName.length > 80) throw new ApiError("Topology name must contain 1 to 80 characters.");
     if (!/^#[0-9a-f]{6}$/i.test(backgroundColor)) throw new ApiError("Background color must use #RRGGBB format.");
-    if (!Number.isInteger(pollIntervalSeconds) || pollIntervalSeconds < 10 || pollIntervalSeconds > 300) throw new ApiError("Refresh interval must be between 10 and 300 seconds.");
-    if (!Number.isInteger(healthCheckIntervalSeconds) || healthCheckIntervalSeconds < 1 || healthCheckIntervalSeconds > 300) throw new ApiError("Health check interval must be between 1 and 300 seconds.");
+    if (!Number.isInteger(pollIntervalSeconds) || pollIntervalSeconds < 1 || pollIntervalSeconds > 300) throw new ApiError("Polling interval must be between 1 and 300 seconds.");
     if (typeof keepPollingWithoutViewers !== "boolean") throw new ApiError("Idle polling must be enabled or disabled.");
     if (!Number.isInteger(viewerGracePeriodSeconds) || viewerGracePeriodSeconds < 5 || viewerGracePeriodSeconds > 3600) throw new ApiError("Viewer grace period must be between 5 and 3600 seconds.");
     if (!Number.isInteger(auditRetentionDays) || auditRetentionDays < 1 || auditRetentionDays > 3650) throw new ApiError("Audit retention must be between 1 and 3650 days.");
@@ -44,7 +42,6 @@ export async function PATCH(request: Request) {
       topologyName,
       backgroundColor,
       pollIntervalSeconds,
-      healthCheckIntervalSeconds,
       keepPollingWithoutViewers,
       viewerGracePeriodSeconds,
       auditRetentionDays,

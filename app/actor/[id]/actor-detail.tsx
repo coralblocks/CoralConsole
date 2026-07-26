@@ -36,8 +36,7 @@ export default function ActorDetail({ actorId }: { actorId: string }) {
   const [running, setRunning] = useState(false);
   const [refreshingStatus, setRefreshingStatus] = useState(false);
   const [reply, setReply] = useState<AdminActionReply | null>(null);
-  const [pollIntervalSeconds, setPollIntervalSeconds] = useState(30);
-  const [healthCheckIntervalSeconds, setHealthCheckIntervalSeconds] = useState(5);
+  const [pollIntervalSeconds, setPollIntervalSeconds] = useState(5);
 
   const loadAudit = useCallback(async () => {
     const payload = await apiRequest<{ entries: AuditEntry[] }>(`/api/audit?actorId=${encodeURIComponent(actorId)}&limit=20`, { cache: "no-store" });
@@ -49,16 +48,6 @@ export default function ActorDetail({ actorId }: { actorId: string }) {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ force }),
-    });
-    const payload = await apiRequest<{ actor: Actor }>(`/api/actors/${encodeURIComponent(actorId)}`, { cache: "no-store" });
-    return payload.actor;
-  }, [actorId]);
-
-  const checkActorHealth = useCallback(async () => {
-    await apiRequest<{ actors: Actor[] }>("/api/actors/health", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ force: false }),
     });
     const payload = await apiRequest<{ actor: Actor }>(`/api/actors/${encodeURIComponent(actorId)}`, { cache: "no-store" });
     return payload.actor;
@@ -76,7 +65,6 @@ export default function ActorDetail({ actorId }: { actorId: string }) {
       setAction(actorPayload.actions[0] || "list");
       setAudit(auditPayload.entries);
       setPollIntervalSeconds(settingsPayload.settings.pollIntervalSeconds);
-      setHealthCheckIntervalSeconds(settingsPayload.settings.healthCheckIntervalSeconds);
     }).catch((requestError) => {
       if (active) setError(requestError instanceof Error ? requestError.message : "Actor details could not be loaded.");
     }).finally(() => {
@@ -99,21 +87,6 @@ export default function ActorDetail({ actorId }: { actorId: string }) {
     }, pollIntervalSeconds * 1000);
     return () => window.clearInterval(timer);
   }, [pollIntervalSeconds, ready, refreshActor, removed]);
-
-  useEffect(() => {
-    if (!ready || removed) return;
-    const timer = window.setInterval(() => {
-      if (document.visibilityState !== "visible") return;
-      void checkActorHealth().then((updatedActor) => {
-        setActor(updatedActor);
-        setAction((current) => updatedActor.actions.includes(current) ? current : updatedActor.actions[0] || "list");
-        setError("");
-      }).catch((requestError) => {
-        setError(requestError instanceof Error ? requestError.message : "Actor health check failed.");
-      });
-    }, healthCheckIntervalSeconds * 1000);
-    return () => window.clearInterval(timer);
-  }, [checkActorHealth, healthCheckIntervalSeconds, ready, removed]);
 
   async function runAction(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();

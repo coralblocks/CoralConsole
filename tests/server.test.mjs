@@ -27,8 +27,9 @@ async function startMockActorServer() {
   const sockets = new Map();
   let connectionCount = 0;
   let scopedListCount = 0;
-  let healthCheckCount = 0;
   let actorStatusCount = 0;
+  let actorStatusResult = true;
+  let actorStatusHasFields = true;
   let session = "2607232154";
   let operationalState = { open: true, disconnected: false, rewinding: false, active: true };
   const server = createServer((socket) => {
@@ -81,7 +82,8 @@ async function startMockActorServer() {
           ].join("\n");
         } else if (input.adminCommand === "SEQ actorStatus" && input.params === "") {
           actorStatusCount += 1;
-          results = [
+          resultOverride = actorStatusResult;
+          results = actorStatusHasFields ? [
             "name:\tSEQ",
             "type:\tSEQUENCER",
             "class:\tPassThroughSequencer",
@@ -103,18 +105,13 @@ async function startMockActorServer() {
                 ]),
             "store implementation:\tCircularStore-1048576-1450",
             "",
-          ].join("\n");
+          ].join("\n") : "";
         } else if (input.adminCommand === "SEQ rollSessionAuto" && input.params === "") {
           results = "As a safeguard, pass 'true' to indicate you really want to do this!";
         } else if (input.adminCommand === "SEQ slowAction" && input.params === "") {
           results = "Slow action complete";
         } else if (input.adminCommand === "SEQ healthCheck" && input.params === "") {
-          healthCheckCount += 1;
-          results = healthCheckCount === 2 ? "NOT HEALTHY"
-            : healthCheckCount === 3 ? "ALIVE but CLOSED"
-              : "ALIVE and OPEN";
-          if (healthCheckCount === 4) resultOverride = false;
-          if (healthCheckCount === 5) resultOverride = "invalid";
+          results = "ALIVE and OPEN";
         } else if (input.adminCommand === "SEQ dropConnection" && input.params === "") {
           socket.destroy();
           return;
@@ -172,6 +169,12 @@ async function startMockActorServer() {
     },
     setSession(next) {
       session = next;
+    },
+    setActorStatusResult(next) {
+      actorStatusResult = next;
+    },
+    setActorStatusHasFields(next) {
+      actorStatusHasFields = next;
     },
     closeConnection(connectionId) {
       const socket = sockets.get(connectionId);
@@ -242,7 +245,8 @@ test("standalone server persists settings, actors, and admin action audit in SQL
 
     const initial = await json(server.baseUrl, "/api/settings");
     assert.equal(initial.settings.setupComplete, false);
-    assert.equal(initial.settings.healthCheckIntervalSeconds, 5);
+    assert.equal(initial.settings.pollIntervalSeconds, 5);
+    assert.equal("healthCheckIntervalSeconds" in initial.settings, false);
     assert.equal(initial.settings.keepPollingWithoutViewers, false);
     assert.equal(initial.settings.viewerGracePeriodSeconds, 90);
 
@@ -252,8 +256,7 @@ test("standalone server persists settings, actors, and admin action audit in SQL
       body: JSON.stringify({
         topologyName: "Test Topology",
         backgroundColor: "#e8f2ed",
-        pollIntervalSeconds: 30,
-        healthCheckIntervalSeconds: 1,
+        pollIntervalSeconds: 1,
         keepPollingWithoutViewers: true,
         viewerGracePeriodSeconds: 5,
         auditRetentionDays: 90,
@@ -262,7 +265,8 @@ test("standalone server persists settings, actors, and admin action audit in SQL
       }),
     });
     assert.equal(saved.settings.topologyName, "Test Topology");
-    assert.equal(saved.settings.healthCheckIntervalSeconds, 1);
+    assert.equal(saved.settings.pollIntervalSeconds, 1);
+    assert.equal("healthCheckIntervalSeconds" in saved.settings, false);
     assert.equal(saved.settings.keepPollingWithoutViewers, true);
     assert.equal(saved.settings.viewerGracePeriodSeconds, 5);
     assert.deepEqual(saved.settings.summaryActorKinds, ["sequencer", "replayer", "application"]);
@@ -362,59 +366,42 @@ test("standalone server persists settings, actors, and admin action audit in SQL
     const auditAfterTargetedRefresh = await json(server.baseUrl, `/api/audit?actorId=${discovered.actor.id}&limit=20`);
     assert.equal(auditAfterTargetedRefresh.entries.length, 0);
 
-    for (let attempt = 0; attempt < 100 && actorServer.requests.at(-1)?.adminCommand !== "SEQ healthCheck"; attempt += 1) {
-      await new Promise((resolveWait) => setTimeout(resolveWait, 20));
-    }
-    assert.deepEqual(actorServer.requests.at(-1), { adminCommand: "SEQ healthCheck", params: "", shouldLog: false });
-    assert.equal(actorServer.requestConnections.at(-1), persistentConnection);
-    assert.equal(actorServer.connectionCount, connectionsAfterFirstRefresh);
-    const actorBeforeForcedHealth = await json(server.baseUrl, `/api/actors/${discovered.actor.id}`);
-    const actorStatusRespondedAtBeforeHealth = actorBeforeForcedHealth.actor.actorStatusRespondedAt;
-
-    const failedHealthCheck = await json(server.baseUrl, "/api/actors/health", {
+    actorServer.setActorStatusHasFields(false);
+    const emptyActorStatus = await json(server.baseUrl, "/api/actors/refresh", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ force: true }),
     });
-    const failedHealthActor = failedHealthCheck.actors.find((actor) => actor.id === discovered.actor.id);
-    assert.equal(failedHealthActor?.status, "offline");
-    assert.equal(failedHealthActor?.actorStatusRespondedAt, actorStatusRespondedAtBeforeHealth);
-    assert.equal(actorServer.requestConnections.at(-1), persistentConnection);
+    const emptyActorStatusActor = emptyActorStatus.actors.find((actor) => actor.id === discovered.actor.id);
+    assert.equal(emptyActorStatusActor?.status, "online");
+    assert.deepEqual(emptyActorStatusActor?.actorStatusFields, unparseableSessionRefresh.actor.actorStatusFields);
+    actorServer.setActorStatusHasFields(true);
 
-    const recoveredHealthCheck = await json(server.baseUrl, "/api/actors/health", {
+    actorServer.setActorStatusResult(false);
+    const failedActorStatus = await json(server.baseUrl, "/api/actors/refresh", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ force: true }),
     });
-    assert.equal(recoveredHealthCheck.actors.find((actor) => actor.id === discovered.actor.id)?.status, "online");
-    assert.equal(actorServer.requestConnections.at(-1), persistentConnection);
+    assert.equal(failedActorStatus.actors.find((actor) => actor.id === discovered.actor.id)?.status, "offline");
+    assert.deepEqual(actorServer.requests.at(-1), { adminCommand: "SEQ actorStatus", params: "", shouldLog: false });
 
-    const falseHealthCheck = await json(server.baseUrl, "/api/actors/health", {
+    actorServer.setActorStatusResult("invalid");
+    const invalidActorStatus = await json(server.baseUrl, "/api/actors/refresh", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ force: true }),
     });
-    assert.equal(falseHealthCheck.actors.find((actor) => actor.id === discovered.actor.id)?.status, "offline");
+    assert.equal(invalidActorStatus.actors.find((actor) => actor.id === discovered.actor.id)?.status, "offline");
+    assert.deepEqual(actorServer.requests.at(-1), { adminCommand: "SEQ actorStatus", params: "", shouldLog: false });
 
-    const invalidHealthCheck = await json(server.baseUrl, "/api/actors/health", {
+    actorServer.setActorStatusResult(true);
+    const recoveredActorStatus = await json(server.baseUrl, "/api/actors/refresh", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ force: true }),
     });
-    assert.equal(invalidHealthCheck.actors.find((actor) => actor.id === discovered.actor.id)?.status, "offline");
-
-    const validHealthCheck = await json(server.baseUrl, "/api/actors/health", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ force: true }),
-    });
-    assert.equal(validHealthCheck.actors.find((actor) => actor.id === discovered.actor.id)?.status, "online");
-
-    await json(server.baseUrl, "/api/actors/refresh", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ force: true }),
-    });
+    assert.equal(recoveredActorStatus.actors.find((actor) => actor.id === discovered.actor.id)?.status, "online");
     assert.deepEqual(actorServer.requests.slice(-2), [
       { adminCommand: "SEQ actorStatus", params: "", shouldLog: false },
       { adminCommand: "list", params: "SEQ", shouldLog: false },
@@ -429,20 +416,33 @@ test("standalone server persists settings, actors, and admin action audit in SQL
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ action: "status", params: "" }),
     });
-    assert.deepEqual(actorServer.requests.slice(manualStatusStart, manualStatusStart + 4), [
+    assert.deepEqual(actorServer.requests.slice(manualStatusStart, manualStatusStart + 3), [
       { adminCommand: "SEQ status", params: "" },
-      { adminCommand: "SEQ healthCheck", params: "", shouldLog: false },
       { adminCommand: "SEQ actorStatus", params: "", shouldLog: false },
       { adminCommand: "list", params: "SEQ", shouldLog: false },
     ]);
     assert.notEqual(actorServer.requestConnections[manualStatusStart], persistentConnection);
     assert.deepEqual(
-      actorServer.requestConnections.slice(manualStatusStart + 1, manualStatusStart + 4),
-      [persistentConnection, persistentConnection, persistentConnection],
+      actorServer.requestConnections.slice(manualStatusStart + 1, manualStatusStart + 3),
+      [persistentConnection, persistentConnection],
     );
     const successAudit = await json(server.baseUrl, `/api/audit?actorId=${discovered.actor.id}&query=status&outcome=success&limit=20`);
     assert.equal(successAudit.entries[0].outcome, "success");
     assert.equal("success" in successAudit.entries[0], false);
+
+    const manualHealthCheckStart = actorServer.requests.length;
+    const manualHealthCheck = await json(server.baseUrl, `/api/actors/${discovered.actor.id}/actions`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "healthCheck", params: "" }),
+    });
+    assert.equal(manualHealthCheck.result, true);
+    assert.deepEqual(actorServer.requests.slice(manualHealthCheckStart, manualHealthCheckStart + 3), [
+      { adminCommand: "SEQ healthCheck", params: "" },
+      { adminCommand: "SEQ actorStatus", params: "", shouldLog: false },
+      { adminCommand: "list", params: "SEQ", shouldLog: false },
+    ]);
+    assert.notEqual(actorServer.requestConnections[manualHealthCheckStart], persistentConnection);
 
     const slowActionStart = actorServer.requests.length;
     const slowAction = json(server.baseUrl, `/api/actors/${discovered.actor.id}/actions`, {
@@ -455,7 +455,7 @@ test("standalone server persists settings, actors, and admin action audit in SQL
     }
     assert.deepEqual(actorServer.requests[slowActionStart], { adminCommand: "SEQ slowAction", params: "" });
     const requestsDuringSlowAction = actorServer.requests.length;
-    await json(server.baseUrl, "/api/actors/health", {
+    await json(server.baseUrl, "/api/actors/refresh", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ force: true }),
@@ -463,16 +463,15 @@ test("standalone server persists settings, actors, and admin action audit in SQL
     assert.equal(actorServer.requests.length, requestsDuringSlowAction);
     const slowActionReply = await slowAction;
     assert.equal(slowActionReply.result, true);
-    assert.deepEqual(actorServer.requests.slice(slowActionStart, slowActionStart + 4), [
+    assert.deepEqual(actorServer.requests.slice(slowActionStart, slowActionStart + 3), [
       { adminCommand: "SEQ slowAction", params: "" },
-      { adminCommand: "SEQ healthCheck", params: "", shouldLog: false },
       { adminCommand: "SEQ actorStatus", params: "", shouldLog: false },
       { adminCommand: "list", params: "SEQ", shouldLog: false },
     ]);
     assert.notEqual(actorServer.requestConnections[slowActionStart], persistentConnection);
     assert.deepEqual(
-      actorServer.requestConnections.slice(slowActionStart + 1, slowActionStart + 4),
-      [persistentConnection, persistentConnection, persistentConnection],
+      actorServer.requestConnections.slice(slowActionStart + 1, slowActionStart + 3),
+      [persistentConnection, persistentConnection],
     );
 
     const failedResponse = await fetch(`${server.baseUrl}/api/actors/${discovered.actor.id}/actions`, {
@@ -530,15 +529,9 @@ test("standalone server persists settings, actors, and admin action audit in SQL
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ force: true }),
     });
-    assert.equal(reconnected.actors.find((actor) => actor.id === discovered.actor.id)?.status, "offline");
+    assert.equal(reconnected.actors.find((actor) => actor.id === discovered.actor.id)?.status, "online");
     assert.notEqual(actorServer.requestConnections.at(-1), persistentConnection);
     assert.equal(actorServer.requestConnections.at(-2), actorServer.requestConnections.at(-1));
-    const onlineAgain = await json(server.baseUrl, "/api/actors/health", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ force: true }),
-    });
-    assert.equal(onlineAgain.actors.find((actor) => actor.id === discovered.actor.id)?.status, "online");
 
     const action = await json(server.baseUrl, "/api/actors/demo-seq-01/actions", {
       method: "POST",
@@ -614,7 +607,8 @@ test("standalone server persists settings, actors, and admin action audit in SQL
     const persistedAudit = await json(server.baseUrl, "/api/audit?actorId=demo-seq-01&limit=20");
     const persistedActors = await json(server.baseUrl, "/api/actors");
     assert.equal(persistedSettings.settings.topologyName, "Test Topology");
-    assert.equal(persistedSettings.settings.healthCheckIntervalSeconds, 1);
+    assert.equal(persistedSettings.settings.pollIntervalSeconds, 1);
+    assert.equal("healthCheckIntervalSeconds" in persistedSettings.settings, false);
     assert.equal(persistedSettings.settings.keepPollingWithoutViewers, true);
     assert.equal(persistedSettings.settings.viewerGracePeriodSeconds, 5);
     assert.deepEqual(persistedSettings.settings.summaryActorKinds, ["sequencer", "replayer", "application"]);
@@ -642,6 +636,7 @@ test("actor migrations preserve audit references and initialize status metadata"
       "0007_abandoned_romulus",
       "0008_broken_storm",
       "0009_familiar_scarecrow",
+      "0010_polite_ultimates",
     ];
     for (const [index, name] of migrationNames.entries()) {
       if (index === 5) {
@@ -654,6 +649,13 @@ test("actor migrations preserve audit references and initialize status metadata"
         database.prepare(
           "INSERT INTO command_audit (actor_id, actor_name, actor_endpoint, command, output, duration_ms) VALUES (?, ?, ?, ?, ?, ?)",
         ).run("a", "a", "a:30001", "status", "ok", 1);
+      }
+      if (index === 10) {
+        database.prepare(`
+          INSERT INTO topology_settings
+            (id, topology_name, background_color, poll_interval_seconds, health_check_interval_seconds, audit_retention_days, setup_complete)
+          VALUES (1, 'Migrated Topology', '#f4eee7', 30, 7, 90, 1)
+        `).run();
       }
       const sql = await readFile(join(projectRoot, "drizzle", `${name}.sql`), "utf8");
       const statements = sql.split("--> statement-breakpoint").map((statement) => statement.trim()).filter(Boolean);
@@ -670,6 +672,11 @@ test("actor migrations preserve audit references and initialize status metadata"
       database.prepare("SELECT outbound_sequence AS outboundSequence, accounts, clock_tick_interval AS clockTickInterval, actor_status_fields AS actorStatusFields, status_responded_at AS actorStatusRespondedAt, operational_state AS operationalState FROM actors WHERE id = 'a'").get(),
       { outboundSequence: "Not reported", accounts: "Not reported", clockTickInterval: "Not reported", actorStatusFields: "[]", actorStatusRespondedAt: null, operationalState: "inactive" },
     );
+    assert.deepEqual(
+      database.prepare("SELECT poll_interval_seconds AS pollIntervalSeconds FROM topology_settings WHERE id = 1").get(),
+      { pollIntervalSeconds: 7 },
+    );
+    assert.equal(database.prepare("PRAGMA table_info(topology_settings)").all().some((column) => column.name === "health_check_interval_seconds"), false);
     assert.deepEqual(database.pragma("foreign_key_check"), []);
   } finally {
     database.close();
@@ -694,7 +701,9 @@ test("deployment and UI conventions stay explicit", async () => {
   ]);
   assert.match(page, /target="_blank"/);
   assert.match(page, /\/api\/actors\/refresh/);
-  assert.match(page, /\/api\/actors\/health/);
+  assert.doesNotMatch(page, /\/api\/actors\/health/);
+  assert.match(page, /Actor polling interval \(seconds\)/);
+  assert.doesNotMatch(page, /Health check \(seconds\)/);
   assert.match(page, /Keep polling actors when nobody is viewing CoralConsole/);
   assert.match(page, /disabled=\{settingsDraft\.keepPollingWithoutViewers\}/);
   assert.match(page, /\[\s*"all",\s*"online",\s*"offline",\s*"closed",\s*"rewinding",\s*"active",\s*"inactive",\s*"disconnected",?\s*\]/);
@@ -753,7 +762,7 @@ test("deployment and UI conventions stay explicit", async () => {
   assert.match(page, /Shared topology · Persisted in SQLite/);
   assert.match(actorDetail, /\/actions/);
   assert.match(actorDetail, /\/api\/actors\/refresh/);
-  assert.match(actorDetail, /\/api\/actors\/health/);
+  assert.doesNotMatch(actorDetail, /\/api\/actors\/health/);
   assert.match(actorDetail, /Recent activity/);
   assert.match(actorDetail, /<BrandIcon \/>/);
   assert.match(actorDetail, /Refresh actor status/);

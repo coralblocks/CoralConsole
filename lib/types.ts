@@ -61,7 +61,6 @@ export type TopologySettings = {
   topologyName: string;
   backgroundColor: string;
   pollIntervalSeconds: number;
-  healthCheckIntervalSeconds: number;
   keepPollingWithoutViewers: boolean;
   viewerGracePeriodSeconds: number;
   auditRetentionDays: number;
