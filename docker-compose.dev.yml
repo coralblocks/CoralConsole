@@ -1,0 +1,20 @@
+services:
+  coralconsole:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    image: coralconsole:dev
+    restart: "no"
+    environment:
+      NODE_ENV: development
+      WATCHPACK_POLLING: "true"
+    command: npm run dev -- --webpack
+    volumes:
+      - .:/app
+      - coralconsole-dev-node-modules:/app/node_modules
+      - coralconsole-dev-next:/app/.next
+      - coralconsole-data:/data
+
+volumes:
+  coralconsole-dev-node-modules:
+  coralconsole-dev-next:

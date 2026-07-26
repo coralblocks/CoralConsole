@@ -684,7 +684,7 @@ test("actor migrations preserve audit references and initialize status metadata"
 });
 
 test("deployment and UI conventions stay explicit", async () => {
-  const [page, actorDetail, actorUi, styles, layout, viewerPresence, guide, compose, dockerfile, dockerStart, dockerStop, dockerBackup, gitMergeToMain] = await Promise.all([
+  const [page, actorDetail, actorUi, styles, layout, viewerPresence, guide, compose, dockerfile, dockerStart, dockerStop, dockerBackup, gitMergeToMain, devCompose, devDockerfile, devStart, dockerRelease, nextConfig] = await Promise.all([
     readFile(join(projectRoot, "app/page.tsx"), "utf8"),
     readFile(join(projectRoot, "app/actor/[id]/actor-detail.tsx"), "utf8"),
     readFile(join(projectRoot, "app/actor-ui.tsx"), "utf8"),
@@ -698,6 +698,11 @@ test("deployment and UI conventions stay explicit", async () => {
     readFile(join(projectRoot, "scripts/docker-stop.sh"), "utf8"),
     readFile(join(projectRoot, "scripts/docker-backup.sh"), "utf8"),
     readFile(join(projectRoot, "scripts/git-merge-to-main.sh"), "utf8"),
+    readFile(join(projectRoot, "docker-compose.dev.yml"), "utf8"),
+    readFile(join(projectRoot, "Dockerfile.dev"), "utf8"),
+    readFile(join(projectRoot, "scripts/docker-dev-start.sh"), "utf8"),
+    readFile(join(projectRoot, "scripts/docker-release.sh"), "utf8"),
+    readFile(join(projectRoot, "next.config.ts"), "utf8"),
   ]);
   assert.match(page, /target="_blank"/);
   assert.match(page, /\/api\/actors\/refresh/);
@@ -798,6 +803,23 @@ test("deployment and UI conventions stay explicit", async () => {
   assert.match(dockerStart, /docker compose up -d --no-build/);
   assert.match(dockerStop, /docker compose stop/);
   assert.doesNotMatch(`${dockerStart}\n${dockerStop}`, /down\s+-v|volume\s+rm|prune/);
+  assert.match(devCompose, /WATCHPACK_POLLING: "true"/);
+  assert.match(devCompose, /command: npm run dev -- --webpack/);
+  assert.match(devCompose, /- \.:\/app/);
+  assert.match(devCompose, /- coralconsole-data:\/data/);
+  assert.match(devCompose, /coralconsole-dev-node-modules:\/app\/node_modules/);
+  assert.match(devCompose, /coralconsole-dev-next:\/app\/\.next/);
+  assert.match(devDockerfile, /node:22-trixie-slim/);
+  assert.match(devDockerfile, /npm ci/);
+  assert.match(devDockerfile, /USER coral/);
+  assert.match(devStart, /up -d --no-build/);
+  assert.doesNotMatch(devStart, /down\s+-v|volume\s+rm|prune/);
+  assert.match(dockerRelease, /docker compose build coralconsole/);
+  assert.match(dockerRelease, /docker compose up -d --no-build coralconsole/);
+  assert.doesNotMatch(dockerRelease, /down\s+-v|volume\s+rm|prune/);
+  assert.match(nextConfig, /process\.env\.NODE_ENV === "development"/);
+  assert.match(nextConfig, /'unsafe-eval'/);
+  assert.match(nextConfig, /: "'self' 'unsafe-inline'";/);
   assert.match(dockerBackup, /source\.backup/);
   assert.match(dockerBackup, /quick_check/);
   assert.match(dockerBackup, /chmod 600/);

@@ -59,16 +59,44 @@ After the first successful image build, `docker:start` can run without internet 
 
 Requirements:
 
-- Node.js `>=22.13.0`
+- Docker with Docker Compose
 - Network access from the CoralConsole process to each actor's REST admin port
+
+For the fastest UI iteration, run the Docker development mode:
+
+```bash
+npm run docker:dev:start
+```
+
+Open [http://localhost:3000](http://localhost:3000). Source changes are bind-mounted into a Next.js development server and hot-reload without rebuilding Docker. Development mode uses the same `coralconsole-data` volume as the production container, but the two modes never run concurrently.
+
+Rebuild the development image and its cached dependency volume only after changing `package.json`, `package-lock.json`, or `Dockerfile.dev`:
+
+```bash
+npm run docker:dev:rebuild
+```
+
+### Releasing the current source to production
+
+Hot reload changes only the running development container. The immutable production image must be rebuilt once when the current source is ready for release:
+
+```bash
+npm run lint
+npm test
+npm run docker:release
+```
+
+`docker:release` builds `coralconsole:local` from the current source and replaces the development container with the production container. Both modes mount the same `coralconsole-data` volume, so actors, settings, and audit history remain intact. Create a backup first when a release includes a schema migration.
+
+Rebuild production Docker whenever releasing source, dependency, or Docker configuration changes—including CSS changes. Do not rebuild merely to restart an unchanged production image after a reboot or manual stop; use `npm run docker:start` in that case.
+
+Host-only development remains available for cases that should use the separate `.data/coralconsole.db` database:
 
 ```bash
 npm ci
 npm run db:migrate
 npm run dev
 ```
-
-Open [http://localhost:3000](http://localhost:3000). The development database defaults to `.data/coralconsole.db`; override it with `DATABASE_PATH`.
 
 ## Connect an actor
 
