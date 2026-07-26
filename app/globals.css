@@ -121,11 +121,11 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .section-heading h2 { font-size: 23px; letter-spacing: -.04em; margin: 0; }
 .topology-heading { align-items: start; display: grid; grid-template-columns: minmax(0, 1fr) auto; }
 .topology-heading .refresh-button { grid-column: 2; grid-row: 1; justify-self: end; }
-.topology-heading .filters { grid-column: 1 / -1; grid-row: 2; justify-self: start; }
+.topology-heading .filters { grid-column: 1 / -1; grid-row: 2; justify-self: center; }
 .refresh-button { min-height: 36px; padding-inline: 12px; }
-.filters { background: #ecebe4; border-radius: 9px; display: flex; gap: 2px; max-width: 100%; overflow-x: auto; padding: 3px; }
-.filters button { background: transparent; border: 0; border-radius: 7px; color: var(--muted); cursor: pointer; font-family: var(--font-plex-mono), monospace; font-size: 9px; font-weight: 600; padding: 8px 10px; text-transform: capitalize; }
-.filters button.active { background: white; box-shadow: 0 2px 9px rgba(16,43,38,.1); color: var(--ink); }
+.filters { background: rgba(255,255,255,.88); border-radius: 9px; display: flex; gap: 2px; max-width: 100%; overflow-x: auto; padding: 3px; }
+.filters button { background: transparent; border: 1px solid transparent; border-radius: 7px; color: var(--muted); cursor: pointer; font-family: var(--font-plex-mono), monospace; font-size: 9px; font-weight: 600; padding: 7px 9px; text-transform: capitalize; }
+.filters button.active { border-color: color-mix(in srgb, var(--coral) 58%, var(--line)); box-shadow: 0 2px 9px rgba(217,88,78,.12); color: #9a3f38; font-weight: 800; }
 .topology-canvas { background-image: radial-gradient(rgba(16,43,38,.12) .7px, transparent .7px); background-size: 16px 16px; min-height: 680px; padding: 35px; position: relative; }
 .actor-groups { display: grid; gap: 14px; grid-template-columns: repeat(2, minmax(0, 1fr)); position: relative; z-index: 1; }
 .actor-group { background: rgba(244, 241, 233, .88); border: 1px solid var(--line); border-radius: 16px; padding: 17px; }
