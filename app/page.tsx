@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useCallback, useEffect, useMemo, useState, type CSSProperties } from "react";
+import { FormEvent, useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import Link from "next/link";
 import {
   ACTOR_KINDS,
@@ -152,6 +152,28 @@ export default function Home() {
   const [legacyActors, setLegacyActors] = useState<Actor[]>([]);
   const [importing, setImporting] = useState(false);
   const [importMessage, setImportMessage] = useState("");
+  const filterBarRef = useRef<HTMLDivElement>(null);
+
+  const positionFilterIndicator = useCallback(() => {
+    const filterBar = filterBarRef.current;
+    const selectedButton = filterBar?.querySelector<HTMLButtonElement>("button.active");
+    if (!filterBar || !selectedButton) return;
+    filterBar.style.setProperty("--filter-indicator-x", `${selectedButton.offsetLeft}px`);
+    filterBar.style.setProperty("--filter-indicator-y", `${selectedButton.offsetTop}px`);
+    filterBar.style.setProperty("--filter-indicator-width", `${selectedButton.offsetWidth}px`);
+    filterBar.style.setProperty("--filter-indicator-height", `${selectedButton.offsetHeight}px`);
+    filterBar.dataset.indicatorReady = "true";
+  }, []);
+
+  useEffect(() => {
+    positionFilterIndicator();
+    const filterBar = filterBarRef.current;
+    if (!filterBar) return;
+    const resizeObserver = new ResizeObserver(positionFilterIndicator);
+    resizeObserver.observe(filterBar);
+    filterBar.querySelectorAll("button").forEach((button) => resizeObserver.observe(button));
+    return () => resizeObserver.disconnect();
+  }, [filter, positionFilterIndicator]);
 
   const loadWorkspace = useCallback(async () => {
     const [settingsPayload, actorsPayload] = await Promise.all([
@@ -426,7 +448,8 @@ export default function Home() {
             >
               {refreshing ? "Refreshing…" : "Refresh Now"}
             </button>
-            <div className="filters" aria-label="Filter actors">
+            <div className="filters" aria-label="Filter actors" ref={filterBarRef}>
+              <span className="filter-selection-indicator" aria-hidden="true" />
               {ACTOR_FILTERS.map((value) => (
                 <button
                   key={value}
