@@ -179,7 +179,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .inspector-head h1, .inspector-head h2 { font-size: 16px; margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .actor-status-badges { align-items: center; display: flex; gap: 7px; margin-left: auto; }
 .actor-state-badge, .status-badge { align-items: center; border-radius: 999px; display: flex; font-family: var(--font-plex-mono), monospace; font-size: 7px; padding: 7px 8px; text-transform: uppercase; }
-.actor-state-badge { background: #ecebe4; color: var(--muted); }
+.actor-state-badge { background: #ecebe4; color: var(--muted); font-weight: 800; }
 .actor-state-badge.state-active { background: var(--cyan-soft); color: #167b70; }
 .actor-state-badge.state-inactive { background: #ecebe4; color: var(--muted); }
 .actor-state-badge.state-closed { background: var(--coral-soft); color: #9a3f38; }
