@@ -11,13 +11,23 @@ import {
   type Actor,
   type ActorKind,
   type ActorOperationalState,
-  type ActorStatus,
 } from "./actor-ui";
 import { sessionStartFromId } from "@/lib/session";
 import { SUMMARY_ACTOR_KINDS, type SummaryActorKind, type TopologySettings } from "@/lib/types";
 
 const LEGACY_ACTORS_KEY = "coral-console-actors";
 const BrandIcon = ACTOR_META.sequencer.icon;
+const ACTOR_FILTERS = [
+  "all",
+  "online",
+  "offline",
+  "closed",
+  "rewinding",
+  "active",
+  "inactive",
+  "disconnected",
+] as const;
+type ActorFilter = typeof ACTOR_FILTERS[number];
 
 const GROUPS: { id: string; kinds: ActorKind[]; eyebrow: string; title: string }[] = [
   { id: "replayer", kinds: ["replayer"], eyebrow: "Replayer Fabric", title: "Replayers" },
@@ -129,7 +139,7 @@ export default function Home() {
   const [ready, setReady] = useState(false);
   const [pageError, setPageError] = useState("");
   const [introVisible, setIntroVisible] = useState(true);
-  const [filter, setFilter] = useState<"all" | ActorStatus>("all");
+  const [filter, setFilter] = useState<ActorFilter>("all");
   const [addOpen, setAddOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [host, setHost] = useState("");
@@ -228,7 +238,10 @@ export default function Home() {
 
   const visibleActors = useMemo(() => {
     if (filter === "all") return actors;
-    return actors.filter((actor) => actor.status === filter);
+    if (filter === "online" || filter === "offline") {
+      return actors.filter((actor) => actor.status === filter);
+    }
+    return actors.filter((actor) => operationalStateForDisplay(actor.status, actor.operationalState) === filter);
   }, [actors, filter]);
   const onlineCount = actors.filter((actor) => actor.status === "online").length;
   const offlineCount = actors.filter((actor) => actor.status === "offline").length;
@@ -415,8 +428,20 @@ export default function Home() {
                 {refreshing ? "Refreshing…" : "Refresh now"}
               </button>
               <div className="filters" aria-label="Filter actors">
-                {(["all", "online", "offline"] as const).map((value) => (
-                  <button key={value} type="button" className={filter === value ? "active" : ""} onClick={() => setFilter(value)}>{value === "all" ? "All actors" : statusLabel(value)}</button>
+                {ACTOR_FILTERS.map((value) => (
+                  <button
+                    key={value}
+                    type="button"
+                    className={filter === value ? "active" : ""}
+                    aria-pressed={filter === value}
+                    onClick={() => setFilter(value)}
+                  >
+                    {value === "all"
+                      ? "All Actors"
+                      : value === "online" || value === "offline"
+                        ? statusLabel(value)
+                        : operationalStateLabel(value)}
+                  </button>
                 ))}
               </div>
             </div>

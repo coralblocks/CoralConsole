@@ -691,7 +691,9 @@ test("deployment and UI conventions stay explicit", async () => {
   assert.match(page, /\/api\/actors\/health/);
   assert.match(page, /Keep polling actors when nobody is viewing CoralConsole/);
   assert.match(page, /disabled=\{settingsDraft\.keepPollingWithoutViewers\}/);
-  assert.match(page, /\["all", "online", "offline"\]/);
+  assert.match(page, /\[\s*"all",\s*"online",\s*"offline",\s*"closed",\s*"rewinding",\s*"active",\s*"inactive",\s*"disconnected",?\s*\]/);
+  assert.match(page, /operationalStateForDisplay\(actor\.status, actor\.operationalState\) === filter/);
+  assert.match(page, /aria-pressed=\{filter === value\}/);
   assert.match(page, /actors online/);
   assert.match(page, /<small>ONLINE<\/small>/);
   assert.match(page, /<small>OFFLINE<\/small>/);
@@ -720,6 +722,8 @@ test("deployment and UI conventions stay explicit", async () => {
   assert.match(styles, /\.actor-heading small \{[^}]*font-size: 9px/);
   assert.match(styles, /\.inspector-head p \{[^}]*font-size: 10px/);
   assert.match(styles, /\.group-heading > span \{[^}]*font-size: 11px/);
+  assert.match(styles, /\.section-heading \{[^}]*flex-wrap: wrap/);
+  assert.match(styles, /\.filters \{[^}]*overflow-x: auto/);
   assert.doesNotMatch(styles, /\.sequencer-groups \.group-cards/);
   assert.match(page, /Shared topology · Persisted in SQLite/);
   assert.match(actorDetail, /\/actions/);

@@ -116,12 +116,12 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 
 .workspace { margin: 0 auto; max-width: 1600px; padding: 0 clamp(24px, 5vw, 80px) 72px; }
 .topology-panel, .inspector { background: rgba(255, 254, 249, .8); border: 1px solid rgba(16, 43, 38, .1); border-radius: 22px; }
-.section-heading { align-items: center; border-bottom: 1px solid var(--line); display: flex; gap: 20px; justify-content: space-between; padding: 24px 27px; }
+.section-heading { align-items: center; border-bottom: 1px solid var(--line); display: flex; flex-wrap: wrap; gap: 20px; justify-content: space-between; padding: 24px 27px; }
 .section-heading .eyebrow { margin-bottom: 5px; }
 .section-heading h2 { font-size: 23px; letter-spacing: -.04em; margin: 0; }
-.topology-actions { align-items: center; display: flex; gap: 10px; }
+.topology-actions { align-items: center; display: flex; flex-wrap: wrap; gap: 10px; justify-content: flex-end; max-width: 100%; }
 .refresh-button { min-height: 36px; padding-inline: 12px; }
-.filters { background: #ecebe4; border-radius: 9px; display: flex; gap: 2px; padding: 3px; }
+.filters { background: #ecebe4; border-radius: 9px; display: flex; gap: 2px; max-width: 100%; overflow-x: auto; padding: 3px; }
 .filters button { background: transparent; border: 0; border-radius: 7px; color: var(--muted); cursor: pointer; font-family: var(--font-plex-mono), monospace; font-size: 9px; font-weight: 600; padding: 8px 10px; text-transform: capitalize; }
 .filters button.active { background: white; box-shadow: 0 2px 9px rgba(16,43,38,.1); color: var(--ink); }
 .topology-canvas { background-image: radial-gradient(rgba(16,43,38,.12) .7px, transparent .7px); background-size: 16px 16px; min-height: 680px; padding: 35px; position: relative; }
