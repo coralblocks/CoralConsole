@@ -205,6 +205,14 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
+    window.history.scrollRestoration = "manual";
+    if (!window.location.hash) {
+      document.documentElement.scrollTop = 0;
+      document.body.scrollTop = 0;
+    }
+  }, []);
+
+  useEffect(() => {
     positionFilterIndicator();
     const filterBar = filterBarRef.current;
     if (!filterBar) return;
