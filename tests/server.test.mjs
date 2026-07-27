@@ -933,7 +933,7 @@ test("deployment and UI conventions stay explicit", async () => {
   assert.doesNotMatch(actorDetail, /\/api\/actors\/health/);
   assert.match(actorDetail, /Recent activity/);
   assert.match(actorDetail, /href="\/audit" target="_blank" rel="noopener noreferrer">Audit/);
-  assert.match(actorDetail, /href=\{`\/audit\?actorId=\$\{encodeURIComponent\(actor\.id\)\}`\} target="_blank" rel="noopener noreferrer">Open full audit/);
+  assert.match(actorDetail, /href=\{`\/audit\?actorId=\$\{encodeURIComponent\(actor\.id\)\}`\} target="_blank" rel="noopener noreferrer">Open Actor Full Audit/);
   assert.match(actorDetail, /auditOutcomeLabel\(entry\.outcome\)/);
   assert.match(actorDetail, /<BrandIcon \/>/);
   assert.match(actorDetail, /Refresh actor status/);
@@ -970,7 +970,8 @@ test("deployment and UI conventions stay explicit", async () => {
   assert.match(styles, /\.audit-table-heading \{/);
   assert.match(styles, /\.audit-table th:nth-child\(6\), \.audit-table td:nth-child\(6\) \{ text-align: center; \}/);
   assert.match(styles, /\.audit-time \{ display: grid;/);
-  assert.match(styles, /@media \(max-width: 1180px\) \{[\s\S]*\.audit-table tbody tr \{[^}]*grid-template-columns: repeat\(2, minmax\(0, 1fr\)\)/);
+  assert.match(styles, /\.audit-table \{[^}]*min-width: 760px/);
+  assert.match(styles, /@media \(max-width: 800px\) \{[\s\S]*\.audit-table tbody tr \{[^}]*grid-template-columns: repeat\(2, minmax\(0, 1fr\)\)/);
   for (const state of ["active", "inactive", "closed", "rewinding", "disconnected", "unknown"]) {
     assert.match(styles, new RegExp(`\\.actor-state-badge\\.state-${state} \\{`));
   }
