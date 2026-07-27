@@ -815,17 +815,21 @@ test("actor migrations preserve audit references and initialize status metadata"
 });
 
 test("deployment and UI conventions stay explicit", async () => {
-  const [page, actorList, actorDetail, auditView, auditRoute, actorUi, styles, layout, viewerPresence, guide, compose, dockerfile, dockerStart, dockerStop, dockerBackup, gitMergeToMain, devCompose, devDockerfile, devStart, dockerRelease, nextConfig, trustedIngress, httpHelpers] = await Promise.all([
+  const [page, actorList, actorDetail, auditView, auditRoute, actorUi, consoleChrome, styles, layout, viewerPresence, guide, packageMetadata, packageLock, setVersion, compose, dockerfile, dockerStart, dockerStop, dockerBackup, gitMergeToMain, devCompose, devDockerfile, devStart, dockerRelease, nextConfig, trustedIngress, httpHelpers] = await Promise.all([
     readFile(join(projectRoot, "app/page.tsx"), "utf8"),
     readFile(join(projectRoot, "app/actors/actor-list.tsx"), "utf8"),
     readFile(join(projectRoot, "app/actor/[id]/actor-detail.tsx"), "utf8"),
     readFile(join(projectRoot, "app/audit/audit-view.tsx"), "utf8"),
     readFile(join(projectRoot, "app/api/audit/route.ts"), "utf8"),
     readFile(join(projectRoot, "app/actor-ui.tsx"), "utf8"),
+    readFile(join(projectRoot, "app/console-chrome.tsx"), "utf8"),
     readFile(join(projectRoot, "app/globals.css"), "utf8"),
     readFile(join(projectRoot, "app/layout.tsx"), "utf8"),
     readFile(join(projectRoot, "app/viewer-presence.tsx"), "utf8"),
     readFile(join(projectRoot, "AGENTS.md"), "utf8"),
+    readFile(join(projectRoot, "package.json"), "utf8"),
+    readFile(join(projectRoot, "package-lock.json"), "utf8"),
+    readFile(join(projectRoot, "scripts/set-version.mjs"), "utf8"),
     readFile(join(projectRoot, "docker-compose.yml"), "utf8"),
     readFile(join(projectRoot, "Dockerfile"), "utf8"),
     readFile(join(projectRoot, "scripts/docker-start.sh"), "utf8"),
@@ -929,7 +933,10 @@ test("deployment and UI conventions stay explicit", async () => {
   assert.match(page, /kindOrder\.get\(left\.kind\)! - kindOrder\.get\(right\.kind\)!/);
   assert.match(page, /left\.sortOrder \?\? Number\.MAX_SAFE_INTEGER/);
   assert.match(page, /const grouped = actorsInPanelOrder\(visibleActors, group\.kinds\)/);
-  assert.match(page, /Shared topology · Persisted in SQLite/);
+  assert.doesNotMatch(page, /Shared topology · Persisted in SQLite/);
+  assert.match(consoleChrome, /CoralConsole <span className="brand-version">v\{packageMetadata\.version\}<\/span>/);
+  assert.match(consoleChrome, /CoralConsole v\{packageMetadata\.version\}/);
+  assert.match(consoleChrome, /Shared topology · Persisted in SQLite/);
   assert.match(actorList, /<tr><th>Name<\/th><th>Class<\/th><th>REST IP<\/th><th>PORT<\/th><th>Online\?<\/th><th>Edit<\/th><th>Remove<\/th><\/tr>/);
   for (const heading of ["Name", "Class", "REST IP", "PORT", "Online?", "Edit", "Remove"]) {
     assert.match(actorList, new RegExp(`<th>${heading.replace("?", "\\?")}<\\/th>`));
@@ -986,7 +993,7 @@ test("deployment and UI conventions stay explicit", async () => {
   assert.match(actorDetail, /href="\/audit" target="_blank" rel="noopener noreferrer">Audit/);
   assert.match(actorDetail, /href=\{`\/audit\?actorId=\$\{encodeURIComponent\(actor\.id\)\}`\} target="_blank" rel="noopener noreferrer">Open Actor Full Audit/);
   assert.match(actorDetail, /auditOutcomeLabel\(entry\.outcome\)/);
-  assert.match(actorDetail, /<BrandIcon \/>/);
+  assert.match(actorDetail, /<ConsoleBrand href="\/" ariaLabel="CoralConsole topology" subtitle="Actor detail" \/>/);
   assert.match(actorDetail, /Refresh actor status/);
   assert.match(actorDetail, /actor\.status === "offline" \? " actor-detail-offline" : ""/);
   assert.match(actorDetail, /operationalStateForDisplay\(actor\.status, actor\.operationalState\)/);
@@ -1012,7 +1019,7 @@ test("deployment and UI conventions stay explicit", async () => {
   assert.match(auditView, /entry\.sourceIp \|\| "N\/A"/);
   assert.match(auditView, /auditOutcomeLabel\(entry\.outcome\)/);
   assert.match(auditView, /<h1>Admin Action Audit<\/h1>/);
-  assert.match(auditView, /<small>The Ops Console for CoralSequencer<\/small>/);
+  assert.match(auditView, /<ConsoleBrand href="\/" ariaLabel="CoralConsole topology" subtitle="The Ops Console for CoralSequencer" \/>/);
   assert.match(auditView, /className="audit-time"/);
   assert.match(auditView, /Updated by search and outcome filters/);
   assert.doesNotMatch(auditView, /setInterval/);
@@ -1027,6 +1034,14 @@ test("deployment and UI conventions stay explicit", async () => {
     assert.match(styles, new RegExp(`\\.actor-state-badge\\.state-${state} \\{`));
   }
   assert.match(layout, /ViewerPresence/);
+  assert.match(layout, /<ConsoleFooter \/>/);
+  const applicationVersion = JSON.parse(packageMetadata).version;
+  assert.match(applicationVersion, /^\d+\.\d+\.\d+$/);
+  assert.equal(JSON.parse(packageLock).version, applicationVersion);
+  assert.equal(JSON.parse(packageLock).packages[""].version, applicationVersion);
+  assert.match(setVersion, /\/\^\\d\+\\\.\\d\+\\\.\\d\+\$\//);
+  assert.match(setVersion, /packageMetadata\.version = version/);
+  assert.match(setVersion, /packageLock\.packages\[""\]\.version = version/);
   assert.match(viewerPresence, /\/api\/presence/);
   assert.match(viewerPresence, /crypto\.randomUUID/);
   assert.match(guide, /Keep this file current/);

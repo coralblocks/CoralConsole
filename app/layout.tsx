@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { IBM_Plex_Mono, Manrope } from "next/font/google";
 import { headers } from "next/headers";
+import { ConsoleFooter } from "./console-chrome";
 import ViewerPresence from "./viewer-presence";
 import "./globals.css";
 
@@ -41,7 +42,7 @@ export async function generateMetadata(): Promise<Metadata> {
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en">
-      <body className={`${manrope.variable} ${plexMono.variable}`}><ViewerPresence />{children}</body>
+      <body className={`${manrope.variable} ${plexMono.variable}`}><ViewerPresence />{children}<ConsoleFooter /></body>
     </html>
   );
 }

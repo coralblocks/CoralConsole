@@ -2,6 +2,7 @@
 
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import Link from "next/link";
+import { ConsoleBrand } from "./console-chrome";
 import {
   ACTOR_KINDS,
   ACTOR_META,
@@ -16,7 +17,6 @@ import { sessionStartFromId } from "@/lib/session";
 import { SUMMARY_ACTOR_KINDS, type SummaryActorKind, type TopologySettings } from "@/lib/types";
 
 const LEGACY_ACTORS_KEY = "coral-console-actors";
-const BrandIcon = ACTOR_META.sequencer.icon;
 const ACTOR_FILTERS = [
   "all",
   "online",
@@ -394,10 +394,7 @@ export default function Home() {
   return (
     <main className="console-shell" style={themeStyle}>
       <header className="topbar">
-        <a className="brand" href="#topology" aria-label="CoralConsole home">
-          <span className="brand-mark" aria-hidden="true"><BrandIcon /></span>
-          <span><strong>CoralConsole</strong><small>The Ops Console for CoralSequencer</small></span>
-        </a>
+        <ConsoleBrand href="#topology" ariaLabel="CoralConsole home" subtitle="The Ops Console for CoralSequencer" />
         <div className="topbar-actions">
           <span className="environment" title="Shared topology"><i /> {settings.topologyName}</span>
           <Link className="intro-toggle nav-link" href="/audit" target="_blank" rel="noopener noreferrer">Audit</Link>
@@ -572,8 +569,6 @@ export default function Home() {
           </div>
         </div>
       </section>
-
-      <footer className="console-footer"><p><span className="brand-mark mini" aria-hidden="true"><BrandIcon /></span> CoralConsole</p><p>Shared topology · Persisted in SQLite</p></footer>
 
       {addOpen && (
         <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setAddOpen(false); }}>

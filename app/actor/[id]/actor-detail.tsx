@@ -3,6 +3,7 @@
 import { FormEvent, useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { RefreshCw } from "lucide-react";
+import { ConsoleBrand } from "../../console-chrome";
 import { ACTOR_META, auditOutcomeLabel, operationalStateForDisplay, operationalStateLabel, statusLabel, type Actor, type AdminActionReply } from "../../actor-ui";
 import type { AuditEntry, TopologySettings } from "@/lib/types";
 
@@ -22,8 +23,6 @@ function formatLastActorStatusResponse(value?: string) {
   const timestamp = new Date(value);
   return Number.isNaN(timestamp.getTime()) ? "Not received" : timestamp.toLocaleString();
 }
-
-const BrandIcon = ACTOR_META.sequencer.icon;
 
 export default function ActorDetail({ actorId }: { actorId: string }) {
   const [actor, setActor] = useState<Actor | null>(null);
@@ -148,10 +147,7 @@ export default function ActorDetail({ actorId }: { actorId: string }) {
   return (
     <main className="console-shell actor-detail-page">
       <header className="topbar">
-        <Link className="brand" href="/" aria-label="CoralConsole topology">
-          <span className="brand-mark" aria-hidden="true"><BrandIcon /></span>
-          <span><strong>CoralConsole</strong><small>Actor detail</small></span>
-        </Link>
+        <ConsoleBrand href="/" ariaLabel="CoralConsole topology" subtitle="Actor detail" />
         <div className="topbar-actions"><Link className="intro-toggle nav-link" href="/audit" target="_blank" rel="noopener noreferrer">Audit</Link></div>
       </header>
 

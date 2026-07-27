@@ -3,6 +3,7 @@
 import { type DragEvent, type FormEvent, type KeyboardEvent, useCallback, useEffect, useRef, useState } from "react";
 import { GripVertical } from "lucide-react";
 import { ACTOR_KINDS, ACTOR_META, statusLabel, type Actor, type ActorKind } from "../actor-ui";
+import { ConsoleBrand } from "../console-chrome";
 import type { TopologySettings } from "@/lib/types";
 
 async function apiRequest<T>(url: string, init?: RequestInit): Promise<T> {
@@ -11,8 +12,6 @@ async function apiRequest<T>(url: string, init?: RequestInit): Promise<T> {
   if (!response.ok) throw new Error(payload.error || "The request failed.");
   return payload;
 }
-
-const BrandIcon = ACTOR_META.sequencer.icon;
 
 type GroupFeedback = {
   message: string;
@@ -321,10 +320,7 @@ export default function ActorList() {
   return (
     <main className="console-shell actor-list-page">
       <header className="topbar">
-        <div className="brand" aria-label="CoralConsole actor list">
-          <span className="brand-mark" aria-hidden="true"><BrandIcon /></span>
-          <span><strong>CoralConsole</strong><small>Actor registry</small></span>
-        </div>
+        <ConsoleBrand ariaLabel="CoralConsole actor list" subtitle="Actor registry" />
       </header>
 
       <section className="actor-list-main">

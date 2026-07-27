@@ -1,12 +1,10 @@
 "use client";
 
 import { FormEvent, useCallback, useEffect, useState } from "react";
-import Link from "next/link";
 import { Search, ShieldCheck, X } from "lucide-react";
-import { ACTOR_META, auditOutcomeLabel } from "@/app/actor-ui";
+import { auditOutcomeLabel } from "@/app/actor-ui";
+import { ConsoleBrand } from "@/app/console-chrome";
 import { AUDIT_OUTCOMES, type AuditEntry, type AuditOutcome } from "@/lib/types";
-
-const BrandIcon = ACTOR_META.sequencer.icon;
 
 async function apiRequest<T>(url: string, init?: RequestInit): Promise<T> {
   const response = await fetch(url, init);
@@ -80,10 +78,7 @@ export default function AuditView() {
   return (
     <main className="console-shell audit-page">
       <header className="topbar">
-        <Link className="brand" href="/" aria-label="CoralConsole topology">
-          <span className="brand-mark" aria-hidden="true"><BrandIcon /></span>
-          <span><strong>CoralConsole</strong><small>The Ops Console for CoralSequencer</small></span>
-        </Link>
+        <ConsoleBrand href="/" ariaLabel="CoralConsole topology" subtitle="The Ops Console for CoralSequencer" />
       </header>
 
       <section className="audit-main">

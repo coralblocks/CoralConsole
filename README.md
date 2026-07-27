@@ -43,6 +43,14 @@ npm run docker:status       # shows container and health status
 npm run docker:logs         # follows application logs; Ctrl-C stops following only
 ```
 
+Set the application version before preparing a release:
+
+```bash
+npm run version:set -- 1.3.2
+```
+
+Versions use the `A.B.C` format and appear in the shared header brand and footer throughout CoralConsole.
+
 The `npm run docker:*` commands are convenient aliases for developers who already have Node.js. The start and stop shell scripts require only Docker Compose.
 
 Create an online database backup at any time while CoralConsole is running:
