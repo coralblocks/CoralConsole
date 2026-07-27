@@ -1,4 +1,3 @@
-import Link from "next/link";
 import packageMetadata from "@/package.json";
 import { ACTOR_META } from "./actor-ui";
 
@@ -25,9 +24,9 @@ function BrandContents({ subtitle }: Pick<ConsoleBrandProps, "subtitle">) {
 export function ConsoleBrand({ ariaLabel, href, subtitle }: ConsoleBrandProps) {
   if (href) {
     return (
-      <Link className="brand" href={href} aria-label={ariaLabel}>
+      <a className="brand" href={href} aria-label={ariaLabel}>
         <BrandContents subtitle={subtitle} />
-      </Link>
+      </a>
     );
   }
 
