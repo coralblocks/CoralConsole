@@ -442,7 +442,7 @@ test("standalone server persists settings, actors, and admin action audit in SQL
     const manualStatusStart = actorServer.requests.length;
     await json(server.baseUrl, `/api/actors/${discovered.actor.id}/actions`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", "X-Forwarded-For": "203.0.113.77" },
       body: JSON.stringify({ action: "status", params: "" }),
     });
     assert.deepEqual(actorServer.requests.slice(manualStatusStart, manualStatusStart + 3), [
@@ -457,6 +457,7 @@ test("standalone server persists settings, actors, and admin action audit in SQL
     );
     const successAudit = await json(server.baseUrl, `/api/audit?actorId=${discovered.actor.id}&query=status&outcome=success&limit=20`);
     assert.equal(successAudit.entries[0].outcome, "success");
+    assert.equal(successAudit.entries[0].sourceIp, "203.0.113.77");
     assert.equal("success" in successAudit.entries[0], false);
 
     const manualHealthCheckStart = actorServer.requests.length;
@@ -511,11 +512,11 @@ test("standalone server persists settings, actors, and admin action audit in SQL
     const failedPayload = await failedResponse.json();
     assert.equal(failedResponse.ok, false);
     assert.match(failedPayload.error, /admin action failed/i);
-    const failedAudit = await json(server.baseUrl, `/api/audit?actorId=${discovered.actor.id}&query=rollSessionAuto&outcome=failed&limit=20`);
-    assert.equal(failedAudit.entries.length, 1);
-    assert.equal(failedAudit.entries[0].action, "SEQ rollSessionAuto");
-    assert.equal(failedAudit.entries[0].outcome, "failed");
-    assert.match(failedAudit.entries[0].output, /safeguard/);
+    const failureAudit = await json(server.baseUrl, `/api/audit?actorId=${discovered.actor.id}&query=rollSessionAuto&outcome=failure&limit=20`);
+    assert.equal(failureAudit.entries.length, 1);
+    assert.equal(failureAudit.entries[0].action, "SEQ rollSessionAuto");
+    assert.equal(failureAudit.entries[0].outcome, "failure");
+    assert.match(failureAudit.entries[0].output, /safeguard/);
 
     const errorResponse = await fetch(`${server.baseUrl}/api/actors/${discovered.actor.id}/actions`, {
       method: "POST",
@@ -574,6 +575,8 @@ test("standalone server persists settings, actors, and admin action audit in SQL
     assert.equal(firstAudit.entries[0].action, "SEQ-NYC-01 status");
     assert.equal("command" in firstAudit.entries[0], false);
     assert.match(firstAudit.entries[0].output, /simulated successfully/);
+    const auditDelete = await fetch(`${server.baseUrl}/api/audit`, { method: "DELETE" });
+    assert.equal(auditDelete.status, 405);
 
     const idleSettings = await json(server.baseUrl, "/api/settings", {
       method: "PATCH",
@@ -691,6 +694,7 @@ test("actor migrations preserve audit references and initialize status metadata"
       "0010_polite_ultimates",
       "0011_rare_captain_america",
       "0012_milky_kingpin",
+      "0013_concerned_gamma_corps",
     ];
     for (const [index, name] of migrationNames.entries()) {
       if (index === 5) {
@@ -706,8 +710,8 @@ test("actor migrations preserve audit references and initialize status metadata"
           insertActor.run(id, id, kind, status, id, 30001, id, "Node", "[]");
         }
         database.prepare(
-          "INSERT INTO command_audit (actor_id, actor_name, actor_endpoint, command, output, duration_ms) VALUES (?, ?, ?, ?, ?, ?)",
-        ).run("a", "a", "a:30001", "status", "ok", 1);
+          "INSERT INTO command_audit (actor_id, actor_name, actor_endpoint, command, output, outcome, duration_ms) VALUES (?, ?, ?, ?, ?, ?, ?)",
+        ).run("a", "a", "a:30001", "status", "ok", "failed", 1);
       }
       if (index === 10) {
         database.prepare(`
@@ -727,6 +731,10 @@ test("actor migrations preserve audit references and initialize status metadata"
       { id: "d", status: "offline" },
     ]);
     assert.deepEqual(database.prepare("SELECT actor_id AS actorId FROM command_audit").get(), { actorId: "a" });
+    assert.deepEqual(
+      database.prepare("SELECT outcome, source_ip AS sourceIp FROM command_audit").get(),
+      { outcome: "failure", sourceIp: "N/A" },
+    );
     assert.deepEqual(
       database.prepare("SELECT outbound_sequence AS outboundSequence, accounts, clock_tick_interval AS clockTickInterval, actor_status_fields AS actorStatusFields, status_responded_at AS actorStatusRespondedAt, operational_state AS operationalState FROM actors WHERE id = 'a'").get(),
       { outboundSequence: "Not reported", accounts: "Not reported", clockTickInterval: "Not reported", actorStatusFields: "[]", actorStatusRespondedAt: null, operationalState: "inactive" },
@@ -753,10 +761,12 @@ test("actor migrations preserve audit references and initialize status metadata"
 });
 
 test("deployment and UI conventions stay explicit", async () => {
-  const [page, actorList, actorDetail, actorUi, styles, layout, viewerPresence, guide, compose, dockerfile, dockerStart, dockerStop, dockerBackup, gitMergeToMain, devCompose, devDockerfile, devStart, dockerRelease, nextConfig] = await Promise.all([
+  const [page, actorList, actorDetail, auditView, auditRoute, actorUi, styles, layout, viewerPresence, guide, compose, dockerfile, dockerStart, dockerStop, dockerBackup, gitMergeToMain, devCompose, devDockerfile, devStart, dockerRelease, nextConfig] = await Promise.all([
     readFile(join(projectRoot, "app/page.tsx"), "utf8"),
     readFile(join(projectRoot, "app/actors/actor-list.tsx"), "utf8"),
     readFile(join(projectRoot, "app/actor/[id]/actor-detail.tsx"), "utf8"),
+    readFile(join(projectRoot, "app/audit/audit-view.tsx"), "utf8"),
+    readFile(join(projectRoot, "app/api/audit/route.ts"), "utf8"),
     readFile(join(projectRoot, "app/actor-ui.tsx"), "utf8"),
     readFile(join(projectRoot, "app/globals.css"), "utf8"),
     readFile(join(projectRoot, "app/layout.tsx"), "utf8"),
@@ -775,6 +785,7 @@ test("deployment and UI conventions stay explicit", async () => {
     readFile(join(projectRoot, "next.config.ts"), "utf8"),
   ]);
   assert.match(page, /target="_blank"/);
+  assert.match(page, /href="\/audit" target="_blank" rel="noopener noreferrer">Audit/);
   assert.match(page, /\/api\/actors\/refresh/);
   assert.doesNotMatch(page, /\/api\/actors\/health/);
   assert.match(page, /Actor polling interval \(seconds\)/);
@@ -916,6 +927,9 @@ test("deployment and UI conventions stay explicit", async () => {
   assert.match(actorDetail, /\/api\/actors\/refresh/);
   assert.doesNotMatch(actorDetail, /\/api\/actors\/health/);
   assert.match(actorDetail, /Recent activity/);
+  assert.match(actorDetail, /href="\/audit" target="_blank" rel="noopener noreferrer">Audit/);
+  assert.match(actorDetail, /href=\{`\/audit\?actorId=\$\{encodeURIComponent\(actor\.id\)\}`\} target="_blank" rel="noopener noreferrer">Open full audit/);
+  assert.match(actorDetail, /auditOutcomeLabel\(entry\.outcome\)/);
   assert.match(actorDetail, /<BrandIcon \/>/);
   assert.match(actorDetail, /Refresh actor status/);
   assert.match(actorDetail, /actor\.status === "offline" \? " actor-detail-offline" : ""/);
@@ -928,6 +942,22 @@ test("deployment and UI conventions stay explicit", async () => {
   assert.doesNotMatch(actorDetail, /Back to topology/);
   assert.doesNotMatch(actorDetail, /Return to topology/);
   assert.match(styles, /\.status-refresh-button \{[^}]*background: color-mix/);
+  assert.match(actorUi, /failure: "Failure"/);
+  assert.match(styles, /\.audit-outcome\.failure \{/);
+  assert.doesNotMatch(styles, /\.audit-outcome\.failed \{/);
+  assert.doesNotMatch(auditView, /Back to topology|Clear audit history|method: "DELETE"/);
+  assert.match(auditView, /Protected history/);
+  assert.match(auditView, /Audit records cannot be manually cleared/);
+  assert.match(auditView, /Clear &amp; show all/);
+  assert.match(auditView, /setAppliedQuery\(""\)[\s\S]*setOutcome\("all"\)[\s\S]*setActorId\(""\)/);
+  assert.match(auditView, /<th>Requester IP<\/th>/);
+  assert.match(auditView, /entry\.sourceIp \|\| "N\/A"/);
+  assert.match(auditView, /auditOutcomeLabel\(entry\.outcome\)/);
+  assert.doesNotMatch(auditView, /setInterval/);
+  assert.doesNotMatch(auditRoute, /export function DELETE|clearAudit/);
+  assert.match(styles, /\.audit-integrity-note \{/);
+  assert.match(styles, /\.audit-table-heading \{/);
+  assert.match(styles, /@media \(max-width: 1180px\) \{[\s\S]*\.audit-table tbody tr \{[^}]*grid-template-columns: repeat\(2, minmax\(0, 1fr\)\)/);
   for (const state of ["active", "inactive", "closed", "rewinding", "disconnected", "unknown"]) {
     assert.match(styles, new RegExp(`\\.actor-state-badge\\.state-${state} \\{`));
   }

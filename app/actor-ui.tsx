@@ -11,7 +11,7 @@ import {
   Workflow,
   type LucideIcon,
 } from "lucide-react";
-import type { ActorKind, ActorOperationalState, ActorStatus } from "@/lib/types";
+import type { ActorKind, ActorOperationalState, ActorStatus, AuditOutcome } from "@/lib/types";
 
 export type { Actor, ActorKind, ActorOperationalState, ActorStatus, AdminActionReply } from "@/lib/types";
 
@@ -53,4 +53,13 @@ export function operationalStateForDisplay(status: ActorStatus, state: ActorOper
 
 export function operationalStateLabel(state: ActorOperationalState | "unknown") {
   return state[0].toUpperCase() + state.slice(1);
+}
+
+export function auditOutcomeLabel(outcome: AuditOutcome) {
+  return {
+    success: "Success",
+    failure: "Failure",
+    error: "Error",
+    unreachable: "Unreachable",
+  }[outcome];
 }

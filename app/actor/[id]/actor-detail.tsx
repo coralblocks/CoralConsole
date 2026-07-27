@@ -3,7 +3,7 @@
 import { FormEvent, useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { RefreshCw } from "lucide-react";
-import { ACTOR_META, operationalStateForDisplay, operationalStateLabel, statusLabel, type Actor, type AdminActionReply } from "../../actor-ui";
+import { ACTOR_META, auditOutcomeLabel, operationalStateForDisplay, operationalStateLabel, statusLabel, type Actor, type AdminActionReply } from "../../actor-ui";
 import type { AuditEntry, TopologySettings } from "@/lib/types";
 
 async function apiRequest<T>(url: string, init?: RequestInit): Promise<T> {
@@ -152,7 +152,7 @@ export default function ActorDetail({ actorId }: { actorId: string }) {
           <span className="brand-mark" aria-hidden="true"><BrandIcon /></span>
           <span><strong>CoralConsole</strong><small>Actor detail</small></span>
         </Link>
-        <div className="topbar-actions"><Link className="intro-toggle nav-link" href="/audit">Audit</Link></div>
+        <div className="topbar-actions"><Link className="intro-toggle nav-link" href="/audit" target="_blank" rel="noopener noreferrer">Audit</Link></div>
       </header>
 
       <section className="actor-detail-main" aria-live="polite">
@@ -207,8 +207,8 @@ export default function ActorDetail({ actorId }: { actorId: string }) {
             </section>
 
             <section className="actor-audit-panel" aria-labelledby="actor-audit-title">
-              <div className="section-heading"><div><p className="eyebrow">Admin action history</p><h2 id="actor-audit-title">Recent activity</h2></div><Link className="button button-ghost" href={`/audit?actorId=${encodeURIComponent(actor.id)}`}>Open full audit</Link></div>
-              {audit.length ? <div className="actor-audit-list">{audit.map((entry) => <article key={entry.id}><span className={`audit-outcome ${entry.outcome}`}>{entry.outcome}</span><div><strong>{entry.action}</strong><small>{new Date(entry.createdAt).toLocaleString()} · {entry.durationMs} ms</small></div><pre>{auditOutput(entry)}</pre></article>)}</div> : <p className="empty-audit">No admin actions have been run on this actor yet.</p>}
+              <div className="section-heading"><div><p className="eyebrow">Admin action history</p><h2 id="actor-audit-title">Recent activity</h2></div><Link className="button button-ghost" href={`/audit?actorId=${encodeURIComponent(actor.id)}`} target="_blank" rel="noopener noreferrer">Open full audit</Link></div>
+              {audit.length ? <div className="actor-audit-list">{audit.map((entry) => <article key={entry.id}><span className={`audit-outcome ${entry.outcome}`}>{auditOutcomeLabel(entry.outcome)}</span><div><strong>{entry.action}</strong><small>{new Date(entry.createdAt).toLocaleString()} · {entry.durationMs} ms</small></div><pre>{auditOutput(entry)}</pre></article>)}</div> : <p className="empty-audit">No admin actions have been run on this actor yet.</p>}
             </section>
           </div>
         )}

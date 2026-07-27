@@ -264,16 +264,13 @@ export function listAudit(options: { actorId?: string; query?: string; outcome?:
       like(adminActionAudit.action, pattern),
       like(adminActionAudit.actorName, pattern),
       like(adminActionAudit.actorEndpoint, pattern),
+      like(adminActionAudit.sourceIp, pattern),
       like(adminActionAudit.output, pattern),
     );
     if (search) clauses.push(search);
   }
   const where = clauses.length ? and(...clauses) : undefined;
   return getDb().select().from(adminActionAudit).where(where).orderBy(desc(adminActionAudit.id)).limit(options.limit || 100).all();
-}
-
-export function clearAudit() {
-  return getDb().delete(adminActionAudit).run().changes;
 }
 
 let lastPurgeAt = 0;

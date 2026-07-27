@@ -255,7 +255,7 @@ export async function callActorEndpoint(
       throw new ActorCallError(adminActionError(payload.error), 400, payload);
     }
     if (payload.result === false) {
-      throw new ActorCallError("Actor reported that the admin action failed.", 400, payload, "failed");
+      throw new ActorCallError("Actor reported that the admin action failed.", 400, payload, "failure");
     }
     if (payload.result !== true) {
       throw new ActorCallError("Actor response is missing the required boolean result.", 502, payload);

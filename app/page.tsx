@@ -400,7 +400,7 @@ export default function Home() {
         </a>
         <div className="topbar-actions">
           <span className="environment" title="Shared topology"><i /> {settings.topologyName}</span>
-          <Link className="intro-toggle nav-link" href="/audit">Audit</Link>
+          <Link className="intro-toggle nav-link" href="/audit" target="_blank" rel="noopener noreferrer">Audit</Link>
           <button className="intro-toggle" type="button" onClick={() => { setSettingsDraft(settings); setSettingsOpen(true); }}>Settings</button>
           <button className="intro-toggle" type="button" onClick={toggleIntro} aria-expanded={introVisible} aria-controls="console-intro">
             {introVisible ? "Hide intro" : "Show intro"}

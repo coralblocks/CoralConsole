@@ -38,7 +38,7 @@ One process-level scheduler owns actor polling independently of browser tabs. Ea
 
 - `topology_settings` stores the singleton shared name, color, actor polling interval, idle-polling policy, viewer grace period, retention, summary-count visibility, and first-run status.
 - `actors` stores endpoint, discovered identity, type, Online/Offline connectivity, the separate operational state, actions, the full ordered actorStatus field list, derived common metadata, per-type precedence order, and timestamps. Host plus port is unique. `sort_order` is scoped to `kind`; ordering actors across different kinds has no meaning. The legacy SQL column name `status_responded_at` records the latest successful actorStatus response time.
-- The legacy-named `command_audit` table stores the actor snapshot, scoped admin action, parameters, plain-text output, four-state outcome, error, duration, timestamp, source IP (when trusted), and truncation state. Actor deletion retains audit rows with a null actor reference.
+- The legacy-named `command_audit` table stores the actor snapshot, scoped admin action, parameters, plain-text output, four-state outcome, error, duration, timestamp, requester IP, and truncation state. New manual actions record the server-observed requester IP; legacy or unavailable addresses are persisted as `N/A`. Actor deletion retains audit rows with a null actor reference.
 - Audit parameters are capped at 8 KiB and output at 256 KiB. Older rows are purged according to the shared retention setting.
 - `localStorage` is device-specific only: `coral-console-intro` stores intro visibility. `coral-console-actors` is a legacy import source and must not become the canonical topology again.
 - Never send topology, actor, admin action, or audit data to an external service.
@@ -55,12 +55,12 @@ The same-origin API surface is:
 - `POST /api/actors/refresh`
 - `POST /api/actors/<id>/actions`
 - `POST /api/presence`
-- `GET/DELETE /api/audit`
+- `GET /api/audit`
 - `GET /api/health`
 
 Admin actions accept an actor ID, action name, and parameters. The server must resolve the stored actor endpoint; never reintroduce a client-supplied arbitrary relay route. Validate same-origin mutations, keep the actor timeout at 6.5 seconds, and render actor results only as plain text.
 
-The singular boolean `result` in an actor reply is authoritative. Persist one of four audit outcomes: `success` for a valid response with `result: true`; `failed` for a valid response with `result: false`; `error` for a malformed response, missing or non-boolean `result`, actor error, or non-2xx HTTP response; and `unreachable` when no usable HTTP response arrives because of refusal, reset, timeout, DNS, TLS, or another transport failure. The plural `results` field is output text only and must never determine the outcome.
+The singular boolean `result` in an actor reply is authoritative. Persist one of four audit outcomes: `success` for a valid response with `result: true`; `failure` for a valid response with `result: false`; `error` for a malformed response, missing or non-boolean `result`, actor error, or non-2xx HTTP response; and `unreachable` when no usable HTTP response arrives because of refusal, reset, timeout, DNS, TLS, or another transport failure. The plural `results` field is output text only and must never determine the outcome.
 
 Actors receive JSON shaped as:
 
@@ -144,7 +144,7 @@ The raw TCP mock actor in the integration suite must handle `ECONNRESET` and `EP
 - Every topology card and actor detail header shows the operational-state badge as Unknown whenever the actor is Offline, without overwriting its last persisted operational state. When Online, show Active, Inactive, Closed, Rewinding, or Disconnected with distinct cyan, neutral gray, coral, violet, and amber treatments respectively. The detail header places this badge immediately to the left of its separate Online/Offline connectivity badge; keep that connectivity badge on the detail page and apply the diagonal coral-red stripe pattern to the full header when Offline.
 - Actor Map filters appear in this exact order: All Actors, Online, Offline, Closed, Rewinding, Active, Inactive, Disconnected. Connectivity filters use Online/Offline, while operational filters use the displayed state; an Offline actor displayed as Unknown must not match a stale operational-state filter.
 - System Pulse count labels use uppercase `ONLINE` and `OFFLINE`. Keep Actor Map's `Refresh Now` control in the topology header's upper-right corner, above the filter row. It immediately polls `actorStatus` and scoped `list` for every actor, bypassing the normal interval without running `healthCheck` or creating audit rows.
-- Admin output belongs in a bounded monospace area. Actor details show recent audit entries and the global Audit page supports search and outcome filtering.
+- Admin output belongs in a bounded monospace area. Actor details show recent audit entries and the global Audit page supports search by requester IP and other record fields plus outcome filtering. Audit links open this page in a dedicated tab with no redundant Back to topology control. The audit history is not periodically auto-refreshed and cannot be manually cleared through the interface or API; configured age-based retention remains the only deletion mechanism.
 - Shared topology name, color, actor polling interval, idle-polling policy, viewer grace period, retention, and summary-count visibility changes belong in Settings and SQLite, not browser storage.
 
 ## Security and deployment expectations

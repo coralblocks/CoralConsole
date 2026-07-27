@@ -1,5 +1,5 @@
-import { apiErrorResponse, apiJson, ApiError, mutationAllowed } from "@/lib/http";
-import { clearAudit, listAudit, purgeExpiredAudit } from "@/lib/repository";
+import { apiErrorResponse, apiJson } from "@/lib/http";
+import { listAudit, purgeExpiredAudit } from "@/lib/repository";
 import { AUDIT_OUTCOMES } from "@/lib/types";
 
 export const runtime = "nodejs";
@@ -17,15 +17,6 @@ export function GET(request: Request) {
       outcome: selectedOutcome,
       limit,
     }) });
-  } catch (error) {
-    return apiErrorResponse(error);
-  }
-}
-
-export function DELETE(request: Request) {
-  try {
-    if (!mutationAllowed(request)) throw new ApiError("Cross-origin requests are not allowed.", 403);
-    return apiJson({ removed: clearAudit() });
   } catch (error) {
     return apiErrorResponse(error);
   }

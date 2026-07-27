@@ -68,7 +68,7 @@ export const adminActionAudit = sqliteTable("command_audit", {
   outcome: text("outcome").$type<AuditOutcome>().notNull().default("error"),
   error: text("error"),
   durationMs: integer("duration_ms").notNull(),
-  sourceIp: text("source_ip"),
+  sourceIp: text("source_ip").notNull().default("N/A"),
   truncated: integer("truncated", { mode: "boolean" }).notNull().default(false),
   createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
 }, (table) => [

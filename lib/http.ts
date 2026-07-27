@@ -37,10 +37,16 @@ export function mutationAllowed(request: Request) {
 }
 
 export function clientIp(request: Request) {
-  if (process.env.CORAL_TRUST_PROXY !== "true") return null;
-  return request.headers.get("x-forwarded-for")?.split(",")[0]?.trim()
-    || request.headers.get("x-real-ip")?.trim()
-    || null;
+  const forwarded = request.headers.get("x-forwarded-for")
+    ?.split(",")
+    .map((value) => value.trim())
+    .filter(Boolean);
+  const selected = process.env.CORAL_TRUST_PROXY === "true"
+    ? forwarded?.[0]
+    : forwarded?.at(-1);
+  const value = selected || request.headers.get("x-real-ip")?.trim();
+  if (!value) return "N/A";
+  return value.replace(/^::ffff:/, "").slice(0, 128);
 }
 
 export function apiErrorResponse(error: unknown) {
