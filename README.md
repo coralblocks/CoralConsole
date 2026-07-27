@@ -13,12 +13,12 @@ CoralConsole is a colorful, shared operations console for discovering, organizin
 - Stores one shared topology in SQLite, so every browser sees the same actors and configuration.
 - Refreshes actor health every 30 seconds by default, with visibility-aware polling and manual refresh.
 - Opens each actor in a dedicated browser tab for REST admin actions.
-- Records admin action inputs, outputs, outcome, duration, timestamp, and source IP when trusted proxy headers are enabled.
+- Records admin action inputs, outputs, outcome, duration, timestamp, and the TCP peer IP observed by its trusted ingress.
 - Runs as a self-contained Node.js server or Docker container without sending topology data to an external service.
 
 ## Quick start with Docker
 
-Requirements: Docker Engine with Docker Compose and network access from the Docker host to each actor's REST admin port.
+Requirements: Docker Engine with Docker Compose, host networking, and network access from the Docker host to each actor's REST admin port. On Docker Desktop 4.34 or newer, enable host networking in **Settings → Resources → Network** first.
 
 ```bash
 git clone https://github.com/coralblocks/CoralConsole.git
@@ -28,7 +28,7 @@ cd CoralConsole
 
 Open [http://localhost:3000](http://localhost:3000), choose a topology name and workspace color, then add actors.
 
-By default the container binds only to `127.0.0.1`. To make it reachable on a private LAN, set `CORAL_BIND_ADDRESS` in `.env` to the server's private IP (or `0.0.0.0` when a firewall or reverse proxy controls access). See [DEPLOYMENT.md](./DEPLOYMENT.md) before exposing the service to other users.
+By default the trusted ingress binds only to `127.0.0.1`. To make it reachable on a private LAN, set `CORAL_BIND_ADDRESS` in `.env` to the server's private IP on native Linux. Docker Desktop cannot bind a host-network container to a specific host interface, so use `0.0.0.0` there and restrict access with the host firewall. The application itself remains on a separate loopback-only internal port. See [DEPLOYMENT.md](./DEPLOYMENT.md) before exposing the service to other users.
 
 The Compose volume `coralconsole-data` holds `/data/coralconsole.db`. It survives Docker restarts, container recreation, application upgrades, and image removal. The volume—not the image—is what preserves actors and settings.
 
@@ -60,6 +60,7 @@ After the first successful image build, `docker:start` can run without internet 
 Requirements:
 
 - Docker with Docker Compose
+- Linux host networking, or Docker Desktop 4.34 or newer with host networking enabled
 - Network access from the CoralConsole process to each actor's REST admin port
 
 For the fastest UI iteration, run the Docker development mode:
@@ -113,11 +114,12 @@ The REST admin request and response format is documented in [examples_rest_serve
 
 | Variable | Default | Purpose |
 | --- | --- | --- |
-| `CORAL_BIND_ADDRESS` | `127.0.0.1` | Host interface published by Docker Compose. |
-| `CORAL_PORT` | `3000` | Host port published by Docker Compose. |
+| `CORAL_BIND_ADDRESS` | `127.0.0.1` | Public interface used by the trusted host-network ingress. |
+| `CORAL_PORT` | `3000` | Public port used by the trusted host-network ingress. |
+| `CORAL_INTERNAL_PORT` | `39000` | Loopback-only port between the ingress and application; do not expose it remotely. |
 | `DATABASE_PATH` | `/data/coralconsole.db` in Docker | SQLite database location. |
 | `CORAL_DEMO_MODE` | `false` | Adds clearly marked, simulated sample actors when `true`. |
-| `CORAL_TRUST_PROXY` | `false` | Trusts proxy client-IP headers for audit entries when `true`. |
+| `CORAL_TRUST_PROXY` | `false` | For custom non-Compose deployments only: trusts client-IP headers from a proxy that overwrites them. The reference Compose ingress does not use them. |
 
 Topology name, workspace color, refresh interval, audit retention, and which actor types appear in the summary count panel are shared settings editable in the UI and persisted in SQLite.
 

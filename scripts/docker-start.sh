@@ -24,14 +24,18 @@ if ! docker image inspect coralconsole:local >/dev/null 2>&1; then
   docker compose build
 fi
 
-docker compose up -d --no-build coralconsole
-docker compose ps coralconsole
-
-published_endpoint=$(docker compose port coralconsole 3000 2>/dev/null || true)
-if [ -n "$published_endpoint" ]; then
-  echo "CoralConsole is available at http://$published_endpoint"
-else
-  echo "CoralConsole started. Check its address with: docker compose port coralconsole 3000"
+if ! docker compose up -d --no-build --wait coralconsole coralconsole-ingress; then
+  echo "CoralConsole's trusted ingress requires host networking." >&2
+  echo "On Docker Desktop 4.34+, enable host networking in Settings > Resources > Network, then try again." >&2
+  exit 1
 fi
+docker compose ps coralconsole coralconsole-ingress
+
+public_endpoint=$(docker compose exec -T coralconsole-ingress node -e '
+  const host = process.env.CORAL_INGRESS_BIND_ADDRESS || "127.0.0.1";
+  const port = process.env.CORAL_INGRESS_PORT || "3000";
+  process.stdout.write(`${host}:${port}`);
+')
+echo "CoralConsole is available at http://$public_endpoint"
 
 echo "Database storage: Docker volume coralconsole-data (mounted at /data)."

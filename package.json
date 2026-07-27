@@ -15,16 +15,16 @@
     "db:migrate": "node scripts/migrate.mjs",
     "docker:build": "docker compose build",
     "docker:backup": "sh scripts/docker-backup.sh",
-    "docker:dev:logs": "docker compose -f docker-compose.yml -f docker-compose.dev.yml logs -f coralconsole",
+    "docker:dev:logs": "docker compose -f docker-compose.yml -f docker-compose.dev.yml logs -f coralconsole coralconsole-ingress",
     "docker:dev:rebuild": "sh scripts/docker-dev-rebuild.sh",
     "docker:dev:start": "sh scripts/docker-dev-start.sh",
-    "docker:dev:stop": "docker compose -f docker-compose.yml -f docker-compose.dev.yml stop coralconsole",
+    "docker:dev:stop": "docker compose -f docker-compose.yml -f docker-compose.dev.yml stop coralconsole-ingress coralconsole",
     "docker:release": "sh scripts/docker-release.sh",
     "docker:start": "sh scripts/docker-start.sh",
     "docker:stop": "sh scripts/docker-stop.sh",
-    "docker:restart": "docker compose restart coralconsole",
-    "docker:status": "docker compose ps coralconsole",
-    "docker:logs": "docker compose logs -f coralconsole"
+    "docker:restart": "docker compose restart coralconsole coralconsole-ingress",
+    "docker:status": "docker compose ps coralconsole coralconsole-ingress",
+    "docker:logs": "docker compose logs -f coralconsole coralconsole-ingress"
   },
   "dependencies": {
     "better-sqlite3": "^13.0.1",

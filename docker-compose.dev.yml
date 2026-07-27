@@ -15,6 +15,12 @@ services:
       - coralconsole-dev-next:/app/.next
       - coralconsole-data:/data
 
+  coralconsole-ingress:
+    image: coralconsole:dev
+    restart: "no"
+    volumes:
+      - .:/app
+
 volumes:
   coralconsole-dev-node-modules:
   coralconsole-dev-next:

@@ -29,6 +29,7 @@ One process-level scheduler owns actor polling independently of browser tabs. Ea
 - SQLite with `better-sqlite3`, Drizzle schema, generated SQL migrations, WAL mode, foreign keys, and a five-second busy timeout.
 - One installation owns one topology and one SQLite file. Never run multiple application processes against the same file.
 - `Dockerfile` is the canonical release package; `docker-compose.yml` is the reference private deployment.
+- The reference Compose deployment has two containers: the bridge-networked application is published only on a loopback-only internal port, while a minimal host-network ingress owns the public port. The ingress removes browser-supplied forwarding headers, captures the TCP peer address, and passes that validated address to the application in a private internal header. Linux host networking is required; Docker Desktop 4.34 or newer must have host networking enabled.
 - `better-sqlite3` may compile from source on Linux ARM64. Keep Python 3, `make`, and `g++` in the Docker dependency-build stage only; do not add compilers to the final runtime stage. Keep all Docker stages on Debian Trixie so the runtime provides the glibc and libstdc++ versions required by the packaged ARM64 native module.
 - The persistent database is `/data/coralconsole.db` in Docker and `.data/coralconsole.db` in local development unless `DATABASE_PATH` overrides it.
 - Migrations run both through `scripts/migrate.mjs` at container startup and defensively when the application opens the database.
@@ -38,7 +39,7 @@ One process-level scheduler owns actor polling independently of browser tabs. Ea
 
 - `topology_settings` stores the singleton shared name, color, actor polling interval, idle-polling policy, viewer grace period, retention, summary-count visibility, and first-run status.
 - `actors` stores endpoint, discovered identity, type, Online/Offline connectivity, the separate operational state, actions, the full ordered actorStatus field list, derived common metadata, per-type precedence order, and timestamps. Host plus port is unique. `sort_order` is scoped to `kind`; ordering actors across different kinds has no meaning. The legacy SQL column name `status_responded_at` records the latest successful actorStatus response time.
-- The legacy-named `command_audit` table stores the actor snapshot, scoped admin action, parameters, plain-text output, four-state outcome, error, duration, timestamp, requester IP, and truncation state. New manual actions record the server-observed requester IP; legacy or unavailable addresses are persisted as `N/A`. Actor deletion retains audit rows with a null actor reference.
+- The legacy-named `command_audit` table stores the actor snapshot, scoped admin action, parameters, plain-text output, four-state outcome, error, duration, timestamp, requester IP, and truncation state. In the reference Compose deployment, new manual actions record the TCP peer address observed by the trusted host-network ingress; client-supplied forwarding headers cannot override it. Legacy or unavailable addresses are persisted as `N/A`. Actor deletion retains audit rows with a null actor reference.
 - Audit parameters are capped at 8 KiB and output at 256 KiB. Older rows are purged according to the shared retention setting.
 - `localStorage` is device-specific only: `coral-console-intro` stores intro visibility. `coral-console-actors` is a legacy import source and must not become the canonical topology again.
 - Never send topology, actor, admin action, or audit data to an external service.
@@ -153,7 +154,8 @@ The raw TCP mock actor in the integration suite must handle `ECONNRESET` and `EP
 - Default Docker binding is localhost. Document private LAN, VPN, firewall, TLS, and authenticated reverse-proxy requirements; never imply that public exposure is safe.
 - Lifecycle helpers must preserve `coralconsole-data` by default. Never put `down -v`, `volume rm`, or volume pruning in ordinary start/stop scripts.
 - Backup helpers must use SQLite's online backup API, verify integrity, avoid copying a live database file directly, and never apply automatic retention deletion.
-- Enable `CORAL_TRUST_PROXY` only behind a trusted proxy that overwrites forwarding headers.
+- Keep the application’s internal port bound to loopback. The trusted ingress header is an internal handoff and must never be exposed directly to remote clients.
+- Enable `CORAL_TRUST_PROXY` only for a custom non-Compose deployment behind a trusted proxy that overwrites forwarding headers. The reference Compose ingress deliberately ignores those headers and records its TCP peer.
 - Maintain baseline security headers and confirmation for destructive UI actions.
 - Avoid logging database contents, admin payloads, actor output, tokens, or secrets to process logs.
 - Keep `/api/health` minimal; do not expose database paths or sensitive configuration.

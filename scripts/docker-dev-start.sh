@@ -24,15 +24,19 @@ if ! docker image inspect coralconsole:dev >/dev/null 2>&1; then
   docker compose -f docker-compose.yml -f docker-compose.dev.yml build coralconsole
 fi
 
-docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --no-build coralconsole
-docker compose -f docker-compose.yml -f docker-compose.dev.yml ps coralconsole
-
-published_endpoint=$(docker compose -f docker-compose.yml -f docker-compose.dev.yml port coralconsole 3000 2>/dev/null || true)
-if [ -n "$published_endpoint" ]; then
-  echo "CoralConsole development mode is available at http://$published_endpoint"
-else
-  echo "CoralConsole development mode started. Check its address with Docker Compose."
+if ! docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --no-build --wait coralconsole coralconsole-ingress; then
+  echo "CoralConsole's trusted ingress requires host networking." >&2
+  echo "On Docker Desktop 4.34+, enable host networking in Settings > Resources > Network, then try again." >&2
+  exit 1
 fi
+docker compose -f docker-compose.yml -f docker-compose.dev.yml ps coralconsole coralconsole-ingress
+
+public_endpoint=$(docker compose -f docker-compose.yml -f docker-compose.dev.yml exec -T coralconsole-ingress node -e '
+  const host = process.env.CORAL_INGRESS_BIND_ADDRESS || "127.0.0.1";
+  const port = process.env.CORAL_INGRESS_PORT || "3000";
+  process.stdout.write(`${host}:${port}`);
+')
+echo "CoralConsole development mode is available at http://$public_endpoint"
 
 echo "Source changes now hot-reload without rebuilding Docker."
 echo "Database storage remains in the coralconsole-data Docker volume."

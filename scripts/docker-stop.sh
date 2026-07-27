@@ -9,6 +9,6 @@ if ! command -v docker >/dev/null 2>&1; then
   exit 1
 fi
 
-docker compose stop coralconsole
+docker compose stop coralconsole-ingress coralconsole
 echo "CoralConsole is stopped. Its SQLite database remains in the Docker volume."
 echo "Restart it later with: npm run docker:start"

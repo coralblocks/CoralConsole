@@ -186,42 +186,86 @@ async function startMockActorServer() {
 }
 
 async function startServer(databasePath, port) {
+  const upstreamPort = await availablePort();
   const child = spawn(process.execPath, [join(projectRoot, ".next/standalone/server.js")], {
     cwd: projectRoot,
     env: {
       ...process.env,
       DATABASE_PATH: databasePath,
       CORAL_DEMO_MODE: "true",
+      CORAL_TRUSTED_INGRESS: "true",
       HOSTNAME: "127.0.0.1",
-      PORT: String(port),
+      PORT: String(upstreamPort),
     },
     stdio: ["ignore", "pipe", "pipe"],
   });
   let output = "";
   child.stdout.on("data", (chunk) => { output += chunk; });
   child.stderr.on("data", (chunk) => { output += chunk; });
-  const baseUrl = `http://127.0.0.1:${port}`;
+  const upstreamUrl = `http://127.0.0.1:${upstreamPort}`;
+  let upstreamReady = false;
   for (let attempt = 0; attempt < 80; attempt += 1) {
     if (child.exitCode !== null) throw new Error(`Server stopped before becoming ready:\n${output}`);
     try {
-      const response = await fetch(`${baseUrl}/api/health`);
-      if (response.ok) return { child, baseUrl };
+      const response = await fetch(`${upstreamUrl}/api/health`);
+      if (response.ok) {
+        upstreamReady = true;
+        break;
+      }
     } catch {
       // The standalone server is still starting.
     }
     await new Promise((resolveWait) => setTimeout(resolveWait, 50));
   }
+  if (!upstreamReady) {
+    child.kill("SIGTERM");
+    throw new Error(`Server did not become ready:\n${output}`);
+  }
+
+  const ingressChild = spawn(process.execPath, [join(projectRoot, "scripts/trusted-ingress.mjs")], {
+    cwd: projectRoot,
+    env: {
+      ...process.env,
+      CORAL_INGRESS_BIND_ADDRESS: "127.0.0.1",
+      CORAL_INGRESS_PORT: String(port),
+      CORAL_UPSTREAM_HOST: "127.0.0.1",
+      CORAL_UPSTREAM_PORT: String(upstreamPort),
+    },
+    stdio: ["ignore", "pipe", "pipe"],
+  });
+  ingressChild.stdout.on("data", (chunk) => { output += chunk; });
+  ingressChild.stderr.on("data", (chunk) => { output += chunk; });
+  const baseUrl = `http://127.0.0.1:${port}`;
+  for (let attempt = 0; attempt < 80; attempt += 1) {
+    if (ingressChild.exitCode !== null) {
+      child.kill("SIGTERM");
+      throw new Error(`Trusted ingress stopped before becoming ready:\n${output}`);
+    }
+    try {
+      const response = await fetch(`${baseUrl}/api/health`);
+      if (response.ok) return { child, ingressChild, baseUrl };
+    } catch {
+      // The trusted ingress is still starting.
+    }
+    await new Promise((resolveWait) => setTimeout(resolveWait, 50));
+  }
+  ingressChild.kill("SIGTERM");
   child.kill("SIGTERM");
-  throw new Error(`Server did not become ready:\n${output}`);
+  throw new Error(`Trusted ingress did not become ready:\n${output}`);
 }
 
-async function stopServer(child) {
+async function stopChild(child) {
   if (child.exitCode !== null) return;
   child.kill("SIGTERM");
   await new Promise((resolveStop) => {
     const timeout = setTimeout(() => { child.kill("SIGKILL"); resolveStop(); }, 2000);
     child.once("exit", () => { clearTimeout(timeout); resolveStop(); });
   });
+}
+
+async function stopServer(server) {
+  await stopChild(server.ingressChild);
+  await stopChild(server.child);
 }
 
 async function json(baseUrl, path, init) {
@@ -442,7 +486,12 @@ test("standalone server persists settings, actors, and admin action audit in SQL
     const manualStatusStart = actorServer.requests.length;
     await json(server.baseUrl, `/api/actors/${discovered.actor.id}/actions`, {
       method: "POST",
-      headers: { "Content-Type": "application/json", "X-Forwarded-For": "203.0.113.77" },
+      headers: {
+        "Content-Type": "application/json",
+        "X-Coral-Peer-IP": "198.51.100.25",
+        "X-Forwarded-For": "203.0.113.77",
+        "X-Real-IP": "192.0.2.18",
+      },
       body: JSON.stringify({ action: "status", params: "" }),
     });
     assert.deepEqual(actorServer.requests.slice(manualStatusStart, manualStatusStart + 3), [
@@ -457,12 +506,12 @@ test("standalone server persists settings, actors, and admin action audit in SQL
     );
     const successAudit = await json(server.baseUrl, `/api/audit?actorId=${discovered.actor.id}&query=status&outcome=success&limit=20`);
     assert.equal(successAudit.entries[0].outcome, "success");
-    assert.equal(successAudit.entries[0].sourceIp, "203.0.113.77");
+    assert.equal(successAudit.entries[0].sourceIp, "127.0.0.1");
     assert.equal("success" in successAudit.entries[0], false);
-    const multiTermAudit = await json(server.baseUrl, `/api/audit?query=${encodeURIComponent("SEQ 203.0.113.77")}&limit=20`);
+    const multiTermAudit = await json(server.baseUrl, `/api/audit?query=${encodeURIComponent("SEQ 127.0.0.1")}&limit=20`);
     assert.equal(multiTermAudit.entries.length, 1);
     assert.equal(multiTermAudit.entries[0].id, successAudit.entries[0].id);
-    const quotedPhraseAudit = await json(server.baseUrl, `/api/audit?query=${encodeURIComponent("\"SEQ 203.0.113.77\"")}&limit=20`);
+    const quotedPhraseAudit = await json(server.baseUrl, `/api/audit?query=${encodeURIComponent("\"SEQ 127.0.0.1\"")}&limit=20`);
     assert.equal(quotedPhraseAudit.entries.length, 0);
 
     const manualHealthCheckStart = actorServer.requests.length;
@@ -655,7 +704,7 @@ test("standalone server persists settings, actors, and admin action audit in SQL
     assert.equal(editedEndpoint.actor.port, actorServer.port);
     assert.equal(editedEndpoint.actor.status, "offline");
 
-    await stopServer(server.child);
+    await stopServer(server);
     server = await startServer(databasePath, port);
     const persistedSettings = await json(server.baseUrl, "/api/settings");
     const persistedAudit = await json(server.baseUrl, "/api/audit?actorId=demo-seq-01&limit=20");
@@ -675,7 +724,7 @@ test("standalone server persists settings, actors, and admin action audit in SQL
       discovered.actor.id,
     );
   } finally {
-    if (server) await stopServer(server.child);
+    if (server) await stopServer(server);
     if (actorServer) await new Promise((resolveClose) => actorServer.server.close(resolveClose));
     await rm(directory, { recursive: true, force: true });
   }
@@ -766,7 +815,7 @@ test("actor migrations preserve audit references and initialize status metadata"
 });
 
 test("deployment and UI conventions stay explicit", async () => {
-  const [page, actorList, actorDetail, auditView, auditRoute, actorUi, styles, layout, viewerPresence, guide, compose, dockerfile, dockerStart, dockerStop, dockerBackup, gitMergeToMain, devCompose, devDockerfile, devStart, dockerRelease, nextConfig] = await Promise.all([
+  const [page, actorList, actorDetail, auditView, auditRoute, actorUi, styles, layout, viewerPresence, guide, compose, dockerfile, dockerStart, dockerStop, dockerBackup, gitMergeToMain, devCompose, devDockerfile, devStart, dockerRelease, nextConfig, trustedIngress, httpHelpers] = await Promise.all([
     readFile(join(projectRoot, "app/page.tsx"), "utf8"),
     readFile(join(projectRoot, "app/actors/actor-list.tsx"), "utf8"),
     readFile(join(projectRoot, "app/actor/[id]/actor-detail.tsx"), "utf8"),
@@ -788,6 +837,8 @@ test("deployment and UI conventions stay explicit", async () => {
     readFile(join(projectRoot, "scripts/docker-dev-start.sh"), "utf8"),
     readFile(join(projectRoot, "scripts/docker-release.sh"), "utf8"),
     readFile(join(projectRoot, "next.config.ts"), "utf8"),
+    readFile(join(projectRoot, "scripts/trusted-ingress.mjs"), "utf8"),
+    readFile(join(projectRoot, "lib/http.ts"), "utf8"),
   ]);
   assert.match(page, /target="_blank"/);
   assert.match(page, /href="\/audit" target="_blank" rel="noopener noreferrer">Audit/);
@@ -980,12 +1031,22 @@ test("deployment and UI conventions stay explicit", async () => {
   assert.match(viewerPresence, /crypto\.randomUUID/);
   assert.match(guide, /Keep this file current/);
   assert.match(compose, /coralconsole-data:\/data/);
+  assert.match(compose, /coralconsole-ingress:/);
+  assert.match(compose, /network_mode: host/);
+  assert.match(compose, /127\.0\.0\.1:\$\{CORAL_INTERNAL_PORT:-39000\}:3000/);
+  assert.match(compose, /CORAL_TRUSTED_INGRESS: "true"/);
+  assert.match(trustedIngress, /request\.socket\.remoteAddress/);
+  assert.match(trustedIngress, /FORWARDED_HEADERS/);
+  assert.match(trustedIngress, /TRUSTED_PEER_HEADER/);
+  assert.match(httpHelpers, /process\.env\.CORAL_TRUSTED_INGRESS === "true"/);
+  assert.match(httpHelpers, /if \(process\.env\.CORAL_TRUST_PROXY !== "true"\) return "N\/A"/);
   assert.match(dockerfile, /HEALTHCHECK/);
   assert.match(dockerfile, /node:22-trixie-slim/);
   assert.match(dockerfile, /python3 make g\+\+/);
   assert.match(dockerfile, /node_modules\/drizzle-orm/);
-  assert.match(dockerStart, /docker compose up -d --no-build/);
+  assert.match(dockerStart, /docker compose up -d --no-build --wait coralconsole coralconsole-ingress/);
   assert.match(dockerStop, /docker compose stop/);
+  assert.match(dockerStop, /coralconsole-ingress coralconsole/);
   assert.doesNotMatch(`${dockerStart}\n${dockerStop}`, /down\s+-v|volume\s+rm|prune/);
   assert.match(devCompose, /WATCHPACK_POLLING: "true"/);
   assert.match(devCompose, /command: npm run dev -- --webpack/);
@@ -996,10 +1057,10 @@ test("deployment and UI conventions stay explicit", async () => {
   assert.match(devDockerfile, /node:22-trixie-slim/);
   assert.match(devDockerfile, /npm ci/);
   assert.match(devDockerfile, /USER coral/);
-  assert.match(devStart, /up -d --no-build/);
+  assert.match(devStart, /up -d --no-build --wait coralconsole coralconsole-ingress/);
   assert.doesNotMatch(devStart, /down\s+-v|volume\s+rm|prune/);
   assert.match(dockerRelease, /docker compose build coralconsole/);
-  assert.match(dockerRelease, /docker compose up -d --no-build coralconsole/);
+  assert.match(dockerRelease, /docker compose up -d --no-build --wait coralconsole coralconsole-ingress/);
   assert.doesNotMatch(dockerRelease, /down\s+-v|volume\s+rm|prune/);
   assert.match(nextConfig, /process\.env\.NODE_ENV === "development"/);
   assert.match(nextConfig, /'unsafe-eval'/);

@@ -12,6 +12,7 @@ CoralConsole intentionally has no login or role system in this version. Any pers
 - If binding to a private interface, restrict the port with the host and network firewalls.
 - Terminate HTTPS at the reverse proxy if traffic crosses an untrusted segment.
 - The host/container must be able to reach every configured actor's REST admin port.
+- The reference deployment requires Linux host networking. On Docker Desktop 4.34 or newer, enable **Settings → Resources → Network → Enable host networking**.
 
 CoralConsole does not send topology or admin action data to an external service.
 
@@ -19,15 +20,15 @@ CoralConsole does not send topology or admin action data to an external service.
 
 ```bash
 ./scripts/docker-start.sh
-docker compose ps coralconsole
+docker compose ps coralconsole coralconsole-ingress
 ```
 
 On the first run, the start script copies `.env.example` to the ignored `.env` file and builds `coralconsole:local`. Subsequent starts use that local image without rebuilding, which supports disconnected/offline testing. Run `npm run docker:build` intentionally after pulling or editing application code, followed by `npm run docker:start`.
 
-The health endpoint is `GET /api/health`. View logs with:
+The health endpoint is `GET /api/health`. View both application and ingress logs with:
 
 ```bash
-docker compose logs -f coralconsole
+docker compose logs -f coralconsole coralconsole-ingress
 ```
 
 The project also provides:
@@ -47,9 +48,20 @@ For direct private-LAN access, use the server's private address in `.env`:
 ```dotenv
 CORAL_BIND_ADDRESS=10.20.30.40
 CORAL_PORT=3000
+CORAL_INTERNAL_PORT=39000
 ```
 
-For a reverse proxy on the same host, retain `127.0.0.1`. Set `CORAL_TRUST_PROXY=true` only when CoralConsole is behind a trusted proxy that overwrites `X-Forwarded-For`, `X-Forwarded-Host`, and `X-Forwarded-Proto`.
+`CORAL_PORT` belongs to the host-network ingress. `CORAL_INTERNAL_PORT` publishes the application only on host loopback and must not be made remotely reachable.
+
+Native Linux can bind the ingress to a specific host address as shown above. Docker Desktop host networking cannot bind a container process to a specific host interface; use `CORAL_BIND_ADDRESS=0.0.0.0` there and enforce the intended private-network scope with the host firewall.
+
+### Audit source IP
+
+The reference deployment does not trust IP-related HTTP headers from browsers. `coralconsole-ingress` owns the public listener, removes `Forwarded`, every `X-Forwarded-*` header, `X-Real-IP`, and its private handoff header, then records the peer address from the accepted TCP socket. It forwards that validated address to the loopback-only application port.
+
+With a direct private-LAN connection to a native Linux deployment, this is normally the workstation address seen by the CoralConsole server. A network proxy or source NAT in front of CoralConsole necessarily changes the TCP peer to that intermediary. Docker Desktop adds a VM/backend networking layer and should be treated as a development environment rather than relied on for production-grade workstation attribution. DHCP reassignment and IPv6 privacy addresses can also change a workstation's address over time, so correlate audit timestamps with company DHCP/IPAM records. An IP is useful evidence but is not a substitute for future authenticated user identity.
+
+For a reverse proxy on the same host, retain `127.0.0.1`; the built-in ingress will correctly record that proxy as its TCP peer rather than trusting forwarded claims. If an installation must attribute users through another proxy, make that proxy the explicitly trusted capture boundary in a custom deployment, ensure it overwrites (not appends) all client-IP headers, and enable `CORAL_TRUST_PROXY` only there. Never expose the loopback application port as a public route.
 
 ## Persistence and backup
 
@@ -100,10 +112,10 @@ To restore, stop CoralConsole, replace the database file in `/data`, preserve ow
 1. Create a database backup.
 2. Pull the desired tagged release.
 3. Run `docker compose build`, followed by `./scripts/docker-start.sh`.
-4. Confirm `docker compose ps` reports a healthy service and open `/api/health`.
+4. Confirm `docker compose ps coralconsole coralconsole-ingress` reports both services healthy and open `/api/health`.
 
 Migrations run automatically on container startup. Do not run multiple CoralConsole containers against the same SQLite file.
 
 ## Reverse proxy notes
 
-Proxy normal HTTP requests and WebSocket upgrades to `http://127.0.0.1:3000`. Preserve the original host and scheme. Apply the customer's authentication, TLS, access logs, and request-size policy at the proxy. CoralConsole adds baseline content, frame, referrer, and permissions security headers itself.
+Proxy normal HTTP requests and WebSocket upgrades to the public ingress at `http://127.0.0.1:3000`. Do not proxy to `CORAL_INTERNAL_PORT`. Preserve the original host and scheme. Apply the customer's authentication, TLS, access logs, and request-size policy at the proxy. CoralConsole adds baseline content, frame, referrer, and permissions security headers itself.

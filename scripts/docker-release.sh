@@ -16,8 +16,8 @@ fi
 
 echo "Building the production image from the current source..."
 docker compose build coralconsole
-docker compose up -d --no-build coralconsole
-docker compose ps coralconsole
+docker compose up -d --no-build --wait coralconsole coralconsole-ingress
+docker compose ps coralconsole coralconsole-ingress
 
 echo "Production mode is running from the newly built coralconsole:local image."
 echo "Database storage remains in the coralconsole-data Docker volume."

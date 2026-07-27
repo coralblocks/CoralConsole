@@ -1,3 +1,4 @@
+import { isIP } from "node:net";
 import { NextResponse } from "next/server";
 
 export function apiJson(body: unknown, status = 200) {
@@ -37,16 +38,23 @@ export function mutationAllowed(request: Request) {
 }
 
 export function clientIp(request: Request) {
+  if (process.env.CORAL_TRUSTED_INGRESS === "true") {
+    return normalizedIp(request.headers.get("x-coral-peer-ip"));
+  }
+
+  if (process.env.CORAL_TRUST_PROXY !== "true") return "N/A";
+
   const forwarded = request.headers.get("x-forwarded-for")
     ?.split(",")
     .map((value) => value.trim())
     .filter(Boolean);
-  const selected = process.env.CORAL_TRUST_PROXY === "true"
-    ? forwarded?.[0]
-    : forwarded?.at(-1);
-  const value = selected || request.headers.get("x-real-ip")?.trim();
-  if (!value) return "N/A";
-  return value.replace(/^::ffff:/, "").slice(0, 128);
+  const value = forwarded?.[0] || request.headers.get("x-real-ip")?.trim();
+  return normalizedIp(value);
+}
+
+function normalizedIp(value: string | null | undefined) {
+  const candidate = value?.trim().replace(/^::ffff:/, "") || "";
+  return isIP(candidate) ? candidate : "N/A";
 }
 
 export function apiErrorResponse(error: unknown) {
