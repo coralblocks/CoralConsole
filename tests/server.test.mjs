@@ -459,6 +459,11 @@ test("standalone server persists settings, actors, and admin action audit in SQL
     assert.equal(successAudit.entries[0].outcome, "success");
     assert.equal(successAudit.entries[0].sourceIp, "203.0.113.77");
     assert.equal("success" in successAudit.entries[0], false);
+    const multiTermAudit = await json(server.baseUrl, `/api/audit?query=${encodeURIComponent("SEQ 203.0.113.77")}&limit=20`);
+    assert.equal(multiTermAudit.entries.length, 1);
+    assert.equal(multiTermAudit.entries[0].id, successAudit.entries[0].id);
+    const quotedPhraseAudit = await json(server.baseUrl, `/api/audit?query=${encodeURIComponent("\"SEQ 203.0.113.77\"")}&limit=20`);
+    assert.equal(quotedPhraseAudit.entries.length, 0);
 
     const manualHealthCheckStart = actorServer.requests.length;
     const manualHealthCheck = await json(server.baseUrl, `/api/actors/${discovered.actor.id}/actions`, {
@@ -948,15 +953,23 @@ test("deployment and UI conventions stay explicit", async () => {
   assert.doesNotMatch(auditView, /Back to topology|Clear audit history|method: "DELETE"/);
   assert.match(auditView, /Protected history/);
   assert.match(auditView, /Audit records cannot be manually cleared/);
-  assert.match(auditView, /Clear &amp; show all/);
-  assert.match(auditView, /setAppliedQuery\(""\)[\s\S]*setOutcome\("all"\)[\s\S]*setActorId\(""\)/);
-  assert.match(auditView, /<th>Requester IP<\/th>/);
+  assert.match(auditView, /Clear Search/);
+  assert.match(auditView, /function clearSearch\(\) \{[\s\S]*setQuery\(""\)[\s\S]*setAppliedQuery\(""\)[\s\S]*\}/);
+  assert.doesNotMatch(auditView, /function clearSearch\(\) \{[\s\S]*setOutcome\("all"\)/);
+  assert.match(auditView, /\{value === "all" \? "All" : auditOutcomeLabel\(value\)\}/);
+  assert.match(auditView, /<th>Source IP<\/th>/);
   assert.match(auditView, /entry\.sourceIp \|\| "N\/A"/);
   assert.match(auditView, /auditOutcomeLabel\(entry\.outcome\)/);
+  assert.match(auditView, /<h1>Admin Action Audit<\/h1>/);
+  assert.match(auditView, /<small>The Ops Console for CoralSequencer<\/small>/);
+  assert.match(auditView, /className="audit-time"/);
+  assert.match(auditView, /Updated by search and outcome filters/);
   assert.doesNotMatch(auditView, /setInterval/);
   assert.doesNotMatch(auditRoute, /export function DELETE|clearAudit/);
   assert.match(styles, /\.audit-integrity-note \{/);
   assert.match(styles, /\.audit-table-heading \{/);
+  assert.match(styles, /\.audit-table th:nth-child\(6\), \.audit-table td:nth-child\(6\) \{ text-align: center; \}/);
+  assert.match(styles, /\.audit-time \{ display: grid;/);
   assert.match(styles, /@media \(max-width: 1180px\) \{[\s\S]*\.audit-table tbody tr \{[^}]*grid-template-columns: repeat\(2, minmax\(0, 1fr\)\)/);
   for (const state of ["active", "inactive", "closed", "rewinding", "disconnected", "unknown"]) {
     assert.match(styles, new RegExp(`\\.actor-state-badge\\.state-${state} \\{`));

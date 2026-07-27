@@ -19,6 +19,14 @@ function auditOutput(entry: AuditEntry) {
   return [entry.error, entry.output].filter(Boolean).join("\n\n") || "No output";
 }
 
+function auditTimestamp(createdAt: string) {
+  const timestamp = new Date(createdAt);
+  return {
+    date: timestamp.toLocaleDateString(),
+    time: timestamp.toLocaleTimeString(),
+  };
+}
+
 export default function AuditView() {
   const [entries, setEntries] = useState<AuditEntry[]>([]);
   const [query, setQuery] = useState("");
@@ -62,21 +70,19 @@ export default function AuditView() {
     setAppliedQuery(query.trim());
   }
 
-  function showAll() {
+  function clearSearch() {
     setQuery("");
     setAppliedQuery("");
-    setOutcome("all");
-    setActorId("");
   }
 
-  const hasActiveFilter = Boolean(query || appliedQuery || actorId || outcome !== "all");
+  const hasSearch = Boolean(query || appliedQuery);
 
   return (
     <main className="console-shell audit-page">
       <header className="topbar">
         <Link className="brand" href="/" aria-label="CoralConsole topology">
           <span className="brand-mark" aria-hidden="true"><BrandIcon /></span>
-          <span><strong>CoralConsole</strong><small>Admin action audit</small></span>
+          <span><strong>CoralConsole</strong><small>The Ops Console for CoralSequencer</small></span>
         </Link>
       </header>
 
@@ -84,7 +90,7 @@ export default function AuditView() {
         <div className="audit-title">
           <div>
             <p className="eyebrow">Shared operations record</p>
-            <h1>Admin action audit</h1>
+            <h1>Admin Action Audit</h1>
             <p>Review who requested each manual admin action, what CoralConsole sent, and how the actor responded.</p>
           </div>
           <div className="audit-integrity-note">
@@ -98,10 +104,10 @@ export default function AuditView() {
           <div className="audit-search-row">
             <span className="audit-search-field">
               <Search aria-hidden="true" />
-              <input id="audit-search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Actor, endpoint, requester IP, action, or output" />
+              <input id="audit-search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Actor, endpoint, source IP, action, or output" />
             </span>
             <button className="button button-dark" type="submit">Search</button>
-            <button className="button button-ghost audit-reset" type="button" onClick={showAll} disabled={!hasActiveFilter}><X aria-hidden="true" />Clear &amp; show all</button>
+            <button className="button button-ghost audit-reset" type="button" onClick={clearSearch} disabled={!hasSearch}><X aria-hidden="true" />Clear Search</button>
           </div>
           <div className="audit-filter-row">
             <span>Outcome</span>
@@ -114,7 +120,7 @@ export default function AuditView() {
                   aria-pressed={outcome === value}
                   onClick={() => setOutcome(value)}
                 >
-                  {value === "all" ? "All outcomes" : auditOutcomeLabel(value)}
+                  {value === "all" ? "All" : auditOutcomeLabel(value)}
                 </button>
               ))}
             </div>
@@ -126,21 +132,24 @@ export default function AuditView() {
         <section className="audit-table-wrap" aria-live="polite" aria-labelledby="audit-records-title">
           <div className="audit-table-heading">
             <div><p className="eyebrow">Recorded activity</p><h2 id="audit-records-title">{loading ? "Loading records…" : `${entries.length} ${entries.length === 1 ? "record" : "records"} shown`}</h2></div>
-            <span>Newest first · Loaded on demand</span>
+            <span>Newest first · Updated by search and outcome filters</span>
           </div>
           {loading ? <p className="empty-audit">Loading audit history…</p> : !entries.length ? <p className="empty-audit">No admin actions match these filters.</p> : (
             <table className="audit-table">
-              <thead><tr><th>Time</th><th>Actor</th><th>Requester IP</th><th>Admin action</th><th>Parameters</th><th>Outcome</th><th>Duration</th><th>Output</th></tr></thead>
-              <tbody>{entries.map((entry) => <tr key={entry.id}>
-                <td data-label="Time"><time dateTime={entry.createdAt}>{new Date(entry.createdAt).toLocaleString()}</time></td>
-                <td data-label="Actor"><strong>{entry.actorName}</strong><small>{entry.actorEndpoint}</small></td>
-                <td data-label="Requester IP"><code className="audit-source-ip">{entry.sourceIp || "N/A"}</code></td>
-                <td data-label="Admin action"><code>{entry.action}</code></td>
-                <td data-label="Parameters"><code>{entry.params || "—"}</code></td>
-                <td data-label="Outcome"><span className={`audit-outcome ${entry.outcome}`}>{auditOutcomeLabel(entry.outcome)}</span></td>
-                <td data-label="Duration">{entry.durationMs} ms</td>
-                <td data-label="Output"><pre>{auditOutput(entry)}{entry.truncated ? "\n[truncated]" : ""}</pre></td>
-              </tr>)}</tbody>
+              <thead><tr><th>Time</th><th>Actor</th><th>Source IP</th><th>Admin action</th><th>Parameters</th><th>Outcome</th><th>Duration</th><th>Output</th></tr></thead>
+              <tbody>{entries.map((entry) => {
+                const timestamp = auditTimestamp(entry.createdAt);
+                return <tr key={entry.id}>
+                  <td data-label="Time"><time className="audit-time" dateTime={entry.createdAt}><span>{timestamp.date}</span><span>{timestamp.time}</span></time></td>
+                  <td data-label="Actor"><strong>{entry.actorName}</strong><small>{entry.actorEndpoint}</small></td>
+                  <td data-label="Source IP"><code className="audit-source-ip">{entry.sourceIp || "N/A"}</code></td>
+                  <td data-label="Admin action"><code>{entry.action}</code></td>
+                  <td data-label="Parameters"><code>{entry.params || "—"}</code></td>
+                  <td data-label="Outcome"><span className={`audit-outcome ${entry.outcome}`}>{auditOutcomeLabel(entry.outcome)}</span></td>
+                  <td data-label="Duration">{entry.durationMs} ms</td>
+                  <td data-label="Output"><pre>{auditOutput(entry)}{entry.truncated ? "\n[truncated]" : ""}</pre></td>
+                </tr>;
+              })}</tbody>
             </table>
           )}
         </section>

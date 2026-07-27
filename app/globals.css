@@ -374,13 +374,13 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .audit-table-heading { align-items: center; background: linear-gradient(110deg, color-mix(in srgb, var(--cyan-soft) 52%, white), color-mix(in srgb, var(--violet-soft) 24%, white)); border-bottom: 1px solid var(--line); display: flex; gap: 20px; justify-content: space-between; min-width: 1120px; padding: 18px 20px; }
 .audit-table-heading .eyebrow { margin-bottom: 4px; }
 .audit-table-heading h2 { font-size: 18px; margin: 0; }
-.audit-table-heading > span { color: var(--muted); font-family: var(--font-plex-mono), monospace; font-size: 8px; }
-.audit-table { border-collapse: collapse; min-width: 1120px; table-layout: fixed; width: 100%; }
+.audit-table-heading > span { color: var(--muted); font-family: var(--font-plex-mono), monospace; font-size: 8px; text-align: right; }
+.audit-table { border-collapse: collapse; min-width: 1060px; table-layout: fixed; width: 100%; }
 .audit-table thead { background: color-mix(in srgb, var(--cyan-soft) 30%, white); }
 .audit-table th { color: #43645f; font-family: var(--font-plex-mono), monospace; font-size: 9px; font-weight: 800; letter-spacing: .08em; padding: 14px 12px; text-align: left; text-transform: uppercase; }
-.audit-table th:nth-child(1) { width: 155px; }
+.audit-table th:nth-child(1) { width: 112px; }
 .audit-table th:nth-child(2) { width: 155px; }
-.audit-table th:nth-child(3) { width: 135px; }
+.audit-table th:nth-child(3) { width: 110px; }
 .audit-table th:nth-child(4) { width: 180px; }
 .audit-table th:nth-child(5) { width: 150px; }
 .audit-table th:nth-child(6) { width: 105px; }
@@ -388,10 +388,13 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .audit-table td { border-top: 1px solid var(--line); font-size: 10px; max-width: 330px; padding: 15px 12px; transition: background-color .16s ease; vertical-align: top; }
 .audit-table tbody tr:hover td { background: color-mix(in srgb, var(--cyan-soft) 15%, white); }
 .audit-table td:nth-child(1), .audit-table td:nth-child(3), .audit-table td:nth-child(6), .audit-table td:nth-child(7) { white-space: nowrap; }
+.audit-table th:nth-child(6), .audit-table td:nth-child(6) { text-align: center; }
 .audit-table td:nth-child(2) { display: grid; }
 .audit-table td small { color: var(--muted); font-family: var(--font-plex-mono), monospace; font-size: 8px; margin-top: 4px; overflow-wrap: anywhere; }
 .audit-table code, .audit-table pre { font-family: var(--font-plex-mono), monospace; font-size: 8px; }
 .audit-table pre { line-height: 1.5; margin: 0; max-height: 110px; overflow: auto; white-space: pre-wrap; }
+.audit-time { display: grid; gap: 3px; }
+.audit-time span:last-child { color: var(--muted); font-family: var(--font-plex-mono), monospace; font-size: 8px; }
 .audit-source-ip { color: #126b67; font-weight: 700; }
 
 .actor-list-main { margin: 0 auto; max-width: 1600px; min-height: calc(100vh - 78px); padding: 64px clamp(24px, 5vw, 80px) 80px; }

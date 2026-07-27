@@ -254,20 +254,30 @@ export function recordAudit(entry: Omit<AuditEntry, "id" | "createdAt">) {
   return getDb().insert(adminActionAudit).values(entry).run().lastInsertRowid;
 }
 
+function auditSearchTerms(query: string) {
+  return [...query.matchAll(/"([^"]+)"|(\S+)/g)]
+    .map((match) => (match[1] || match[2]).trim())
+    .filter(Boolean);
+}
+
 export function listAudit(options: { actorId?: string; query?: string; outcome?: AuditOutcome; limit?: number }) {
   const clauses: SQL[] = [];
   if (options.actorId) clauses.push(eq(adminActionAudit.actorId, options.actorId));
   if (options.outcome) clauses.push(eq(adminActionAudit.outcome, options.outcome));
   if (options.query) {
-    const pattern = `%${options.query.replaceAll("%", "\\%").replaceAll("_", "\\_")}%`;
-    const search = or(
-      like(adminActionAudit.action, pattern),
-      like(adminActionAudit.actorName, pattern),
-      like(adminActionAudit.actorEndpoint, pattern),
-      like(adminActionAudit.sourceIp, pattern),
-      like(adminActionAudit.output, pattern),
-    );
-    if (search) clauses.push(search);
+    for (const term of auditSearchTerms(options.query)) {
+      const pattern = `%${term.replaceAll("%", "\\%").replaceAll("_", "\\_")}%`;
+      const search = or(
+        like(adminActionAudit.action, pattern),
+        like(adminActionAudit.params, pattern),
+        like(adminActionAudit.actorName, pattern),
+        like(adminActionAudit.actorEndpoint, pattern),
+        like(adminActionAudit.sourceIp, pattern),
+        like(adminActionAudit.output, pattern),
+        like(adminActionAudit.error, pattern),
+      );
+      if (search) clauses.push(search);
+    }
   }
   const where = clauses.length ? and(...clauses) : undefined;
   return getDb().select().from(adminActionAudit).where(where).orderBy(desc(adminActionAudit.id)).limit(options.limit || 100).all();
