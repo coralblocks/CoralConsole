@@ -15,7 +15,7 @@ function BrandContents({ subtitle }: Pick<ConsoleBrandProps, "subtitle">) {
     <>
       <span className="brand-mark" aria-hidden="true"><BrandIcon /></span>
       <span>
-        <strong>CoralConsole <span className="brand-version">v{packageMetadata.version}</span></strong>
+        <strong>CoralConsole<span className="brand-version">v{packageMetadata.version}</span></strong>
         <small>{subtitle}</small>
       </span>
     </>

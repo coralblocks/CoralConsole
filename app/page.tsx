@@ -394,7 +394,7 @@ export default function Home() {
   return (
     <main className="console-shell" style={themeStyle}>
       <header className="topbar">
-        <ConsoleBrand href="#topology" ariaLabel="CoralConsole home" subtitle="The Ops Console for CoralSequencer" />
+        <ConsoleBrand href="/" ariaLabel="CoralConsole home" subtitle="The Ops Console for CoralSequencer" />
         <div className="topbar-actions">
           <span className="environment" title="Shared topology"><i /> {settings.topologyName}</span>
           <Link className="intro-toggle nav-link" href="/audit" target="_blank" rel="noopener noreferrer">Audit</Link>
