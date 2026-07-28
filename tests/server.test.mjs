@@ -1004,7 +1004,8 @@ test("deployment and UI conventions stay explicit", async () => {
   assert.match(actorList, /<col className="actor-list-col-edit" \/>/);
   assert.match(styles, /\.actor-list-group-heading \{[^}]*grid-template-columns: minmax\(250px, auto\) minmax\(0, 1fr\) auto/);
   assert.match(styles, /\.actor-list-group-heading h2 \{[^}]*font-size: 17px[^}]*line-height: 1\.25/);
-  assert.match(styles, /\.actor-list-col-host \{[^}]*width: 19ch/);
+  assert.match(styles, /\.actor-list-col-name \{[^}]*width: 14%/);
+  assert.match(styles, /\.actor-list-col-host \{[^}]*width: 17ch/);
   assert.match(styles, /\.actor-list-col-port \{[^}]*width: 8ch/);
   assert.match(styles, /\.actor-list-col-edit \{[^}]*width: 142px/);
   assert.match(styles, /\.actor-list-feedback \{[^}]*height: 42px/);

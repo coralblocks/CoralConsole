@@ -443,9 +443,9 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .actor-list-table { border-collapse: collapse; min-width: 0; table-layout: fixed; width: 100%; }
 .actor-list-table thead { background: color-mix(in srgb, var(--actor-soft) 62%, white); }
 .actor-list-table th { color: color-mix(in srgb, var(--actor-color) 54%, var(--ink)); font-family: var(--font-plex-mono), monospace; font-size: 13px; font-weight: 800; letter-spacing: .08em; padding: 15px 12px; text-align: left; text-transform: uppercase; }
-.actor-list-col-name { width: 18%; }
+.actor-list-col-name { width: 14%; }
 .actor-list-col-class { width: auto; }
-.actor-list-col-host { width: 19ch; }
+.actor-list-col-host { width: 17ch; }
 .actor-list-col-port { width: 8ch; }
 .actor-list-col-status { width: 12%; }
 .actor-list-col-edit { width: 142px; }
