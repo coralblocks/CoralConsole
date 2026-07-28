@@ -4,6 +4,7 @@ import { actors, adminActionAudit, topologySettings, type ActorRow } from "@/db/
 import { DEMO_ACTORS } from "./demo-actors";
 import {
   BASELINE_ADMIN_ACTIONS,
+  DEFAULT_SUMMARY_ACTOR_KINDS,
   SUMMARY_ACTOR_KINDS,
   type Actor,
   type ActorKind,
@@ -69,7 +70,7 @@ function validOperationalState(value: string): ActorOperationalState {
 }
 
 function validSummaryActorKinds(value: unknown): SummaryActorKind[] {
-  if (!Array.isArray(value)) return [...SUMMARY_ACTOR_KINDS];
+  if (!Array.isArray(value)) return [...DEFAULT_SUMMARY_ACTOR_KINDS];
   const selected = new Set(value);
   return SUMMARY_ACTOR_KINDS.filter((kind) => selected.has(kind));
 }

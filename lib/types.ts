@@ -12,6 +12,9 @@ export const SUMMARY_ACTOR_KINDS = [
 ] as const;
 
 export type SummaryActorKind = typeof SUMMARY_ACTOR_KINDS[number];
+export const DEFAULT_SUMMARY_ACTOR_KINDS: SummaryActorKind[] = SUMMARY_ACTOR_KINDS.filter(
+  (kind) => kind !== "application" && kind !== "multimqapp",
+);
 export type ActorKind = SummaryActorKind | "link";
 
 export type ActorStatus = "online" | "offline";

@@ -14,9 +14,15 @@ import {
   type ActorOperationalState,
 } from "./actor-ui";
 import { sessionStartFromId } from "@/lib/session";
-import { SUMMARY_ACTOR_KINDS, type SummaryActorKind, type TopologySettings } from "@/lib/types";
+import {
+  DEFAULT_SUMMARY_ACTOR_KINDS,
+  SUMMARY_ACTOR_KINDS,
+  type SummaryActorKind,
+  type TopologySettings,
+} from "@/lib/types";
 
 const LEGACY_ACTORS_KEY = "coral-console-actors";
+const ACTOR_COUNTS_VISIBILITY_KEY = "coral-console-counts";
 const ACTOR_FILTERS = [
   "all",
   "online",
@@ -88,7 +94,7 @@ const DEFAULT_SETTINGS: TopologySettings = {
   keepPollingWithoutViewers: false,
   viewerGracePeriodSeconds: 90,
   auditRetentionDays: 90,
-  summaryActorKinds: [...SUMMARY_ACTOR_KINDS],
+  summaryActorKinds: [...DEFAULT_SUMMARY_ACTOR_KINDS],
   setupComplete: false,
 };
 
@@ -178,6 +184,7 @@ export default function Home() {
   const [ready, setReady] = useState(false);
   const [pageError, setPageError] = useState("");
   const [introVisible, setIntroVisible] = useState(true);
+  const [actorCountsVisible, setActorCountsVisible] = useState(true);
   const [filter, setFilter] = useState<ActorFilter>("all");
   const [addOpen, setAddOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -241,6 +248,7 @@ export default function Home() {
         .finally(() => { if (active) setReady(true); });
       try {
         if (window.localStorage.getItem("coral-console-intro") === "hidden") setIntroVisible(false);
+        if (window.localStorage.getItem(ACTOR_COUNTS_VISIBILITY_KEY) === "hidden") setActorCountsVisible(false);
         const saved = window.localStorage.getItem(LEGACY_ACTORS_KEY);
         if (saved) setLegacyActors(normalizeSavedActors(JSON.parse(saved)).filter((actor) => !actor.demo));
       } catch {
@@ -305,6 +313,8 @@ export default function Home() {
   const sessionSequencer = actors.find((actor) => actor.kind === "sequencer" && actor.status === "online")
     || actors.find((actor) => actor.kind === "sequencer");
   const visibleSummaryKinds = SUMMARY_ACTOR_KINDS.filter((kind) => settings.summaryActorKinds.includes(kind));
+  const showActorCounts = actorCountsVisible && visibleSummaryKinds.length > 0;
+  const summaryColumns = visibleSummaryKinds.length === 8 ? 4 : Math.min(3, visibleSummaryKinds.length);
 
   function toggleSummaryActorKind(kind: SummaryActorKind) {
     setSettingsDraft((current) => {
@@ -322,6 +332,14 @@ export default function Home() {
     setIntroVisible((current) => {
       const next = !current;
       window.localStorage.setItem("coral-console-intro", next ? "visible" : "hidden");
+      return next;
+    });
+  }
+
+  function toggleActorCounts() {
+    setActorCountsVisible((current) => {
+      const next = !current;
+      window.localStorage.setItem(ACTOR_COUNTS_VISIBILITY_KEY, next ? "visible" : "hidden");
       return next;
     });
   }
@@ -407,6 +425,9 @@ export default function Home() {
           <span className="environment" title="Shared topology"><i /> {settings.topologyName}</span>
           <Link className="intro-toggle nav-link" href="/audit" target="_blank" rel="noopener noreferrer">Audit</Link>
           <button className="intro-toggle" type="button" onClick={() => { setSettingsDraft(settings); setSettingsOpen(true); }}>Settings</button>
+          <button className="intro-toggle" type="button" onClick={toggleActorCounts} aria-expanded={actorCountsVisible} aria-controls="actor-counts">
+            {actorCountsVisible ? "Hide counts" : "Show counts"}
+          </button>
           <button className="intro-toggle" type="button" onClick={toggleIntro} aria-expanded={introVisible} aria-controls="console-intro">
             {introVisible ? "Hide intro" : "Show intro"}
           </button>
@@ -431,11 +452,12 @@ export default function Home() {
 
       {pageError && <p className="page-alert" role="alert">{pageError}</p>}
 
-      <section className={`system-overview${visibleSummaryKinds.length ? "" : " summary-counts-hidden"}`} aria-label="System summary">
-        {visibleSummaryKinds.length > 0 && <div
+      <section className={`system-overview${showActorCounts ? "" : " summary-counts-hidden"}`} aria-label="System summary">
+        {showActorCounts && <div
+          id="actor-counts"
           className="actor-summary"
           aria-label="Actor type counts"
-          style={{ "--summary-columns": Math.min(3, visibleSummaryKinds.length) } as CSSProperties}
+          style={{ "--summary-columns": summaryColumns } as CSSProperties}
         >
           {visibleSummaryKinds.map((kind) => {
             const count = actors.filter((actor) => actor.kind === kind).length;
@@ -566,9 +588,18 @@ export default function Home() {
               </section>
               {GROUPS.map((group) => {
                 const grouped = actorsInPanelOrder(visibleActors, group.kinds);
+                const groupTitle = group.id === "transport"
+                  ? [
+                      "Bridge",
+                      settings.summaryActorKinds.includes("dispatcher") && "Dispatcher",
+                      settings.summaryActorKinds.includes("multimqapp") && "MultiMqApp",
+                    ].filter(Boolean).join(" · ")
+                  : group.id === "customer"
+                    ? ["Nodes", settings.summaryActorKinds.includes("application") && "Applications"].filter(Boolean).join(" · ")
+                    : group.title;
                 return (
                   <section className={`actor-group group-${group.id}`} key={group.id} aria-labelledby={`group-${group.id}`}>
-                    <div className="group-heading"><div><p>{group.eyebrow}</p><h3 id={`group-${group.id}`}>{group.title}</h3></div><ActorGroupCountLink count={grouped.length} label={group.eyebrow} /></div>
+                    <div className="group-heading"><div><p>{group.eyebrow}</p><h3 id={`group-${group.id}`}>{groupTitle}</h3></div><ActorGroupCountLink count={grouped.length} label={group.eyebrow} /></div>
                     <div className="group-cards">{grouped.map((actor) => <ActorCard key={actor.id} actor={actor} />)}{!grouped.length && <p className="empty-group">No matching actors</p>}</div>
                   </section>
                 );
@@ -625,8 +656,8 @@ export default function Home() {
                 </div>
               </fieldset>
               <fieldset className="summary-settings">
-                <legend>Summary counts</legend>
-                <p>Choose which actor types appear in the count panel. Actors remain visible everywhere else.</p>
+                <legend>Actor counts</legend>
+                <p>Choose which actor types appear in the Actor Counts panel. Actors remain visible everywhere else.</p>
                 <div className="summary-kind-options">
                   {SUMMARY_ACTOR_KINDS.map((kind) => (
                     <label key={kind}>

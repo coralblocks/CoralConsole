@@ -293,6 +293,16 @@ test("standalone server persists settings, actors, and admin action audit in SQL
     assert.equal("healthCheckIntervalSeconds" in initial.settings, false);
     assert.equal(initial.settings.keepPollingWithoutViewers, false);
     assert.equal(initial.settings.viewerGracePeriodSeconds, 90);
+    assert.deepEqual(initial.settings.summaryActorKinds, [
+      "sequencer",
+      "backup-sequencer",
+      "replayer",
+      "archiver",
+      "logger",
+      "bridge",
+      "dispatcher",
+      "node",
+    ]);
 
     const saved = await json(server.baseUrl, "/api/settings", {
       method: "PATCH",
@@ -749,6 +759,7 @@ test("actor migrations preserve audit references and initialize status metadata"
       "0011_rare_captain_america",
       "0012_milky_kingpin",
       "0013_concerned_gamma_corps",
+      "0014_chilly_cammi",
     ];
     for (const [index, name] of migrationNames.entries()) {
       if (index === 5) {
@@ -879,7 +890,13 @@ test("deployment and UI conventions stay explicit", async () => {
   assert.match(page, /setFilter\("disconnected"\)/);
   assert.match(page, /onClick=\{\(\) => setFilter\(state\)\}/);
   assert.match(page, /<h2>Actor Map<\/h2>/);
-  assert.match(page, /"--summary-columns": Math\.min\(3, visibleSummaryKinds\.length\)/);
+  assert.match(page, /visibleSummaryKinds\.length === 8 \? 4 : Math\.min\(3, visibleSummaryKinds\.length\)/);
+  assert.match(page, /ACTOR_COUNTS_VISIBILITY_KEY = "coral-console-counts"/);
+  assert.match(page, /\{actorCountsVisible \? "Hide counts" : "Show counts"\}/);
+  assert.match(page, /showActorCounts && <div[\s\S]*id="actor-counts"/);
+  assert.match(page, /settings\.summaryActorKinds\.includes\("dispatcher"\) && "Dispatcher"/);
+  assert.match(page, /settings\.summaryActorKinds\.includes\("multimqapp"\) && "MultiMqApp"/);
+  assert.match(page, /settings\.summaryActorKinds\.includes\("application"\) && "Applications"/);
   assert.match(page, /sessionSequencer\?\.sessionStarted && <span>Started \{sessionSequencer\.sessionStarted\}<\/span>/);
   assert.doesNotMatch(page, /Start time not reported/);
   assert.match(page, /Immediately poll actorStatus and list for every actor/);
@@ -934,7 +951,7 @@ test("deployment and UI conventions stay explicit", async () => {
   assert.match(page, /left\.sortOrder \?\? Number\.MAX_SAFE_INTEGER/);
   assert.match(page, /const grouped = actorsInPanelOrder\(visibleActors, group\.kinds\)/);
   assert.doesNotMatch(page, /Shared topology · Persisted in SQLite/);
-  assert.match(consoleChrome, /CoralConsole <span className="brand-version">v\{packageMetadata\.version\}<\/span>/);
+  assert.match(consoleChrome, /CoralConsole<span className="brand-version">v\{packageMetadata\.version\}<\/span>/);
   assert.match(consoleChrome, /CoralConsole v\{packageMetadata\.version\}/);
   assert.match(consoleChrome, /Shared topology · Persisted in SQLite/);
   assert.match(actorList, /<tr><th>Name<\/th><th>Class<\/th><th>REST IP<\/th><th>PORT<\/th><th>Online\?<\/th><th>Edit<\/th><th>Remove<\/th><\/tr>/);
