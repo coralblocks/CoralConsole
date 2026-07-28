@@ -1078,7 +1078,8 @@ test("deployment and UI conventions stay explicit", async () => {
   assert.match(setVersion, /packageMetadata\.version = version/);
   assert.match(setVersion, /packageLock\.packages\[""\]\.version = version/);
   assert.match(viewerPresence, /\/api\/presence/);
-  assert.match(viewerPresence, /crypto\.randomUUID/);
+  assert.match(viewerPresence, /typeof globalThis\.crypto\?\.randomUUID === "function"/);
+  assert.match(viewerPresence, /Math\.random/);
   assert.match(guide, /Keep this file current/);
   assert.match(compose, /coralconsole-data:\/data/);
   assert.match(compose, /coralconsole-ingress:/);
@@ -1099,6 +1100,7 @@ test("deployment and UI conventions stay explicit", async () => {
   assert.match(dockerStop, /coralconsole-ingress coralconsole/);
   assert.doesNotMatch(`${dockerStart}\n${dockerStop}`, /down\s+-v|volume\s+rm|prune/);
   assert.match(devCompose, /WATCHPACK_POLLING: "true"/);
+  assert.match(devCompose, /CORAL_DEV_ALLOWED_ORIGINS/);
   assert.match(devCompose, /command: npm run dev -- --webpack/);
   assert.match(devCompose, /- \.:\/app/);
   assert.match(devCompose, /- coralconsole-data:\/data/);
@@ -1113,6 +1115,8 @@ test("deployment and UI conventions stay explicit", async () => {
   assert.match(dockerRelease, /docker compose up -d --no-build --wait coralconsole coralconsole-ingress/);
   assert.doesNotMatch(dockerRelease, /down\s+-v|volume\s+rm|prune/);
   assert.match(nextConfig, /process\.env\.NODE_ENV === "development"/);
+  assert.match(nextConfig, /allowedDevOrigins/);
+  assert.match(nextConfig, /192\.168\.\*\.\*/);
   assert.match(nextConfig, /'unsafe-eval'/);
   assert.match(nextConfig, /: "'self' 'unsafe-inline'";/);
   assert.match(dockerBackup, /source\.backup/);

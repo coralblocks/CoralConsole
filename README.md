@@ -77,7 +77,7 @@ For the fastest UI iteration, run the Docker development mode:
 npm run docker:dev:start
 ```
 
-Open [http://localhost:3000](http://localhost:3000). Source changes are bind-mounted into a Next.js development server and hot-reload without rebuilding Docker. Development mode uses the same `coralconsole-data` volume as the production container, but the two modes never run concurrently.
+Open [http://localhost:3000](http://localhost:3000). Source changes are bind-mounted into a Next.js development server and hot-reload without rebuilding Docker. Development mode accepts browser origins on RFC 1918 private networks and `.local` hostnames so another workstation can test the UI. Add any other development hostnames to `CORAL_DEV_ALLOWED_ORIGINS` as a comma-separated list. Development mode uses the same `coralconsole-data` volume as the production container, but the two modes never run concurrently.
 
 Rebuild the development image and its cached dependency volume only after changing `package.json`, `package-lock.json`, or `Dockerfile.dev`:
 
@@ -128,6 +128,7 @@ The REST admin request and response format is documented in [examples_rest_serve
 | `DATABASE_PATH` | `/data/coralconsole.db` in Docker | SQLite database location. |
 | `CORAL_DEMO_MODE` | `false` | Adds clearly marked, simulated sample actors when `true`. |
 | `CORAL_TRUST_PROXY` | `false` | For custom non-Compose deployments only: trusts client-IP headers from a proxy that overwrites them. The reference Compose ingress does not use them. |
+| `CORAL_DEV_ALLOWED_ORIGINS` | empty | Additional comma-separated hostnames that may load Next.js development assets; RFC 1918 private networks and `.local` are already allowed. |
 
 Topology name, workspace color, refresh interval, audit retention, and which actor types appear in the summary count panel are shared settings editable in the UI and persisted in SQLite.
 

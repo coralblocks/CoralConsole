@@ -111,6 +111,8 @@ Use a fast path for isolated, predictably low-risk presentation tweaks such as c
 
 Prefer `docker:dev:start` during iterative UI work so source edits hot-reload without production image rebuilds. Rebuild the development image only when its dependencies or Dockerfile change. Run `docker:release` once when approved source needs to become the production container; ordinary production restarts with unchanged source use `docker:start` and do not rebuild.
 
+The Next.js development server accepts browser origins on RFC 1918 private networks and `.local` hostnames so the bind-mounted Docker development app can be tested from another workstation. Use the comma-separated `CORAL_DEV_ALLOWED_ORIGINS` setting only for additional development hostnames. This allowlist does not affect production.
+
 The raw TCP mock actor in the integration suite must handle `ECONNRESET` and `EPIPE` as normal peer teardown while continuing to fail on every other socket error. Do not mask application failures with broad retries.
 
 ## Git workflow

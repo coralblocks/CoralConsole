@@ -4,9 +4,24 @@ const scriptSources = process.env.NODE_ENV === "development"
   ? "'self' 'unsafe-inline' 'unsafe-eval'"
   : "'self' 'unsafe-inline'";
 
+const privateNetworkDevOrigins = [
+  "10.*.*.*",
+  "192.168.*.*",
+  ...Array.from({ length: 16 }, (_, offset) => `172.${offset + 16}.*.*`),
+  "*.local",
+];
+
+const configuredDevOrigins = (process.env.CORAL_DEV_ALLOWED_ORIGINS || "")
+  .split(",")
+  .map((origin) => origin.trim())
+  .filter(Boolean);
+
 const nextConfig: NextConfig = {
   output: "standalone",
   serverExternalPackages: ["better-sqlite3"],
+  allowedDevOrigins: process.env.NODE_ENV === "development"
+    ? [...new Set([...privateNetworkDevOrigins, ...configuredDevOrigins])]
+    : undefined,
   outputFileTracingIncludes: {
     "/*": ["./drizzle/**/*"],
   },

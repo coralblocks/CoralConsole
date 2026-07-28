@@ -2,9 +2,20 @@
 
 import { useEffect } from "react";
 
+function createViewerId() {
+  if (typeof globalThis.crypto?.randomUUID === "function") {
+    return globalThis.crypto.randomUUID();
+  }
+
+  // Plain HTTP on a private LAN is not a secure browser context, so Web Crypto
+  // may be unavailable. This ID only distinguishes short-lived viewer presence;
+  // it is not used for authentication or any security decision.
+  return `viewer-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+}
+
 export default function ViewerPresence() {
   useEffect(() => {
-    const id = crypto.randomUUID();
+    const id = createViewerId();
     let stopped = false;
     let sending = false;
     let timer: number | undefined;

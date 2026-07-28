@@ -8,6 +8,7 @@ services:
     environment:
       NODE_ENV: development
       WATCHPACK_POLLING: "true"
+      CORAL_DEV_ALLOWED_ORIGINS: ${CORAL_DEV_ALLOWED_ORIGINS:-}
     command: npm run dev -- --webpack
     volumes:
       - .:/app
