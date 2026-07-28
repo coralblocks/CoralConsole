@@ -528,7 +528,12 @@ export default function Home() {
             const count = actors.filter((actor) => actor.kind === kind).length;
             const Icon = ACTOR_META[kind].icon;
             return (
-              <div className={`actor-metric actor-${kind}`} key={kind} aria-label={`${count} ${ACTOR_META[kind].summaryLabel}`}>
+              <div
+                className={`actor-metric actor-${kind}`}
+                key={kind}
+                aria-label={`${count} ${ACTOR_META[kind].summaryLabel}`}
+                title={ACTOR_META[kind].summaryTooltip}
+              >
                 <span className="actor-type-icon" aria-hidden="true"><Icon /></span>
                 <p><strong>{count}</strong><small>{ACTOR_META[kind].summaryLabel}</small></p>
               </div>
