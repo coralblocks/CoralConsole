@@ -361,6 +361,27 @@ test("standalone server persists settings, actors, and admin action audit in SQL
     ]);
     assert.deepEqual(actorServer.requestConnections, [1, 2, 3]);
 
+    const discoveryRequestsBeforeDuplicate = actorServer.requests.filter((request) =>
+      request.adminCommand === "list"
+      && request.params === ""
+      && !Object.hasOwn(request, "shouldLog")
+    ).length;
+    const duplicateCreateResponse = await fetch(`${server.baseUrl}/api/actors`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ host: "127.0.0.1", port: actorServer.port }),
+    });
+    assert.equal(duplicateCreateResponse.status, 409);
+    assert.match((await duplicateCreateResponse.json()).error, /already exists/i);
+    assert.equal(
+      actorServer.requests.filter((request) =>
+        request.adminCommand === "list"
+        && request.params === ""
+        && !Object.hasOwn(request, "shouldLog")
+      ).length,
+      discoveryRequestsBeforeDuplicate,
+    );
+
     const orderBefore = await json(server.baseUrl, "/api/actors");
     const sequencersBefore = orderBefore.actors.filter((actor) => actor.kind === "sequencer");
     const reorderedIds = [
@@ -1036,7 +1057,8 @@ test("deployment and UI conventions stay explicit", async () => {
   assert.match(actorDetail, /\/api\/actors\/refresh/);
   assert.doesNotMatch(actorDetail, /\/api\/actors\/health/);
   assert.match(actorDetail, /Recent activity/);
-  assert.match(actorDetail, /href="\/audit" target="_blank" rel="noopener noreferrer">Audit/);
+  assert.match(actorDetail, /href="\/actors" target="_blank" rel="noopener noreferrer">List Actors/);
+  assert.match(actorDetail, /href=\{`\/audit\?actorId=\$\{encodeURIComponent\(actorId\)\}`\} target="_blank" rel="noopener noreferrer">Audit Actor/);
   assert.match(actorDetail, /href=\{`\/audit\?actorId=\$\{encodeURIComponent\(actor\.id\)\}`\} target="_blank" rel="noopener noreferrer">Open Actor Full Audit/);
   assert.match(actorDetail, /auditOutcomeLabel\(entry\.outcome\)/);
   assert.match(actorDetail, /<ConsoleBrand href="\/" ariaLabel="CoralConsole topology" subtitle="Actor detail" \/>/);

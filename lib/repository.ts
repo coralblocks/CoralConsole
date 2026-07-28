@@ -158,6 +158,14 @@ export function getActor(id: string) {
   return row ? rowToActor(row) : null;
 }
 
+export function getActorByEndpoint(host: string, port: number) {
+  syncDemoMode();
+  const row = getDb().select().from(actors)
+    .where(and(eq(actors.host, host), eq(actors.port, port)))
+    .get();
+  return row ? rowToActor(row) : null;
+}
+
 export function createActor(actor: Actor) {
   const now = new Date().toISOString();
   const nextSortOrder = getSqlite()

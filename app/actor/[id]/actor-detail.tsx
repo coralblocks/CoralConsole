@@ -148,7 +148,10 @@ export default function ActorDetail({ actorId }: { actorId: string }) {
     <main className="console-shell actor-detail-page">
       <header className="topbar">
         <ConsoleBrand href="/" ariaLabel="CoralConsole topology" subtitle="Actor detail" />
-        <div className="topbar-actions"><Link className="intro-toggle nav-link" href="/audit" target="_blank" rel="noopener noreferrer">Audit</Link></div>
+        <div className="topbar-actions">
+          <Link className="intro-toggle nav-link" href="/actors" target="_blank" rel="noopener noreferrer">List Actors</Link>
+          <Link className="intro-toggle nav-link" href={`/audit?actorId=${encodeURIComponent(actorId)}`} target="_blank" rel="noopener noreferrer">Audit Actor</Link>
+        </div>
       </header>
 
       <section className="actor-detail-main" aria-live="polite">

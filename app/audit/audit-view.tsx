@@ -73,6 +73,13 @@ export default function AuditView() {
     setAppliedQuery("");
   }
 
+  function clearActorScope() {
+    setActorId("");
+    const url = new URL(window.location.href);
+    url.searchParams.delete("actorId");
+    window.history.replaceState(null, "", `${url.pathname}${url.search}${url.hash}`);
+  }
+
   const hasSearch = Boolean(query || appliedQuery);
 
   return (
@@ -119,7 +126,7 @@ export default function AuditView() {
                 </button>
               ))}
             </div>
-            {actorId && <button className="actor-scope" type="button" onClick={() => setActorId("")}>Actor scope active ×</button>}
+            {actorId && <button className="actor-scope" type="button" onClick={clearActorScope}>Actor scope active ×</button>}
           </div>
         </form>
 
