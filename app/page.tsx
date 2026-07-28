@@ -470,9 +470,9 @@ export default function Home() {
             );
           })}
         </div>}
-        <aside className="pulse-panel" id="system-pulse" aria-label="System Pulse">
+        <aside className="pulse-panel" aria-label="System Pulse">
           <div className="pulse-heading">
-            <a className="health-orbit" href="#system-pulse" aria-label="Jump to System Pulse" aria-controls="topology" onClick={() => setFilter("all")}><span /><span /><span /></a>
+            <button className="health-orbit" type="button" aria-label="Show all actors" aria-controls="topology" onClick={() => setFilter("all")}><span /><span /><span /></button>
             <div className="pulse-copy">
               <small>System Pulse</small>
               <button

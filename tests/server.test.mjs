@@ -882,8 +882,9 @@ test("deployment and UI conventions stay explicit", async () => {
   assert.match(page, /Added to CoralConsole/);
   assert.match(page, /className="pulse-total"[\s\S]*type="button"[\s\S]*aria-pressed=\{filter === "all"\}[\s\S]*onClick=\{\(\) => setFilter\("all"\)\}/);
   assert.doesNotMatch(styles, /\.pulse-total:hover span \{[^}]*text-decoration/);
-  assert.match(page, /id="system-pulse"/);
-  assert.match(page, /href="#system-pulse"/);
+  assert.doesNotMatch(page, /id="system-pulse"/);
+  assert.doesNotMatch(page, /href="#system-pulse"/);
+  assert.match(page, /className="health-orbit" type="button" aria-label="Show all actors"/);
   assert.match(page, /onClick=\{\(\) => setFilter\("all"\)\}/);
   assert.match(page, /const pulseConnectivityFilter: ActorFilter = !actors\.length \? "all" : offlineCount \? "offline" : "online"/);
   assert.match(page, /setFilter\(pulseConnectivityFilter\)/);

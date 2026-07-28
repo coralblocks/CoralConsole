@@ -83,7 +83,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .hero h1 { font-size: clamp(47px, 6vw, 82px); letter-spacing: -.065em; line-height: .96; margin: 0; max-width: 850px; }
 .hero h1 em { color: var(--coral); font-style: normal; }
 .hero-copy { color: var(--muted); font-size: 16px; line-height: 1.75; margin: 27px 0 0; max-width: 690px; }
-.health-orbit { align-items: center; border: 1px solid rgba(255,255,255,.17); border-radius: 50%; color: inherit; cursor: pointer; display: flex; flex: 0 0 56px; height: 56px; justify-content: center; position: relative; text-decoration: none; transition: border-color .2s ease, transform .2s ease; }
+.health-orbit { align-items: center; background: transparent; border: 1px solid rgba(255,255,255,.17); border-radius: 50%; color: inherit; cursor: pointer; display: flex; flex: 0 0 56px; height: 56px; justify-content: center; padding: 0; position: relative; text-decoration: none; transition: border-color .2s ease, transform .2s ease; }
 .health-orbit:hover { border-color: rgba(255,255,255,.34); transform: scale(1.035); }
 .health-orbit:before { background: var(--lime); border-radius: 50%; box-shadow: 0 0 17px var(--lime); content: ""; height: 12px; width: 12px; }
 .health-orbit span { background: var(--cyan); border-radius: 50%; height: 5px; left: 3px; position: absolute; top: 25px; width: 5px; }
