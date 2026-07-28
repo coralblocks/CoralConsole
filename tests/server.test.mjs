@@ -856,6 +856,7 @@ test("deployment and UI conventions stay explicit", async () => {
     readFile(join(projectRoot, "lib/http.ts"), "utf8"),
   ]);
   assert.match(page, /target="_blank"/);
+  assert.match(page, /<main className="console-shell home-page" style=\{themeStyle\}>/);
   assert.match(page, /href="\/audit" target="_blank" rel="noopener noreferrer">Audit/);
   assert.match(page, /\/api\/actors\/refresh/);
   assert.doesNotMatch(page, /\/api\/actors\/health/);
@@ -938,6 +939,9 @@ test("deployment and UI conventions stay explicit", async () => {
   assert.match(styles, /\.group-count-link \{[^}]*font-size: 11px[^}]*transition:/);
   assert.match(styles, /\.group-count-link:hover \{[^}]*transform: translateY\(-1px\)/);
   assert.match(styles, /\.topology-heading \{[^}]*display: grid[^}]*grid-template-columns: minmax\(0, 1fr\) auto/);
+  assert.match(styles, /\.console-shell\.home-page \{[^}]*overflow: clip/);
+  assert.match(styles, /\.home-page > \.topbar \{[^}]*position: sticky[^}]*top: 0/);
+  assert.match(styles, /\.topbar \{[^}]*position: relative/);
   assert.match(styles, /\.topology-heading-actions \{[^}]*grid-column: 2[^}]*grid-row: 1[^}]*justify-self: end/);
   assert.match(styles, /\.topology-heading-actions \.button \{[^}]*font-weight: 500/);
   assert.match(styles, /\.topology-heading \.filters \{[^}]*grid-column: 1 \/ -1[^}]*grid-row: 2/);

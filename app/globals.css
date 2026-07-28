@@ -41,6 +41,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   min-height: 100vh;
   overflow: hidden;
 }
+.console-shell.home-page { overflow: clip; }
 .topbar {
   align-items: center;
   backdrop-filter: blur(18px);
@@ -50,9 +51,12 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   height: 78px;
   justify-content: space-between;
   padding: 0 clamp(24px, 5vw, 80px);
+  position: relative;
+  z-index: 30;
+}
+.home-page > .topbar {
   position: sticky;
   top: 0;
-  z-index: 30;
 }
 .brand { align-items: center; color: inherit; display: flex; gap: 13px; text-decoration: none; }
 .brand > span:last-child { display: grid; line-height: 1.1; }

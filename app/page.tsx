@@ -471,7 +471,7 @@ export default function Home() {
   const themeStyle = { "--topology-color": settings.backgroundColor } as CSSProperties;
 
   return (
-    <main className="console-shell" style={themeStyle}>
+    <main className="console-shell home-page" style={themeStyle}>
       <header className="topbar">
         <ConsoleBrand href="/" ariaLabel="CoralConsole home" subtitle="The Ops Console for CoralSequencer" />
         <div className="topbar-actions">
