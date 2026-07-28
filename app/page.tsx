@@ -199,6 +199,7 @@ export default function Home() {
   const [ready, setReady] = useState(false);
   const [pageError, setPageError] = useState("");
   const [serverConnected, setServerConnected] = useState<boolean | null>(null);
+  const [orbitPaused, setOrbitPaused] = useState(false);
   const [introVisible, setIntroVisible] = useState(true);
   const [actorCountsVisible, setActorCountsVisible] = useState(true);
   const [filter, setFilter] = useState<ActorFilter>("all");
@@ -469,13 +470,24 @@ export default function Home() {
   }
 
   const themeStyle = { "--topology-color": settings.backgroundColor } as CSSProperties;
+  const serverStatusLabel = serverConnected === false
+    ? "CoralConsole server unavailable"
+    : serverConnected === true
+      ? "Connected to CoralConsole server"
+      : "Checking CoralConsole server connection";
 
   return (
     <main className="console-shell home-page" style={themeStyle}>
       <header className="topbar">
         <ConsoleBrand href="/" ariaLabel="CoralConsole home" subtitle="The Ops Console for CoralSequencer" />
         <div className="topbar-actions">
-          <span className="environment" title="Shared topology"><i /> {settings.topologyName}</span>
+          <span
+            className={`environment server-status-${serverConnected === false ? "offline" : serverConnected === true ? "online" : "checking"}`}
+            title={serverStatusLabel}
+            aria-label={`${settings.topologyName}: ${serverStatusLabel}`}
+          >
+            <i aria-hidden="true" /> {settings.topologyName}
+          </span>
           <Link className="intro-toggle nav-link" href="/audit" target="_blank" rel="noopener noreferrer">Audit</Link>
           <button className="intro-toggle" type="button" onClick={() => { setSettingsDraft(settings); setSettingsOpen(true); }}>Settings</button>
           <button className="intro-toggle" type="button" onClick={toggleActorCounts} aria-expanded={actorCountsVisible} aria-controls="actor-counts">
@@ -525,7 +537,21 @@ export default function Home() {
         </div>}
         <aside className="pulse-panel" aria-label="System Pulse">
           <div className="pulse-heading">
-            <button className="health-orbit" type="button" aria-label="Show all actors" aria-controls="topology" onClick={() => setFilter("all")}><span /><span /><span /></button>
+            <button
+              className={`health-orbit${orbitPaused ? " orbit-paused" : ""}`}
+              type="button"
+              aria-label={orbitPaused ? "Resume System Pulse orbit animation" : "Pause System Pulse orbit animation"}
+              aria-pressed={orbitPaused}
+              title={orbitPaused ? "Resume orbit animation" : "Pause orbit animation"}
+              onClick={() => setOrbitPaused((current) => !current)}
+            >
+              <span className="health-orbit-core" aria-hidden="true" />
+              <span className="health-orbit-track" aria-hidden="true">
+                <i className="health-orbit-dot orbit-dot-cyan" />
+                <i className="health-orbit-dot orbit-dot-coral" />
+                <i className="health-orbit-dot orbit-dot-violet" />
+              </span>
+            </button>
             <div className="pulse-copy">
               <small>System Pulse</small>
               <button

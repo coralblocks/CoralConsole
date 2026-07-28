@@ -70,7 +70,14 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .brand-mark svg { height: 25px; stroke-width: 2; width: 25px; }
 .topbar-actions { align-items: center; display: flex; gap: 14px; }
 .environment { align-items: center; background: rgba(255,255,255,.62); border: 1px solid var(--line); border-radius: 999px; color: var(--muted); display: flex; font-family: var(--font-plex-mono), monospace; font-size: 11px; gap: 8px; padding: 10px 14px; text-transform: uppercase; }
-.environment i { background: var(--lime); border-radius: 50%; box-shadow: 0 0 0 4px var(--lime-soft); height: 7px; width: 7px; }
+.environment i { border-radius: 50%; flex: 0 0 7px; height: 7px; transition: background-color .2s ease, box-shadow .2s ease; width: 7px; }
+.environment.server-status-online i { animation: server-status-pulse 1.8s ease-out infinite; background: var(--lime); box-shadow: 0 0 0 4px var(--lime-soft); }
+.environment.server-status-offline i { animation: none; background: var(--coral); box-shadow: 0 0 0 4px var(--coral-soft); }
+.environment.server-status-checking i { animation: none; background: #a5b8b2; box-shadow: 0 0 0 4px rgba(165, 184, 178, .18); }
+@keyframes server-status-pulse {
+  0%, 100% { box-shadow: 0 0 0 4px var(--lime-soft), 0 0 0 0 rgba(181, 219, 85, .42); }
+  50% { box-shadow: 0 0 0 4px var(--lime-soft), 0 0 0 8px rgba(181, 219, 85, 0); }
+}
 .intro-toggle { background: transparent; border: 0; border-radius: 8px; color: var(--muted); cursor: pointer; font-family: var(--font-plex-mono), monospace; font-size: 9px; font-weight: 600; padding: 10px 8px; text-transform: uppercase; }
 .intro-toggle:hover { background: rgba(255, 255, 255, .7); color: var(--ink); }
 .nav-link { align-items: center; display: inline-flex; text-decoration: none; }
@@ -90,12 +97,18 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .hero h1 { font-size: clamp(47px, 6vw, 82px); letter-spacing: -.065em; line-height: .96; margin: 0; max-width: 850px; }
 .hero h1 em { color: var(--coral); font-style: normal; }
 .hero-copy { color: var(--muted); font-size: 16px; line-height: 1.75; margin: 27px 0 0; max-width: 690px; }
-.health-orbit { align-items: center; background: transparent; border: 1px solid rgba(255,255,255,.17); border-radius: 50%; color: inherit; cursor: pointer; display: flex; flex: 0 0 56px; height: 56px; justify-content: center; padding: 0; position: relative; text-decoration: none; transition: border-color .2s ease, transform .2s ease; }
+.health-orbit { align-items: center; background: transparent; border: 1px solid rgba(255,255,255,.17); border-radius: 50%; color: inherit; cursor: pointer; display: flex; flex: 0 0 56px; height: 56px; justify-content: center; overflow: hidden; padding: 0; position: relative; text-decoration: none; transition: border-color .2s ease, transform .2s ease; }
 .health-orbit:hover { border-color: rgba(255,255,255,.34); transform: scale(1.035); }
-.health-orbit:before { background: var(--lime); border-radius: 50%; box-shadow: 0 0 17px var(--lime); content: ""; height: 12px; width: 12px; }
-.health-orbit span { background: var(--cyan); border-radius: 50%; height: 5px; left: 3px; position: absolute; top: 25px; width: 5px; }
-.health-orbit span:nth-child(2) { background: var(--coral); left: auto; right: 8px; top: 8px; }
-.health-orbit span:nth-child(3) { background: var(--violet); bottom: 7px; left: auto; right: 10px; top: auto; }
+.health-orbit-core { background: var(--lime); border-radius: 50%; box-shadow: 0 0 17px var(--lime); height: 12px; width: 12px; }
+.health-orbit-track { animation: health-orbit-spin 12s linear infinite; inset: 0; position: absolute; transform-origin: 50% 50%; }
+.health-orbit.orbit-paused .health-orbit-track { animation-play-state: paused; }
+.health-orbit-dot { border-radius: 50%; height: 5px; position: absolute; width: 5px; }
+.orbit-dot-cyan { background: var(--cyan); left: 3px; top: 25px; }
+.orbit-dot-coral { background: var(--coral); right: 8px; top: 8px; }
+.orbit-dot-violet { background: var(--violet); bottom: 7px; right: 10px; }
+@keyframes health-orbit-spin {
+  to { transform: rotate(360deg); }
+}
 
 .system-overview { display: grid; gap: 18px; grid-template-columns: 1fr; margin: 0 auto 28px; max-width: var(--shell-content-max); padding: 0 var(--shell-gutter); width: 100%; }
 .actor-summary { background: var(--line); border: 1px solid var(--line); border-radius: 18px; display: grid; gap: 1px; grid-template-columns: repeat(var(--summary-columns, 3), minmax(0, 1fr)); overflow: hidden; }
@@ -800,10 +813,11 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   .pulse-panel { border-radius: 24px; padding: 25px; }
   .pulse-heading { gap: 20px; }
   .health-orbit { flex-basis: 76px; height: 76px; }
-  .health-orbit:before { height: 17px; width: 17px; }
-  .health-orbit span { height: 7px; left: 4px; top: 34px; width: 7px; }
-  .health-orbit span:nth-child(2) { right: 11px; top: 11px; }
-  .health-orbit span:nth-child(3) { bottom: 10px; right: 14px; }
+  .health-orbit-core { height: 17px; width: 17px; }
+  .health-orbit-dot { height: 7px; width: 7px; }
+  .orbit-dot-cyan { left: 4px; top: 34px; }
+  .orbit-dot-coral { right: 11px; top: 11px; }
+  .orbit-dot-violet { bottom: 10px; right: 14px; }
   .pulse-copy { gap: 18px; }
   .pulse-heading small, .pulse-footer small { font-size: 11px; }
   .pulse-summary strong { font-size: 21px; margin-top: 5px; }
@@ -975,5 +989,5 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 
 @media (prefers-reduced-motion: reduce) {
   *, *:before, *:after { scroll-behavior: auto !important; transition: none !important; }
-  .add-modal, .status-refresh-button:disabled svg { animation: none; }
+  .add-modal, .environment.server-status-online i, .health-orbit-track, .status-refresh-button:disabled svg { animation: none; }
 }
