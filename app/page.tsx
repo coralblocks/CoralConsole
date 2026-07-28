@@ -484,7 +484,7 @@ export default function Home() {
           <button className="intro-toggle" type="button" onClick={toggleIntro} aria-expanded={introVisible} aria-controls="console-intro">
             {introVisible ? "Hide intro" : "Show intro"}
           </button>
-          <button className="button button-primary" type="button" onClick={() => setAddOpen(true)}><span aria-hidden="true">＋</span><span className="button-label">Add actor</span></button>
+          <button className="button button-primary" type="button" onClick={() => setAddOpen(true)}><span aria-hidden="true">＋</span><span className="button-label">Add Actor</span></button>
         </div>
       </header>
 
