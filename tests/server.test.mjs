@@ -1069,6 +1069,7 @@ test("deployment and UI conventions stay explicit", async () => {
   }
   assert.match(layout, /ViewerPresence/);
   assert.match(layout, /<ConsoleFooter \/>/);
+  assert.match(layout, /<body suppressHydrationWarning className=/);
   const applicationVersion = JSON.parse(packageMetadata).version;
   assert.match(applicationVersion, /^\d+\.\d+\.\d+$/);
   assert.equal(JSON.parse(packageLock).version, applicationVersion);

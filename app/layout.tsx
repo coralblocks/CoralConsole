@@ -42,7 +42,7 @@ export async function generateMetadata(): Promise<Metadata> {
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en">
-      <body className={`${manrope.variable} ${plexMono.variable}`}><ViewerPresence />{children}<ConsoleFooter /></body>
+      <body suppressHydrationWarning className={`${manrope.variable} ${plexMono.variable}`}><ViewerPresence />{children}<ConsoleFooter /></body>
     </html>
   );
 }
