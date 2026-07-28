@@ -23,6 +23,9 @@ import {
 
 const LEGACY_ACTORS_KEY = "coral-console-actors";
 const ACTOR_COUNTS_VISIBILITY_KEY = "coral-console-counts";
+const SERVER_HEALTH_INTERVAL_MS = 5_000;
+const SERVER_HEALTH_TIMEOUT_MS = 4_000;
+const SERVER_UNAVAILABLE_MESSAGE = "CoralConsole server unavailable.";
 const ACTOR_FILTERS = [
   "all",
   "online",
@@ -99,8 +102,20 @@ const DEFAULT_SETTINGS: TopologySettings = {
 };
 
 async function apiRequest<T>(url: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(url, init);
-  const payload = await response.json() as T & { error?: string };
+  let response: Response;
+  try {
+    response = await fetch(url, init);
+  } catch {
+    throw new Error(SERVER_UNAVAILABLE_MESSAGE);
+  }
+
+  let payload: T & { error?: string };
+  try {
+    payload = await response.json() as T & { error?: string };
+  } catch {
+    throw new Error(response.ok ? "CoralConsole returned an invalid response." : SERVER_UNAVAILABLE_MESSAGE);
+  }
+
   if (!response.ok) throw new Error(payload.error || "The request failed.");
   return payload;
 }
@@ -183,6 +198,7 @@ export default function Home() {
   const [settingsDraft, setSettingsDraft] = useState<TopologySettings>(DEFAULT_SETTINGS);
   const [ready, setReady] = useState(false);
   const [pageError, setPageError] = useState("");
+  const [serverConnected, setServerConnected] = useState<boolean | null>(null);
   const [introVisible, setIntroVisible] = useState(true);
   const [actorCountsVisible, setActorCountsVisible] = useState(true);
   const [filter, setFilter] = useState<ActorFilter>("all");
@@ -270,7 +286,8 @@ export default function Home() {
       setActors(payload.actors);
       setPageError("");
     } catch (error) {
-      setPageError(error instanceof Error ? error.message : "Actor refresh failed.");
+      const message = error instanceof Error ? error.message : "Actor refresh failed.";
+      setPageError(message === SERVER_UNAVAILABLE_MESSAGE ? "" : message);
     } finally {
       setRefreshing(false);
     }
@@ -281,6 +298,42 @@ export default function Home() {
     const timer = window.setInterval(() => void refreshActors(false), settings.pollIntervalSeconds * 1000);
     return () => window.clearInterval(timer);
   }, [ready, refreshActors, settings.pollIntervalSeconds, settings.setupComplete]);
+
+  useEffect(() => {
+    let active = true;
+    let checkNumber = 0;
+    let controller: AbortController | undefined;
+
+    async function checkServerHealth() {
+      const currentCheck = ++checkNumber;
+      controller?.abort();
+      const currentController = new AbortController();
+      controller = currentController;
+      const timeout = window.setTimeout(() => currentController.abort(), SERVER_HEALTH_TIMEOUT_MS);
+      let connected = false;
+
+      try {
+        const response = await fetch("/api/health", {
+          cache: "no-store",
+          signal: currentController.signal,
+        });
+        connected = response.ok;
+      } catch {
+        connected = false;
+      } finally {
+        window.clearTimeout(timeout);
+        if (active && currentCheck === checkNumber) setServerConnected(connected);
+      }
+    }
+
+    void checkServerHealth();
+    const timer = window.setInterval(() => void checkServerHealth(), SERVER_HEALTH_INTERVAL_MS);
+    return () => {
+      active = false;
+      window.clearInterval(timer);
+      controller?.abort();
+    };
+  }, []);
 
   useEffect(() => {
     function closeOnEscape(event: KeyboardEvent) {
@@ -539,7 +592,7 @@ export default function Home() {
       </section>
 
       <section className="workspace" id="topology">
-        <div className="topology-panel">
+        <div className={`topology-panel${serverConnected === false ? " topology-server-unreachable" : ""}`}>
           <div className="section-heading topology-heading">
             <div><p className="eyebrow">Topology</p><h2>Actor Map</h2></div>
             <div className="topology-heading-actions">
@@ -574,6 +627,16 @@ export default function Home() {
               ))}
             </div>
           </div>
+
+          {serverConnected === false && (
+            <div className="topology-connectivity-alert" role="alert">
+              <span aria-hidden="true" />
+              <div>
+                <strong>CoralConsole server unavailable</strong>
+                <p>Actor Map data may be stale until the connection is restored.</p>
+              </div>
+            </div>
+          )}
 
           <div className="topology-canvas">
             {!ready && <p className="workspace-loading">Loading shared topology…</p>}

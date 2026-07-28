@@ -859,6 +859,14 @@ test("deployment and UI conventions stay explicit", async () => {
   assert.match(page, /href="\/audit" target="_blank" rel="noopener noreferrer">Audit/);
   assert.match(page, /\/api\/actors\/refresh/);
   assert.doesNotMatch(page, /\/api\/actors\/health/);
+  assert.match(page, /SERVER_HEALTH_INTERVAL_MS = 5_000/);
+  assert.match(page, /SERVER_HEALTH_TIMEOUT_MS = 4_000/);
+  assert.match(page, /SERVER_UNAVAILABLE_MESSAGE = "CoralConsole server unavailable\."/);
+  assert.match(page, /fetch\("\/api\/health"/);
+  assert.match(page, /setPageError\(message === SERVER_UNAVAILABLE_MESSAGE \? "" : message\)/);
+  assert.match(page, /serverConnected === false \? " topology-server-unreachable" : ""/);
+  assert.match(page, /CoralConsole server unavailable/);
+  assert.match(page, /Actor Map data may be stale until the connection is restored\./);
   assert.match(page, /Actor polling interval \(seconds\)/);
   assert.doesNotMatch(page, /Health check \(seconds\)/);
   assert.match(page, /Keep polling actors when nobody is viewing CoralConsole/);
@@ -933,6 +941,9 @@ test("deployment and UI conventions stay explicit", async () => {
   assert.match(styles, /\.topology-heading-actions \{[^}]*grid-column: 2[^}]*grid-row: 1[^}]*justify-self: end/);
   assert.match(styles, /\.topology-heading-actions \.button \{[^}]*font-weight: 500/);
   assert.match(styles, /\.topology-heading \.filters \{[^}]*grid-column: 1 \/ -1[^}]*grid-row: 2/);
+  assert.match(styles, /\.topology-panel\.topology-server-unreachable \{[^}]*background:/);
+  assert.match(styles, /\.topology-connectivity-alert \{[^}]*background:/);
+  assert.match(styles, /\.topology-server-unreachable \.topology-canvas \{[^}]*background-color:/);
   assert.match(styles, /\.filters \{[^}]*overflow-x: auto/);
   assert.doesNotMatch(styles, /\.pulse-panel \{[^}]*scroll-margin-top/);
   assert.match(styles, /\.pulse-count \{[^}]*cursor: pointer/);
