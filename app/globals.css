@@ -618,6 +618,142 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 }
 
 /*
+ * Standard desktop typography tier.
+ *
+ * Laptop and Full HD viewports have enough room for the desktop layout, but
+ * the original 7–13px utility text was needlessly difficult to read. Use a
+ * deliberately larger text scale at these widths without also enlarging
+ * every panel, gutter, and card.
+ */
+@media (min-width: 1200px) and (max-width: 1999px) {
+  body { font-size: 20px; }
+
+  .brand strong { font-size: 30px; }
+  .brand-version { font-size: 14px; }
+  .brand small { font-size: 14px; }
+  .environment { font-size: 16px; }
+  .intro-toggle { font-size: 15px; }
+  .button { font-size: 19px; }
+
+  .eyebrow { font-size: 16px; }
+  .hero-copy { font-size: 26px; }
+
+  .actor-metric p strong { font-size: 36px; }
+  .actor-metric p small { font-size: 18px; }
+
+  .pulse-heading small,
+  .pulse-footer small { font-size: 14px; }
+  .pulse-summary strong { font-size: 26px; }
+  .pulse-heading span { font-size: 18px; }
+  .pulse-count strong { font-size: 30px; }
+  .pulse-count small { font-size: 13px; }
+  .pulse-total strong { font-size: 30px; }
+  .pulse-session strong { font-size: 26px; }
+  .pulse-total span,
+  .pulse-session span { font-size: 16px; }
+
+  .topology-connectivity-alert strong { font-size: 21px; }
+  .topology-connectivity-alert p { font-size: 18px; }
+  .section-heading h2 { font-size: 38px; }
+  .filters button { font-size: 15px; }
+  .group-heading p { font-size: 14px; }
+  .group-heading h3 { font-size: 22px; }
+  .group-count-link { font-size: 17px; height: 40px; width: 40px; }
+  .actor-heading strong { font-size: 18px; }
+  .actor-heading small { font-size: 15px; }
+  .actor-card-sequence { font-size: 15px; }
+  .actor-card .actor-state-badge { font-size: 14px; }
+  .empty-group { font-size: 18px; }
+
+  .inspector-head p { font-size: 18px; }
+  .inspector-head h1,
+  .inspector-head h2 { font-size: 29px; }
+  .actor-state-badge,
+  .status-badge { font-size: 14px; }
+  .detail-grid dt { font-size: 15px; }
+  .detail-grid dd { font-size: 18px; }
+  .admin-heading h2,
+  .admin-heading h3 { font-size: 26px; }
+  .admin-heading > span { font-size: 14px; }
+  .admin-block label,
+  .add-modal label { font-size: 15px; }
+  .admin-block label span { font-size: 13px; }
+  .admin-block input,
+  .admin-block select { font-size: 18px; }
+  .action-result strong,
+  .action-result span,
+  .action-result pre { font-size: 14px; }
+  .demo-note,
+  .remove-button { font-size: 15px; }
+
+  .actor-detail-panel .inspector-head h1 { font-size: 40px; }
+  .status-refresh-button { font-size: 14px; }
+  .actor-detail-panel .detail-grid dt { font-size: 15px; }
+  .actor-detail-panel .detail-grid dd { font-size: 18px; }
+  .actor-detail-panel .admin-heading h2 { font-size: 32px; }
+  .actor-detail-panel .admin-block input,
+  .actor-detail-panel .admin-block select { font-size: 18px; }
+  .actor-audit-list article small,
+  .actor-audit-list pre,
+  .audit-outcome { font-size: 14px; }
+
+  .console-footer { font-size: 15px; }
+
+  .add-modal h2 { font-size: 46px; }
+  .add-modal > p:not(.eyebrow) { font-size: 21px; }
+  .add-modal code { font-size: 17px; }
+  .add-modal input { font-size: 19px; }
+  .form-error { font-size: 16px !important; }
+  .privacy-note p { font-size: 15px; }
+  .privacy-note strong { font-size: 18px; }
+  .actor-type-list span { font-size: 13px; }
+  .polling-settings legend,
+  .summary-settings legend { font-size: 16px; }
+  .polling-option strong { font-size: 16px; }
+  .polling-option small,
+  .summary-settings > p { font-size: 15px; }
+  .summary-kind-options span { font-size: 15px; }
+  .import-banner strong { font-size: 20px; }
+  .import-banner span { font-size: 16px; }
+  .page-alert,
+  .workspace-loading { font-size: 18px; }
+
+  .audit-title h1,
+  .actor-list-title h1 { font-size: 80px; }
+  .audit-title > div:first-child > p:last-child,
+  .actor-list-title > p:last-child { font-size: 22px; }
+  .audit-integrity-note strong { font-size: 18px; }
+  .audit-integrity-note small { font-size: 15px; }
+  .audit-controls input { font-size: 20px; }
+  .audit-filter-row > span,
+  .actor-scope { font-size: 14px; }
+  .audit-table-heading h2 { font-size: 30px; }
+  .audit-table-heading > span { font-size: 14px; }
+  .audit-table th { font-size: 15px; }
+  .audit-table td { font-size: 17px; }
+  .audit-table td small,
+  .audit-table code,
+  .audit-table pre,
+  .audit-time span:last-child { font-size: 14px; }
+
+  .actor-list-global-add-button,
+  .actor-list-add-button { font-size: 17px; }
+  .actor-list-group-heading h2 { font-size: 29px; }
+  .actor-list-group-count { font-size: 17px; }
+  .actor-list-notice { font-size: 18px; }
+  .actor-list-table th { font-size: 19px; }
+  .actor-list-table td { font-size: 20px; }
+  .actor-list-table code,
+  .actor-list-table input { font-size: 19px; }
+  .actor-list-status { font-size: 14px; }
+  .actor-list-edit-button,
+  .actor-list-remove-button,
+  .actor-list-edit-actions button { font-size: 14px; }
+  .actor-list-edit-button,
+  .actor-list-edit-actions button { font-size: 17px; }
+}
+
+/*
  * Large desktop tier.
  *
  * High-resolution desktop browsers can expose 2500–3000+ CSS pixels even
