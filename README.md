@@ -1,162 +1,60 @@
 # CoralConsole
 
-CoralConsole is a colorful, shared operations console for discovering, organizing, and administering actors in a [Coral Sequencer](https://www.coralblocks.com/coralsequencer) distributed system.
+CoralConsole is the shared operations console for a
+[Coral Sequencer](https://www.coralblocks.com/coralsequencer) deployment. It gives
+operators one live view of every actor, its connectivity, operational state, and
+available REST admin actions.
 
 ![CoralConsole topology overview](public/og-v2.png)
 
-> **Project status:** early development. Run CoralConsole only on a trusted private network. This release has no application login; anyone who can reach its URL can change the topology and run available actor admin actions.
+![CoralConsole application screenshot](docs/images/coralconsole-dashboard.png)
 
-## What it does
+## Purpose
 
-- Discovers an actor from its host/IP address and REST admin port.
-- Organizes Sequencers, Backup Sequencers, Replayers, Archivers, Loggers, Bridges, Dispatchers, Nodes, Applications, Links, and MultiMqApps by operational role.
-- Stores one shared topology in SQLite, so every browser sees the same actors and configuration.
-- Refreshes actor health every 30 seconds by default, with visibility-aware polling and manual refresh.
-- Opens each actor in a dedicated browser tab for REST admin actions.
-- Records admin action inputs, outputs, outcome, duration, timestamp, and the TCP peer IP observed by its trusted ingress.
-- Runs as a self-contained Node.js server or Docker container without sending topology data to an external service.
+Coral Sequencer systems are composed of a central Sequencer and surrounding
+actors such as Backup Sequencers, Replayers, Archivers, Loggers, Bridges,
+Dispatchers, Nodes, Applications, and MultiMqApps. CoralConsole discovers those
+processes, organizes them by role, monitors them, and provides a single place for
+operators to inspect and administer the deployment.
 
-## Quick start with Docker
+## Features
 
-Requirements: Docker Engine with Docker Compose, host networking, and network access from the Docker host to each actor's REST admin port. On Docker Desktop 4.34 or newer, enable host networking in **Settings → Resources → Network** first.
+- Live System Pulse with Online, Offline, Closed, Rewinding, Active, Inactive,
+  and Disconnected counts.
+- Filterable Actor Map organized by system layer and actor type.
+- Automatic actor discovery from a host/IP address and REST admin port.
+- Periodic `actorStatus` and `list` polling with persistent per-actor monitoring
+  connections.
+- Dedicated actor pages with complete status fields and manual REST admin
+  actions.
+- Shared actor registry with endpoint editing, removal, and persisted precedence
+  ordering within each actor type.
+- Protected, searchable audit history for manual actions, including outcome,
+  duration, output, timestamp, and requester IP when available.
+- Shared topology settings, configurable polling, audit retention, and actor
+  count visibility.
+- Clear stale-interface warnings when the browser loses contact with the
+  CoralConsole server.
+- SQLite persistence, online backup support, and Docker deployment.
+- No external telemetry or topology data sharing.
 
-```bash
-git clone https://github.com/coralblocks/CoralConsole.git
-cd CoralConsole
-./scripts/docker-start.sh
-```
+## How it works
 
-Open [http://localhost:3000](http://localhost:3000), choose a topology name and workspace color, then add actors.
+The browser communicates only with the CoralConsole server. The server discovers
+and contacts actor REST endpoints, runs scheduled monitoring, executes manual
+admin actions, and stores the shared topology and audit history in SQLite.
 
-By default the trusted ingress binds only to `127.0.0.1`. To make it reachable on a private LAN, set `CORAL_BIND_ADDRESS` in `.env` to the server's private IP on native Linux. Docker Desktop cannot bind a host-network container to a specific host interface, so use `0.0.0.0` there and restrict access with the host firewall. The application itself remains on a separate loopback-only internal port. See [DEPLOYMENT.md](./DEPLOYMENT.md) before exposing the service to other users.
+Discovery starts with `list`, selects the actor scope, and calls
+`<scope> actorStatus`. Scheduled monitoring uses `actorStatus` to determine
+Online or Offline state and `list` to refresh available actions. Manual actions
+use separate one-shot connections and are recorded in the audit history.
 
-The Compose volume `coralconsole-data` holds `/data/coralconsole.db`. It survives Docker restarts, container recreation, application upgrades, and image removal. The volume—not the image—is what preserves actors and settings.
+One CoralConsole installation owns one topology and one database. Every browser
+connected to that installation sees the same actors and settings.
 
-Useful lifecycle commands:
+## Installation
 
-```bash
-./scripts/docker-start.sh  # builds once if needed, then starts without rebuilding
-./scripts/docker-stop.sh    # stops the app and preserves the database volume
-./scripts/docker-backup.sh  # creates a verified timestamped backup in backups/
-npm run docker:restart      # restarts the existing container
-npm run docker:status       # shows container and health status
-npm run docker:logs         # follows application logs; Ctrl-C stops following only
-```
-
-Set the application version before preparing a release:
-
-```bash
-npm run version:set -- 1.3.2
-```
-
-Versions use the `A.B.C` format and appear in the shared header brand and footer throughout CoralConsole.
-
-The `npm run docker:*` commands are convenient aliases for developers who already have Node.js. The start and stop shell scripts require only Docker Compose.
-
-Create an online database backup at any time while CoralConsole is running:
-
-```bash
-./scripts/docker-backup.sh
-```
-
-Pass a directory to save it elsewhere, for example `./scripts/docker-backup.sh /Volumes/CompanyBackups`. Backup files contain operational configuration and admin action history, so store them securely.
-
-After the first successful image build, `docker:start` can run without internet access as long as Docker still has the image and its base layers locally.
-
-## Local development
-
-Requirements:
-
-- Docker with Docker Compose
-- Linux host networking, or Docker Desktop 4.34 or newer with host networking enabled
-- Network access from the CoralConsole process to each actor's REST admin port
-
-For the fastest UI iteration, run the Docker development mode:
-
-```bash
-npm run docker:dev:start
-```
-
-Open [http://localhost:3000](http://localhost:3000). Source changes are bind-mounted into a Next.js development server and hot-reload without rebuilding Docker. Development mode accepts browser origins on RFC 1918 private networks and `.local` hostnames so another workstation can test the UI. Add any other development hostnames to `CORAL_DEV_ALLOWED_ORIGINS` as a comma-separated list. Development mode uses the same `coralconsole-data` volume as the production container, but the two modes never run concurrently.
-
-Rebuild the development image and its cached dependency volume only after changing `package.json`, `package-lock.json`, or `Dockerfile.dev`:
-
-```bash
-npm run docker:dev:rebuild
-```
-
-### Releasing the current source to production
-
-Hot reload changes only the running development container. The immutable production image must be rebuilt once when the current source is ready for release:
-
-```bash
-npm run lint
-npm test
-npm run docker:release
-```
-
-`docker:release` builds `coralconsole:local` from the current source and replaces the development container with the production container. Both modes mount the same `coralconsole-data` volume, so actors, settings, and audit history remain intact. Create a backup first when a release includes a schema migration.
-
-Rebuild production Docker whenever releasing source, dependency, or Docker configuration changes—including CSS changes. Do not rebuild merely to restart an unchanged production image after a reboot or manual stop; use `npm run docker:start` in that case.
-
-Host-only development remains available for cases that should use the separate `.data/coralconsole.db` database:
-
-```bash
-npm ci
-npm run db:migrate
-npm run dev
-```
-
-## Connect an actor
-
-1. Select **Add actor**.
-2. Enter the actor's IP address or hostname and REST admin port.
-3. The server sends `list`, follows the first discovered non-`VM` scope, and runs `<scope> status` when available to derive the actor's role, class, account, state, session, and available admin actions.
-4. CoralConsole saves the actor in SQLite. Other users see it on their next refresh.
-
-Existing prototype users receive a one-time option to re-discover and move browser-local actors into the shared topology. Only successfully imported entries are removed from browser storage.
-
-The REST admin request and response format is documented in [examples_rest_server.txt](./examples_rest_server.txt).
-
-## Configuration
-
-| Variable | Default | Purpose |
-| --- | --- | --- |
-| `CORAL_BIND_ADDRESS` | `127.0.0.1` | Public interface used by the trusted host-network ingress. |
-| `CORAL_PORT` | `3000` | Public port used by the trusted host-network ingress. |
-| `CORAL_INTERNAL_PORT` | `39000` | Loopback-only port between the ingress and application; do not expose it remotely. |
-| `DATABASE_PATH` | `/data/coralconsole.db` in Docker | SQLite database location. |
-| `CORAL_DEMO_MODE` | `false` | Adds clearly marked, simulated sample actors when `true`. |
-| `CORAL_TRUST_PROXY` | `false` | For custom non-Compose deployments only: trusts client-IP headers from a proxy that overwrites them. The reference Compose ingress does not use them. |
-| `CORAL_DEV_ALLOWED_ORIGINS` | empty | Additional comma-separated hostnames that may load Next.js development assets; RFC 1918 private networks and `.local` are already allowed. |
-
-Topology name, workspace color, refresh interval, audit retention, and which actor types appear in the summary count panel are shared settings editable in the UI and persisted in SQLite.
-
-## Development checks
-
-```bash
-npm run lint
-npm test
-```
-
-`npm test` creates a production standalone build, starts it against a temporary SQLite database, exercises the APIs and audit path, restarts the server, and verifies persistence.
-
-Database changes use Drizzle migrations:
-
-```bash
-npm run db:generate
-npm run db:migrate
-```
-
-When work on an explicitly requested feature branch is complete, merge it directly into `main` without opening a pull request:
-
-```bash
-./scripts/git-merge-to-main.sh
-```
-
-Run the helper while checked out on the feature branch. It requires a clean working tree, asks for confirmation, updates local `main` from `origin/main`, creates a merge commit, and pushes `main`. It never force-pushes.
-
-Product architecture and contribution conventions live in [AGENTS.md](./AGENTS.md).
+**Under Construction**
 
 ## License
 
