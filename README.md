@@ -41,8 +41,6 @@ deployment.
   CoralConsole server.
 - SQLite persistence, a verified backup script that runs without stopping
   CoralConsole, and Docker deployment.
-- No external telemetry; topology, actor, action, and audit data remain inside
-  CoralConsole.
 
 ## How it works
 
@@ -53,13 +51,12 @@ directly.
 
 Separately, the server monitors every actor at the configured actor polling
 interval. For each actor, it calls `actorStatus` to update connectivity and
-operational state, then `list` to update the available actions. These calls reuse
-a dedicated persistent connection for that actor.
+operational state, then `list` to update the available admin actions. These calls reuse
+a dedicated persistent connection per actor.
 
 The browser and server timers are independent, but server-side throttling
 consolidates their work. A browser refresh receives the current stored topology
-when actor data is still fresh; when a refresh is due, it can join or initiate
-the same server-side monitoring operation. Multiple browser tabs do not multiply
+with fresh actor data. Multiple browser tabs do not multiply
 actor polling.
 
 When an actor is added, the server contacts its endpoint to discover its
