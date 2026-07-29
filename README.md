@@ -2,7 +2,7 @@
 
 CoralConsole is a colorful operations console for discovering, organizing, and
 administering actors in a
-[CoralSequencer](https://www.coralblocks.com/sequencer) distributed system.
+[CoralSequencer](https://www.coralblocks.com/coralsequencer) distributed system.
 It gives operators one live view of every actor, its connectivity, operational
 state, and available REST admin actions.
 
@@ -12,7 +12,7 @@ state, and available REST admin actions.
 
 ## Purpose
 
-[CoralSequencer](https://www.coralblocks.com/sequencer) systems are composed of a
+[CoralSequencer](https://www.coralblocks.com/coralsequencer) systems are composed of a
 central Sequencer and surrounding actors such as Backup Sequencers, Replayers,
 Archivers, Loggers, Bridges, Dispatchers, Nodes and Applications.
 CoralConsole discovers those processes, organizes them by role, monitors them,
