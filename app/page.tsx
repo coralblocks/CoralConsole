@@ -36,6 +36,23 @@ const ACTOR_FILTERS = [
   "disconnected",
 ] as const;
 type ActorFilter = typeof ACTOR_FILTERS[number];
+const ACTOR_CATEGORY_FILTERS = [
+  "all",
+  "sequencers",
+  "replayers",
+  "persistence",
+  "transport",
+  "application",
+] as const;
+type ActorCategoryFilter = typeof ACTOR_CATEGORY_FILTERS[number];
+const ACTOR_CATEGORY_LABELS: Record<ActorCategoryFilter, string> = {
+  all: "All Actors",
+  sequencers: "Sequencers",
+  replayers: "Replayers",
+  persistence: "Persistence",
+  transport: "Transport",
+  application: "Application",
+};
 const PULSE_OPERATIONAL_STATES: ActorOperationalState[] = [
   "closed",
   "rewinding",
@@ -52,16 +69,35 @@ function actorNoun(count: number) {
   return count === 1 ? "actor" : "actors";
 }
 
-const GROUPS: { id: string; kinds: ActorKind[]; eyebrow: string; title: string }[] = [
-  { id: "replayer", kinds: ["replayer"], eyebrow: "Replayer Fabric", title: "Replayers" },
-  { id: "persistence", kinds: ["archiver", "logger"], eyebrow: "Persistence & audit", title: "Archiver · Logger" },
+const GROUPS: {
+  id: string;
+  category: Exclude<ActorCategoryFilter, "all" | "sequencers">;
+  kinds: ActorKind[];
+  eyebrow: string;
+  title: string;
+}[] = [
+  { id: "replayer", category: "replayers", kinds: ["replayer"], eyebrow: "Replayer Fabric", title: "Replayers" },
+  {
+    id: "persistence",
+    category: "persistence",
+    kinds: ["archiver", "logger"],
+    eyebrow: "Persistence & audit",
+    title: "Archiver · Logger",
+  },
   {
     id: "transport",
+    category: "transport",
     kinds: ["bridge", "dispatcher", "multimqapp"],
     eyebrow: "Transport layer",
     title: "Bridge · Dispatcher · MultiMqApp",
   },
-  { id: "customer", kinds: ["node", "application"], eyebrow: "Application Layer", title: "Nodes · Applications" },
+  {
+    id: "customer",
+    category: "application",
+    kinds: ["node", "application"],
+    eyebrow: "Application Layer",
+    title: "Nodes · Applications",
+  },
 ];
 
 function actorsInPanelOrder(source: Actor[], kinds: ActorKind[]) {
@@ -86,6 +122,62 @@ function ActorGroupCountLink({ count, label }: { count: number; label: string })
     >
       {count}
     </a>
+  );
+}
+
+function AnimatedFilterBar<T extends string>({
+  ariaLabel,
+  values,
+  selected,
+  onSelect,
+  labelFor,
+  sectionStarts = [],
+}: {
+  ariaLabel: string;
+  values: readonly T[];
+  selected: T;
+  onSelect: (value: T) => void;
+  labelFor: (value: T) => string;
+  sectionStarts?: readonly T[];
+}) {
+  const filterBarRef = useRef<HTMLDivElement>(null);
+
+  const positionFilterIndicator = useCallback(() => {
+    const filterBar = filterBarRef.current;
+    const selectedButton = filterBar?.querySelector<HTMLButtonElement>('button[aria-pressed="true"]');
+    if (!filterBar || !selectedButton) return;
+    filterBar.style.setProperty("--filter-indicator-x", `${selectedButton.offsetLeft}px`);
+    filterBar.style.setProperty("--filter-indicator-y", `${selectedButton.offsetTop}px`);
+    filterBar.style.setProperty("--filter-indicator-width", `${selectedButton.offsetWidth}px`);
+    filterBar.style.setProperty("--filter-indicator-height", `${selectedButton.offsetHeight}px`);
+    filterBar.dataset.indicatorReady = "true";
+  }, []);
+
+  useEffect(() => {
+    positionFilterIndicator();
+    const filterBar = filterBarRef.current;
+    if (!filterBar) return;
+    const resizeObserver = new ResizeObserver(positionFilterIndicator);
+    resizeObserver.observe(filterBar);
+    filterBar.querySelectorAll("button").forEach((button) => resizeObserver.observe(button));
+    return () => resizeObserver.disconnect();
+  }, [positionFilterIndicator, selected]);
+
+  return (
+    <div className="filters" aria-label={ariaLabel} ref={filterBarRef}>
+      <span className="filter-selection-indicator" aria-hidden="true" />
+      {values.map((value) => (
+        <button
+          key={value}
+          type="button"
+          className={`${selected === value ? "active" : ""}${sectionStarts.includes(value) ? " filter-section-start" : ""}`}
+          aria-pressed={selected === value}
+          onClick={() => onSelect(value)}
+        >
+          {labelFor(value)}
+        </button>
+      ))}
+    </div>
   );
 }
 
@@ -202,6 +294,7 @@ export default function Home() {
   const [introVisible, setIntroVisible] = useState(true);
   const [actorCountsVisible, setActorCountsVisible] = useState(true);
   const [filter, setFilter] = useState<ActorFilter>("all");
+  const [categoryFilter, setCategoryFilter] = useState<ActorCategoryFilter>("all");
   const [addOpen, setAddOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [host, setHost] = useState("");
@@ -214,18 +307,6 @@ export default function Home() {
   const [legacyActors, setLegacyActors] = useState<Actor[]>([]);
   const [importing, setImporting] = useState(false);
   const [importMessage, setImportMessage] = useState("");
-  const filterBarRef = useRef<HTMLDivElement>(null);
-
-  const positionFilterIndicator = useCallback(() => {
-    const filterBar = filterBarRef.current;
-    const selectedButton = filterBar?.querySelector<HTMLButtonElement>("button.active");
-    if (!filterBar || !selectedButton) return;
-    filterBar.style.setProperty("--filter-indicator-x", `${selectedButton.offsetLeft}px`);
-    filterBar.style.setProperty("--filter-indicator-y", `${selectedButton.offsetTop}px`);
-    filterBar.style.setProperty("--filter-indicator-width", `${selectedButton.offsetWidth}px`);
-    filterBar.style.setProperty("--filter-indicator-height", `${selectedButton.offsetHeight}px`);
-    filterBar.dataset.indicatorReady = "true";
-  }, []);
 
   useEffect(() => {
     window.history.scrollRestoration = "manual";
@@ -234,16 +315,6 @@ export default function Home() {
       document.body.scrollTop = 0;
     }
   }, []);
-
-  useEffect(() => {
-    positionFilterIndicator();
-    const filterBar = filterBarRef.current;
-    if (!filterBar) return;
-    const resizeObserver = new ResizeObserver(positionFilterIndicator);
-    resizeObserver.observe(filterBar);
-    filterBar.querySelectorAll("button").forEach((button) => resizeObserver.observe(button));
-    return () => resizeObserver.disconnect();
-  }, [filter, positionFilterIndicator]);
 
   const loadWorkspace = useCallback(async () => {
     const [settingsPayload, actorsPayload] = await Promise.all([
@@ -602,23 +673,27 @@ export default function Home() {
                 {refreshing ? "Refreshing…" : "Refresh Now"}
               </button>
             </div>
-            <div className="filters" aria-label="Filter actors" ref={filterBarRef}>
-              <span className="filter-selection-indicator" aria-hidden="true" />
-              {ACTOR_FILTERS.map((value) => (
-                <button
-                  key={value}
-                  type="button"
-                  className={`${filter === value ? "active" : ""}${value === "online" || value === "closed" ? " filter-section-start" : ""}`}
-                  aria-pressed={filter === value}
-                  onClick={() => setFilter(value)}
-                >
-                  {value === "all"
-                    ? "All Actors"
-                    : value === "online" || value === "offline"
-                      ? statusLabel(value)
-                      : operationalStateLabel(value)}
-                </button>
-              ))}
+            <div className="topology-filter-stack">
+              <AnimatedFilterBar
+                ariaLabel="Filter actors"
+                values={ACTOR_FILTERS}
+                selected={filter}
+                onSelect={setFilter}
+                sectionStarts={["online", "closed"]}
+                labelFor={(value) => value === "all"
+                  ? "All Actors"
+                  : value === "online" || value === "offline"
+                    ? statusLabel(value)
+                    : operationalStateLabel(value)}
+              />
+              <AnimatedFilterBar
+                ariaLabel="Filter actor panels"
+                values={ACTOR_CATEGORY_FILTERS}
+                selected={categoryFilter}
+                onSelect={setCategoryFilter}
+                sectionStarts={["sequencers"]}
+                labelFor={(value) => ACTOR_CATEGORY_LABELS[value]}
+              />
             </div>
           </div>
 
@@ -635,15 +710,19 @@ export default function Home() {
           <div className="topology-canvas">
             {!ready && <p className="workspace-loading">Loading shared topology…</p>}
             <div className="actor-groups">
-              <section className="actor-group group-sequencer sequencer-primary" aria-labelledby="group-sequencer-primary">
-                <div className="group-heading"><div><p>Sequencer Fabric</p><h3 id="group-sequencer-primary">Primary Sequencer</h3></div><ActorGroupCountLink count={primarySequencers.length} label="Primary Sequencer" /></div>
-                <div className="group-cards">{primarySequencers.map((actor) => <ActorCard key={actor.id} actor={actor} />)}{!primarySequencers.length && <p className="empty-group">No primary sequencer matches this filter.</p>}</div>
-              </section>
-              <section className="actor-group group-backup-sequencer sequencer-backups" aria-labelledby="group-sequencer-backups">
-                <div className="group-heading"><div><p>Sequencer Fabric</p><h3 id="group-sequencer-backups">Backup Sequencers</h3></div><ActorGroupCountLink count={backupSequencers.length} label="Backup Sequencer" /></div>
-                <div className="group-cards">{backupSequencers.map((actor) => <ActorCard key={actor.id} actor={actor} />)}{!backupSequencers.length && <p className="empty-group">No backup sequencers match this filter.</p>}</div>
-              </section>
-              {GROUPS.map((group) => {
+              {(categoryFilter === "all" || categoryFilter === "sequencers") && (
+                <>
+                  <section className="actor-group group-sequencer sequencer-primary" aria-labelledby="group-sequencer-primary">
+                    <div className="group-heading"><div><p>Sequencer Fabric</p><h3 id="group-sequencer-primary">Primary Sequencer</h3></div><ActorGroupCountLink count={primarySequencers.length} label="Primary Sequencer" /></div>
+                    <div className="group-cards">{primarySequencers.map((actor) => <ActorCard key={actor.id} actor={actor} />)}{!primarySequencers.length && <p className="empty-group">No primary sequencer matches this filter.</p>}</div>
+                  </section>
+                  <section className="actor-group group-backup-sequencer sequencer-backups" aria-labelledby="group-sequencer-backups">
+                    <div className="group-heading"><div><p>Sequencer Fabric</p><h3 id="group-sequencer-backups">Backup Sequencers</h3></div><ActorGroupCountLink count={backupSequencers.length} label="Backup Sequencer" /></div>
+                    <div className="group-cards">{backupSequencers.map((actor) => <ActorCard key={actor.id} actor={actor} />)}{!backupSequencers.length && <p className="empty-group">No backup sequencers match this filter.</p>}</div>
+                  </section>
+                </>
+              )}
+              {GROUPS.filter((group) => categoryFilter === "all" || group.category === categoryFilter).map((group) => {
                 const grouped = actorsInPanelOrder(visibleActors, group.kinds);
                 const groupTitle = group.id === "transport"
                   ? [

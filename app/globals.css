@@ -172,7 +172,8 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .topology-heading { align-items: start; display: grid; grid-template-columns: minmax(0, 1fr) auto; }
 .topology-heading-actions { align-items: center; display: flex; flex-wrap: wrap; gap: 8px; grid-column: 2; grid-row: 1; justify-content: flex-end; justify-self: end; }
 .topology-heading-actions .button { font-weight: 500; min-height: 36px; padding-inline: 12px; text-decoration: none; }
-.topology-heading .filters { grid-column: 1 / -1; grid-row: 2; justify-self: center; }
+.topology-filter-stack { display: grid; gap: 8px; grid-column: 1 / -1; grid-row: 2; justify-items: center; max-width: 100%; min-width: 0; }
+.topology-heading .filters { justify-self: center; }
 .refresh-button { min-height: 36px; padding-inline: 12px; }
 .filters { background: rgba(255,255,255,.88); border: 1px solid color-mix(in srgb, var(--ink) 16%, var(--line)); border-radius: 10px; display: flex; gap: 2px; max-width: 100%; overflow-x: auto; padding: 3px; position: relative; }
 .filter-selection-indicator { background: color-mix(in srgb, var(--cyan-soft) 42%, white); border: 1px solid color-mix(in srgb, var(--cyan) 62%, var(--ink)); border-radius: 7px; box-shadow: 0 2px 9px rgba(36,200,192,.13); height: var(--filter-indicator-height, 0); left: 0; pointer-events: none; position: absolute; top: 0; transform: translate(var(--filter-indicator-x, 0), var(--filter-indicator-y, 0)); transition: transform 240ms cubic-bezier(.22, 1, .36, 1), width 240ms cubic-bezier(.22, 1, .36, 1); visibility: hidden; width: var(--filter-indicator-width, 0); }
@@ -588,6 +589,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   .section-heading { align-items: start; flex-direction: column; padding: 20px; }
   .topology-heading-actions { justify-content: flex-start; justify-self: stretch; width: 100%; }
   .topology-heading-actions .button { flex: 1; white-space: nowrap; }
+  .topology-filter-stack { justify-items: stretch; width: 100%; }
   .filters { overflow-x: auto; width: 100%; }
   .filters button { flex: 1; white-space: nowrap; }
   .topology-canvas { min-height: auto; padding: 20px 12px; }

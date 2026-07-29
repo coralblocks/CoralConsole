@@ -899,8 +899,15 @@ test("deployment and UI conventions stay explicit", async () => {
   assert.match(page, /Keep polling actors when nobody is viewing CoralConsole/);
   assert.match(page, /disabled=\{settingsDraft\.keepPollingWithoutViewers\}/);
   assert.match(page, /\[\s*"all",\s*"online",\s*"offline",\s*"closed",\s*"rewinding",\s*"active",\s*"inactive",\s*"disconnected",?\s*\]/);
+  assert.match(page, /\[\s*"all",\s*"sequencers",\s*"replayers",\s*"persistence",\s*"transport",\s*"application",?\s*\]/);
   assert.match(page, /operationalStateForDisplay\(actor\.status, actor\.operationalState\) === filter/);
-  assert.match(page, /aria-pressed=\{filter === value\}/);
+  assert.match(page, /function AnimatedFilterBar<T extends string>/);
+  assert.match(page, /ariaLabel="Filter actors"/);
+  assert.match(page, /ariaLabel="Filter actor panels"/);
+  assert.match(page, /sequencers: "Sequencers"[\s\S]*replayers: "Replayers"[\s\S]*persistence: "Persistence"[\s\S]*transport: "Transport"[\s\S]*application: "Application"/);
+  assert.match(page, /sectionStarts=\{\["sequencers"\]\}/);
+  assert.match(page, /categoryFilter === "all" \|\| categoryFilter === "sequencers"/);
+  assert.match(page, /GROUPS\.filter\(\(group\) => categoryFilter === "all" \|\| group\.category === categoryFilter\)/);
   assert.match(page, /className="section-heading topology-heading"/);
   assert.match(page, /className="button button-ghost" type="button" onClick=\{\(\) => setAddOpen\(true\)\}>＋ Add Actor<\/button>/);
   assert.match(page, /href="\/actors"[\s\S]*target="_blank"[\s\S]*List Actors/);
@@ -982,7 +989,7 @@ test("deployment and UI conventions stay explicit", async () => {
   assert.match(styles, /\.topbar \{[^}]*position: relative/);
   assert.match(styles, /\.topology-heading-actions \{[^}]*grid-column: 2[^}]*grid-row: 1[^}]*justify-self: end/);
   assert.match(styles, /\.topology-heading-actions \.button \{[^}]*font-weight: 500/);
-  assert.match(styles, /\.topology-heading \.filters \{[^}]*grid-column: 1 \/ -1[^}]*grid-row: 2/);
+  assert.match(styles, /\.topology-filter-stack \{[^}]*grid-column: 1 \/ -1[^}]*grid-row: 2[^}]*justify-items: center/);
   assert.match(styles, /\.topology-panel\.topology-server-unreachable \{[^}]*background:/);
   assert.match(styles, /\.topology-connectivity-alert \{[^}]*background:/);
   assert.match(styles, /\.topology-server-unreachable \.topology-canvas \{[^}]*background-color:/);
@@ -1001,7 +1008,7 @@ test("deployment and UI conventions stay explicit", async () => {
   assert.doesNotMatch(styles, /\.sequencer-groups/);
   assert.doesNotMatch(styles, /\.actor-groups \{[^}]*repeat\(2/);
   assert.doesNotMatch(page, /className="sequencer-groups"/);
-  assert.match(page, /id: "replayer", kinds: \["replayer"\][\s\S]*id: "persistence", kinds: \["archiver", "logger"\][\s\S]*id: "transport"[\s\S]*kinds: \["bridge", "dispatcher", "multimqapp"\][\s\S]*id: "customer", kinds: \["node", "application"\]/);
+  assert.match(page, /id: "replayer", category: "replayers", kinds: \["replayer"\][\s\S]*id: "persistence",[\s\S]*category: "persistence",[\s\S]*kinds: \["archiver", "logger"\][\s\S]*id: "transport"[\s\S]*category: "transport",[\s\S]*kinds: \["bridge", "dispatcher", "multimqapp"\][\s\S]*id: "customer",[\s\S]*category: "application",[\s\S]*kinds: \["node", "application"\]/);
   assert.match(page, /function actorsInPanelOrder\(source: Actor\[\], kinds: ActorKind\[\]\)/);
   assert.match(page, /kindOrder\.get\(left\.kind\)! - kindOrder\.get\(right\.kind\)!/);
   assert.match(page, /left\.sortOrder \?\? Number\.MAX_SAFE_INTEGER/);
