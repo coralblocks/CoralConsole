@@ -1,9 +1,10 @@
 # CoralConsole
 
-CoralConsole is the shared operations console for a
-[Coral Sequencer](https://www.coralblocks.com/coralsequencer) deployment. It gives
-operators one live view of every actor, its connectivity, operational state, and
-available REST admin actions.
+CoralConsole is a colorful operations console for discovering, organizing, and
+administering actors in a
+[CoralSequencer](https://www.coralblocks.com/coralsequencer) distributed system.
+It gives operators one live view of every actor, its connectivity, operational
+state, and available REST admin actions.
 
 ![CoralConsole topology overview](public/og-v2.png)
 
