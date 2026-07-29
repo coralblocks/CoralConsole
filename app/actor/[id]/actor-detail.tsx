@@ -5,6 +5,7 @@ import Link from "next/link";
 import { RefreshCw } from "lucide-react";
 import { ConsoleBrand } from "../../console-chrome";
 import { ACTOR_META, auditOutcomeLabel, operationalStateForDisplay, operationalStateLabel, statusLabel, type Actor, type AdminActionReply } from "../../actor-ui";
+import { useServerHealth } from "../../use-server-health";
 import type { AuditEntry, TopologySettings } from "@/lib/types";
 
 async function apiRequest<T>(url: string, init?: RequestInit): Promise<T> {
@@ -36,6 +37,7 @@ export default function ActorDetail({ actorId }: { actorId: string }) {
   const [refreshingStatus, setRefreshingStatus] = useState(false);
   const [reply, setReply] = useState<AdminActionReply | null>(null);
   const [pollIntervalSeconds, setPollIntervalSeconds] = useState(5);
+  const serverConnected = useServerHealth();
 
   const loadAudit = useCallback(async () => {
     const payload = await apiRequest<{ entries: AuditEntry[] }>(`/api/audit?actorId=${encodeURIComponent(actorId)}&limit=20`, { cache: "no-store" });
@@ -154,7 +156,16 @@ export default function ActorDetail({ actorId }: { actorId: string }) {
         </div>
       </header>
 
-      <section className="actor-detail-main" aria-live="polite">
+      <section className={`actor-detail-main${serverConnected === false ? " actor-detail-server-unreachable" : ""}`} aria-live="polite">
+        {serverConnected === false && (
+          <div className="actor-detail-connectivity-alert" role="alert">
+            <span aria-hidden="true" />
+            <div>
+              <strong>CoralConsole server unavailable</strong>
+              <p>Actor details may be stale until the connection is restored.</p>
+            </div>
+          </div>
+        )}
         {!ready ? (
           <div className="actor-detail-empty"><p className="eyebrow">Actor detail</p><h1>Loading actor…</h1></div>
         ) : !actor ? (

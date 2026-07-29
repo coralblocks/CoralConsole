@@ -281,6 +281,28 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .remove-button { background: transparent; border: 0; border-top: 1px solid var(--line); color: #a0473f; cursor: pointer; font-size: 13.5px; padding: 15px 20px; text-align: left; width: 100%; }
 
 .actor-detail-main { min-height: calc(100vh - 82px); padding: 64px clamp(24px, 7vw, 112px) 80px; }
+.actor-detail-connectivity-alert {
+  align-items: center;
+  background: color-mix(in srgb, var(--coral-soft) 76%, white);
+  border: 1px solid color-mix(in srgb, var(--coral) 35%, var(--line));
+  border-radius: 14px;
+  color: #8c342e;
+  display: flex;
+  gap: 10px;
+  margin: 0 auto 22px;
+  max-width: 980px;
+  padding: 12px 18px;
+}
+.actor-detail-connectivity-alert > span { background: var(--coral); border-radius: 50%; box-shadow: 0 0 0 4px color-mix(in srgb, var(--coral) 18%, transparent); flex: 0 0 8px; height: 8px; width: 8px; }
+.actor-detail-connectivity-alert strong { display: block; font-size: 12px; }
+.actor-detail-connectivity-alert p { color: #92504a; font-size: 10px; margin: 2px 0 0; }
+.actor-detail-server-unreachable .actor-detail-panel,
+.actor-detail-server-unreachable .actor-audit-panel,
+.actor-detail-server-unreachable .actor-detail-empty {
+  background-color: color-mix(in srgb, var(--coral-soft) 50%, rgba(255, 254, 249, .9));
+  border-color: color-mix(in srgb, var(--coral) 45%, var(--line));
+  box-shadow: 0 18px 50px rgba(168, 55, 48, .14);
+}
 .actor-detail-panel { margin: 0 auto; max-width: 860px; position: relative; top: auto; width: 100%; }
 .actor-detail-panel .inspector-head { padding: 30px 30px 26px; }
 .actor-detail-panel .inspector-head h1 { font-size: 24px; letter-spacing: -.035em; }
@@ -667,6 +689,10 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 
   .topology-connectivity-alert strong { font-size: 21px; }
   .topology-connectivity-alert p { font-size: 18px; }
+  .actor-detail-connectivity-alert { gap: 14px; padding: 16px 24px; }
+  .actor-detail-connectivity-alert > span { flex-basis: 11px; height: 11px; width: 11px; }
+  .actor-detail-connectivity-alert strong { font-size: 21px; }
+  .actor-detail-connectivity-alert p { font-size: 18px; }
   .section-heading h2 { font-size: 38px; }
   .filters button { font-size: 15px; }
   .group-heading p { font-size: 14px; }
@@ -904,6 +930,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   .summary-kind-options span { font-size: 12px; }
 
   .actor-detail-main { min-height: calc(100vh - 104px); padding-block: 86px 106px; }
+  .actor-detail-connectivity-alert { max-width: 1320px; }
   .actor-detail-layout { gap: 29px; max-width: 1320px; }
   .actor-detail-panel { max-width: 1160px; }
   .actor-detail-panel .inspector-head { padding: 40px 40px 35px; }

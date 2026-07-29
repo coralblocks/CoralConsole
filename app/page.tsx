@@ -20,11 +20,10 @@ import {
   type SummaryActorKind,
   type TopologySettings,
 } from "@/lib/types";
+import { useServerHealth } from "./use-server-health";
 
 const LEGACY_ACTORS_KEY = "coral-console-actors";
 const ACTOR_COUNTS_VISIBILITY_KEY = "coral-console-counts";
-const SERVER_HEALTH_INTERVAL_MS = 5_000;
-const SERVER_HEALTH_TIMEOUT_MS = 4_000;
 const SERVER_UNAVAILABLE_MESSAGE = "CoralConsole server unavailable.";
 const ACTOR_FILTERS = [
   "all",
@@ -198,7 +197,7 @@ export default function Home() {
   const [settingsDraft, setSettingsDraft] = useState<TopologySettings>(DEFAULT_SETTINGS);
   const [ready, setReady] = useState(false);
   const [pageError, setPageError] = useState("");
-  const [serverConnected, setServerConnected] = useState<boolean | null>(null);
+  const serverConnected = useServerHealth();
   const [orbitPaused, setOrbitPaused] = useState(false);
   const [introVisible, setIntroVisible] = useState(true);
   const [actorCountsVisible, setActorCountsVisible] = useState(true);
@@ -299,42 +298,6 @@ export default function Home() {
     const timer = window.setInterval(() => void refreshActors(false), settings.pollIntervalSeconds * 1000);
     return () => window.clearInterval(timer);
   }, [ready, refreshActors, settings.pollIntervalSeconds, settings.setupComplete]);
-
-  useEffect(() => {
-    let active = true;
-    let checkNumber = 0;
-    let controller: AbortController | undefined;
-
-    async function checkServerHealth() {
-      const currentCheck = ++checkNumber;
-      controller?.abort();
-      const currentController = new AbortController();
-      controller = currentController;
-      const timeout = window.setTimeout(() => currentController.abort(), SERVER_HEALTH_TIMEOUT_MS);
-      let connected = false;
-
-      try {
-        const response = await fetch("/api/health", {
-          cache: "no-store",
-          signal: currentController.signal,
-        });
-        connected = response.ok;
-      } catch {
-        connected = false;
-      } finally {
-        window.clearTimeout(timeout);
-        if (active && currentCheck === checkNumber) setServerConnected(connected);
-      }
-    }
-
-    void checkServerHealth();
-    const timer = window.setInterval(() => void checkServerHealth(), SERVER_HEALTH_INTERVAL_MS);
-    return () => {
-      active = false;
-      window.clearInterval(timer);
-      controller?.abort();
-    };
-  }, []);
 
   useEffect(() => {
     function closeOnEscape(event: KeyboardEvent) {

@@ -847,7 +847,7 @@ test("actor migrations preserve audit references and initialize status metadata"
 });
 
 test("deployment and UI conventions stay explicit", async () => {
-  const [page, actorList, actorDetail, auditView, auditRoute, actorUi, consoleChrome, styles, layout, viewerPresence, guide, packageMetadata, packageLock, setVersion, compose, dockerfile, dockerStart, dockerStop, dockerBackup, gitMergeToMain, devCompose, devDockerfile, devStart, dockerRelease, nextConfig, trustedIngress, httpHelpers] = await Promise.all([
+  const [page, actorList, actorDetail, auditView, auditRoute, actorUi, consoleChrome, serverHealthHook, styles, layout, viewerPresence, guide, packageMetadata, packageLock, setVersion, compose, dockerfile, dockerStart, dockerStop, dockerBackup, gitMergeToMain, devCompose, devDockerfile, devStart, dockerRelease, nextConfig, trustedIngress, httpHelpers] = await Promise.all([
     readFile(join(projectRoot, "app/page.tsx"), "utf8"),
     readFile(join(projectRoot, "app/actors/actor-list.tsx"), "utf8"),
     readFile(join(projectRoot, "app/actor/[id]/actor-detail.tsx"), "utf8"),
@@ -855,6 +855,7 @@ test("deployment and UI conventions stay explicit", async () => {
     readFile(join(projectRoot, "app/api/audit/route.ts"), "utf8"),
     readFile(join(projectRoot, "app/actor-ui.tsx"), "utf8"),
     readFile(join(projectRoot, "app/console-chrome.tsx"), "utf8"),
+    readFile(join(projectRoot, "app/use-server-health.ts"), "utf8"),
     readFile(join(projectRoot, "app/globals.css"), "utf8"),
     readFile(join(projectRoot, "app/layout.tsx"), "utf8"),
     readFile(join(projectRoot, "app/viewer-presence.tsx"), "utf8"),
@@ -881,10 +882,14 @@ test("deployment and UI conventions stay explicit", async () => {
   assert.match(page, /href="\/audit" target="_blank" rel="noopener noreferrer">Audit/);
   assert.match(page, /\/api\/actors\/refresh/);
   assert.doesNotMatch(page, /\/api\/actors\/health/);
-  assert.match(page, /SERVER_HEALTH_INTERVAL_MS = 5_000/);
-  assert.match(page, /SERVER_HEALTH_TIMEOUT_MS = 4_000/);
+  assert.match(serverHealthHook, /SERVER_HEALTH_INTERVAL_MS = 5_000/);
+  assert.match(serverHealthHook, /SERVER_HEALTH_TIMEOUT_MS = 4_000/);
   assert.match(page, /SERVER_UNAVAILABLE_MESSAGE = "CoralConsole server unavailable\."/);
-  assert.match(page, /fetch\("\/api\/health"/);
+  assert.match(serverHealthHook, /fetch\("\/api\/health"/);
+  assert.match(page, /const serverConnected = useServerHealth\(\)/);
+  assert.match(actorDetail, /const serverConnected = useServerHealth\(\)/);
+  assert.match(actorDetail, /serverConnected === false \? " actor-detail-server-unreachable" : ""/);
+  assert.match(actorDetail, /Actor details may be stale until the connection is restored\./);
   assert.match(page, /setPageError\(message === SERVER_UNAVAILABLE_MESSAGE \? "" : message\)/);
   assert.match(page, /serverConnected === false \? " topology-server-unreachable" : ""/);
   assert.match(page, /CoralConsole server unavailable/);
@@ -981,6 +986,8 @@ test("deployment and UI conventions stay explicit", async () => {
   assert.match(styles, /\.topology-panel\.topology-server-unreachable \{[^}]*background:/);
   assert.match(styles, /\.topology-connectivity-alert \{[^}]*background:/);
   assert.match(styles, /\.topology-server-unreachable \.topology-canvas \{[^}]*background-color:/);
+  assert.match(styles, /\.actor-detail-connectivity-alert \{[^}]*background:/);
+  assert.match(styles, /\.actor-detail-server-unreachable \.actor-detail-panel,/);
   assert.match(styles, /\.filters \{[^}]*overflow-x: auto/);
   assert.doesNotMatch(styles, /\.pulse-panel \{[^}]*scroll-margin-top/);
   assert.match(styles, /\.pulse-count \{[^}]*cursor: pointer/);
