@@ -2,7 +2,7 @@
 
 CoralConsole is a colorful operations console for discovering, organizing, and
 administering actors in a
-[CoralSequencer](https://www.coralblocks.com/coralsequencer) distributed system.
+[CoralSequencer](https://www.coralblocks.com/sequencer) distributed system.
 It gives operators one live view of every actor, its connectivity, operational
 state, and available REST admin actions.
 
@@ -12,11 +12,12 @@ state, and available REST admin actions.
 
 ## Purpose
 
-Coral Sequencer systems are composed of a central Sequencer and surrounding
-actors such as Backup Sequencers, Replayers, Archivers, Loggers, Bridges,
-Dispatchers, Nodes, Applications, and MultiMqApps. CoralConsole discovers those
-processes, organizes them by role, monitors them, and provides a single place for
-operators to inspect and administer the deployment.
+[CoralSequencer](https://www.coralblocks.com/sequencer) systems are composed of a
+central Sequencer and surrounding actors such as Backup Sequencers, Replayers,
+Archivers, Loggers, Bridges, Dispatchers, Nodes, Applications, and MultiMqApps.
+CoralConsole discovers those processes, organizes them by role, monitors them,
+and provides a single place for operators to inspect and administer the
+deployment.
 
 ## Features
 
@@ -24,31 +25,46 @@ operators to inspect and administer the deployment.
   and Disconnected counts.
 - Filterable Actor Map organized by system layer and actor type.
 - Automatic actor discovery from a host/IP address and REST admin port.
-- Periodic `actorStatus` and `list` polling with persistent per-actor monitoring
-  connections.
+- Server-side monitoring that polls each actor with `actorStatus` and `list`
+  over a dedicated persistent connection.
+- One home-page browser refresh request retrieves current information for the
+  complete topology, regardless of the number of actors.
 - Dedicated actor pages with complete status fields and manual REST admin
   actions.
-- Shared actor registry with endpoint editing, removal, and persisted precedence
+- Actor registry with endpoint editing, removal, and persisted precedence
   ordering within each actor type.
 - Protected, searchable audit history for manual actions, including outcome,
   duration, output, timestamp, and requester IP when available.
-- Shared topology settings, configurable polling, audit retention, and actor
-  count visibility.
+- Persistent topology settings, configurable polling, audit retention, and
+  actor count visibility.
 - Clear stale-interface warnings when the browser loses contact with the
   CoralConsole server.
-- SQLite persistence, online backup support, and Docker deployment.
-- No external telemetry or topology data sharing.
+- SQLite persistence, a verified backup script that runs without stopping
+  CoralConsole, and Docker deployment.
+- No external telemetry; topology, actor, action, and audit data remain inside
+  CoralConsole.
 
 ## How it works
 
-The browser communicates only with the CoralConsole server. The server discovers
-and contacts actor REST endpoints, runs scheduled monitoring, executes manual
-admin actions, and stores the shared topology and audit history in SQLite.
+The browser communicates only with the CoralConsole server. At each UI refresh
+interval, the home page makes one HTTP request for the complete topology. It
+never sends one request per actor and never contacts actor REST endpoints
+directly.
 
-Discovery starts with `list`, selects the actor scope, and calls
-`<scope> actorStatus`. Scheduled monitoring uses `actorStatus` to determine
-Online or Offline state and `list` to refresh available actions. Manual actions
-use separate one-shot connections and are recorded in the audit history.
+Separately, the server monitors every actor at the configured actor polling
+interval. For each actor, it calls `actorStatus` to update connectivity and
+operational state, then `list` to update the available actions. These calls reuse
+a dedicated persistent connection for that actor.
+
+The browser and server timers are independent, but server-side throttling
+consolidates their work. A browser refresh receives the current stored topology
+when actor data is still fresh; when a refresh is due, it can join or initiate
+the same server-side monitoring operation. Multiple browser tabs do not multiply
+actor polling.
+
+When an actor is added, the server contacts its endpoint to discover its
+identity, role, and actions before saving it. Manual admin actions use separate
+one-shot connections and are recorded in the audit history.
 
 One CoralConsole installation owns one topology and one database. Every browser
 connected to that installation sees the same actors and settings.
