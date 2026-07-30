@@ -276,11 +276,15 @@ export default function ActorDetail({ actorId }: { actorId: string }) {
               </dl>
             </section>
 
-            <section className={`actor-logs-panel actor-${actor.kind}`} aria-labelledby="actor-logs-title">
+            <section className={`actor-logs-panel actor-${actor.kind}${actor.status === "offline" ? " actor-logs-offline" : ""}`} aria-labelledby="actor-logs-title">
               <div className="section-heading">
                 <div>
                   <p className="eyebrow">Actor logs</p>
                   <h2 id="actor-logs-title">Recent log messages</h2>
+                </div>
+                <div className="actor-status-badges">
+                  <span className={`actor-state-badge state-${displayedState}`}>{operationalStateLabel(displayedState)}</span>
+                  <span className={`status-badge status-${actor.status}`}><i />{statusLabel(actor.status)}</span>
                 </div>
               </div>
               <div className="actor-logs-body">

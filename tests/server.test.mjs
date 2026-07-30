@@ -1013,9 +1013,9 @@ test("deployment and UI conventions stay explicit", async () => {
   assert.doesNotMatch(page, /className="actor-data|className="actor-foot/);
   assert.match(page, /ACTOR_KINDS\.filter\(\(kind\) => kind !== "link"\)\.map/);
   assert.match(styles, /\.group-cards \{[^}]*grid-auto-flow: row[^}]*grid-template-columns: repeat\(2, minmax\(0, 1fr\)\)/);
-  assert.match(styles, /\.actor-card\.actor-card-offline,\s*\.actor-detail-panel\.actor-detail-offline \.inspector-head/);
+  assert.match(styles, /\.actor-card\.actor-card-offline,\s*\.actor-detail-panel\.actor-detail-offline \.inspector-head,\s*\.actor-logs-panel\.actor-logs-offline \.section-heading/);
   assert.match(styles, /background-image: repeating-linear-gradient/);
-  assert.match(styles, /\.actor-detail-panel\.actor-detail-offline \.inspector-head \{[^}]*background-color: var\(--panel\)/);
+  assert.match(styles, /\.actor-detail-panel\.actor-detail-offline \.inspector-head,\s*\.actor-logs-panel\.actor-logs-offline \.section-heading \{[^}]*background-color: var\(--panel\)/);
   assert.match(styles, /\.actor-state-badge \{[^}]*font-weight: 800/);
   assert.match(styles, /\.actor-card \.actor-state-badge \{[^}]*font-size: 8px/);
   assert.match(styles, /\.actor-state-badge, \.status-badge \{[^}]*font-size: 9px/);
@@ -1131,8 +1131,9 @@ test("deployment and UI conventions stay explicit", async () => {
   assert.match(actorDetail, /formatLastActorStatusResponse\(actor\.actorStatusRespondedAt\)/);
   assert.match(actorDetail, /<dt>REST endpoint<\/dt>[\s\S]*<dt>Last response<\/dt>[\s\S]*actor\.actorStatusFields\.map/);
   assert.match(actorDetail, /\/api\/actors\/\$\{encodeURIComponent\(actorId\)\}\/logs/);
-  assert.match(actorDetail, /className=\{`actor-logs-panel actor-\$\{actor\.kind\}`\}/);
+  assert.match(actorDetail, /className=\{`actor-logs-panel actor-\$\{actor\.kind\}\$\{actor\.status === "offline" \? " actor-logs-offline" : ""\}`\}/);
   assert.match(actorDetail, /Recent log messages/);
+  assert.equal((actorDetail.match(/className="actor-status-badges"/g) || []).length, 2);
   assert.match(actorDetail, /function formatSgrLogMessage\(message: string\)/);
   assert.match(actorDetail, /logs\.messages\.map\(\(message, index\)/);
   assert.match(actorDetail, /text: message\.replace\(sgrPattern, ""\)/);
