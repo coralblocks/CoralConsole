@@ -1133,7 +1133,10 @@ test("deployment and UI conventions stay explicit", async () => {
   assert.match(actorDetail, /\/api\/actors\/\$\{encodeURIComponent\(actorId\)\}\/logs/);
   assert.match(actorDetail, /className=\{`actor-logs-panel actor-\$\{actor\.kind\}`\}/);
   assert.match(actorDetail, /Recent log messages/);
-  assert.match(actorDetail, /logs\.messages\.join\("\\n"\)/);
+  assert.match(actorDetail, /function formatSgrLogMessage\(message: string\)/);
+  assert.match(actorDetail, /logs\.messages\.map\(\(message, index\)/);
+  assert.match(actorDetail, /text: message\.replace\(sgrPattern, ""\)/);
+  assert.doesNotMatch(actorDetail, /actor-logs-meta|saved ·/);
   assert.match(actorDetail, /className=\{`actor-admin-panel actor-\$\{actor\.kind\}`\}/);
   assert.match(actorLogs, /coralActorLogCache\?: Map<string, ActorLogState>/);
   assert.match(actorLogs, /"VM lastLogs"/);
@@ -1145,6 +1148,8 @@ test("deployment and UI conventions stay explicit", async () => {
   assert.doesNotMatch(actorDetail, /Return to topology/);
   assert.match(styles, /\.status-refresh-button \{[^}]*background: color-mix/);
   assert.match(styles, /\.actor-log-output \{[^}]*max-height: 320px[^}]*overflow: auto/);
+  assert.match(styles, /\.actor-logs-body \{ padding: 0 0 28px; \}/);
+  assert.match(styles, /\.actor-log-line \{ display: block; \}/);
   assert.match(actorUi, /failure: "Failure"/);
   assert.match(styles, /\.audit-outcome\.failure \{/);
   assert.doesNotMatch(styles, /\.audit-outcome\.failed \{/);

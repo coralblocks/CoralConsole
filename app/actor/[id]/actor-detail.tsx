@@ -9,10 +9,62 @@ import { useServerHealth } from "../../use-server-health";
 import type { AuditEntry, TopologySettings } from "@/lib/types";
 
 type ActorLogSnapshot = {
-  messagesSaved: number;
   messages: string[];
   updatedAt?: string;
 };
+
+const SGR_COLORS: Record<number, string> = {
+  30: "#91a09c",
+  31: "#ff8b82",
+  32: "#9fdb83",
+  33: "#f5cd73",
+  34: "#82b9ff",
+  35: "#d7a1ef",
+  36: "#76d9d1",
+  37: "#e8f4f0",
+  90: "#9aa9a5",
+  91: "#ffaaa3",
+  92: "#b9eb9c",
+  93: "#ffe09b",
+  94: "#a8cfff",
+  95: "#e5b9f5",
+  96: "#9ae8e1",
+  97: "#ffffff",
+};
+
+function formatSgrLogMessage(message: string) {
+  const sgrPattern = /(?:\u001b\[|\u009b)([0-9;]*)m/g;
+  const leadingSgr = message.match(/^(?:(?:\u001b\[|\u009b)[0-9;]*m)+/)?.[0] ?? "";
+  let bold = false;
+  let color: string | undefined;
+
+  for (const sequence of leadingSgr.matchAll(sgrPattern)) {
+    const codes = sequence[1] === ""
+      ? [0]
+      : sequence[1].split(";").map((code) => Number(code));
+
+    for (const code of codes) {
+      if (code === 0) {
+        bold = false;
+        color = undefined;
+      } else if (code === 1) {
+        bold = true;
+      } else if (code === 22) {
+        bold = false;
+      } else if (code === 39) {
+        color = undefined;
+      } else if (SGR_COLORS[code]) {
+        color = SGR_COLORS[code];
+      }
+    }
+  }
+
+  return {
+    bold,
+    color,
+    text: message.replace(sgrPattern, ""),
+  };
+}
 
 async function apiRequest<T>(url: string, init?: RequestInit): Promise<T> {
   const response = await fetch(url, init);
@@ -33,7 +85,7 @@ function formatLastActorStatusResponse(value?: string) {
 
 export default function ActorDetail({ actorId }: { actorId: string }) {
   const [actor, setActor] = useState<Actor | null>(null);
-  const [logs, setLogs] = useState<ActorLogSnapshot>({ messagesSaved: 0, messages: [] });
+  const [logs, setLogs] = useState<ActorLogSnapshot>({ messages: [] });
   const [audit, setAudit] = useState<AuditEntry[]>([]);
   const [ready, setReady] = useState(false);
   const [removed, setRemoved] = useState(false);
@@ -230,11 +282,28 @@ export default function ActorDetail({ actorId }: { actorId: string }) {
                   <p className="eyebrow">Actor logs</p>
                   <h2 id="actor-logs-title">Recent log messages</h2>
                 </div>
-                <span className="actor-logs-meta">{logs.messagesSaved} saved · {logs.messages.length} shown</span>
               </div>
               <div className="actor-logs-body">
                 {logs.messages.length
-                  ? <pre className="actor-log-output">{logs.messages.join("\n")}</pre>
+                  ? (
+                      <pre className="actor-log-output">
+                        {logs.messages.map((message, index) => {
+                          const formatted = formatSgrLogMessage(message);
+                          return (
+                            <span
+                              className="actor-log-line"
+                              key={`${index}-${message}`}
+                              style={{
+                                color: formatted.color,
+                                fontWeight: formatted.bold ? 700 : undefined,
+                              }}
+                            >
+                              {formatted.text}
+                            </span>
+                          );
+                        })}
+                      </pre>
+                    )
                   : <p className="actor-logs-empty">No log messages have been received from this actor.</p>}
               </div>
             </section>
