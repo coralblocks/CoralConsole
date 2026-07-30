@@ -298,13 +298,16 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .actor-detail-connectivity-alert strong { display: block; font-size: 12px; }
 .actor-detail-connectivity-alert p { color: #92504a; font-size: 10px; margin: 2px 0 0; }
 .actor-detail-server-unreachable .actor-detail-panel,
+.actor-detail-server-unreachable .actor-logs-panel,
+.actor-detail-server-unreachable .actor-admin-panel,
 .actor-detail-server-unreachable .actor-audit-panel,
 .actor-detail-server-unreachable .actor-detail-empty {
   background-color: color-mix(in srgb, var(--coral-soft) 50%, rgba(255, 254, 249, .9));
   border-color: color-mix(in srgb, var(--coral) 45%, var(--line));
   box-shadow: 0 18px 50px rgba(168, 55, 48, .14);
 }
-.actor-detail-panel { margin: 0 auto; max-width: 860px; position: relative; top: auto; width: 100%; }
+.actor-detail-panel, .actor-logs-panel, .actor-admin-panel { margin: 0 auto; max-width: 860px; width: 100%; }
+.actor-detail-panel { position: relative; top: auto; }
 .actor-detail-panel .inspector-head { padding: 30px 30px 26px; }
 .actor-detail-panel .inspector-head h1 { font-size: 24px; letter-spacing: -.035em; }
 .actor-detail-panel .actor-detail-identity { flex: 1; }
@@ -320,9 +323,16 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .actor-detail-panel .detail-grid div { padding: 19px 28px; }
 .actor-detail-panel .detail-grid dt { font-size: 9px; }
 .actor-detail-panel .detail-grid dd { font-size: 10px; }
-.actor-detail-panel .admin-block { padding: 30px 28px 26px; }
-.actor-detail-panel .admin-heading h2 { font-size: 19px; }
-.actor-detail-panel .admin-block input, .actor-detail-panel .admin-block select { height: 48px; }
+.actor-logs-panel, .actor-admin-panel { background: rgba(255, 254, 249, .8); border: 1px solid rgba(16, 43, 38, .1); border-radius: 22px; overflow: hidden; }
+.actor-logs-panel { border-top: 5px solid var(--actor-color); }
+.actor-logs-panel .section-heading { padding-block: 20px; }
+.actor-logs-meta { background: var(--actor-soft); border-radius: 999px; color: color-mix(in srgb, var(--actor-color) 58%, var(--muted)); font-family: var(--font-plex-mono), monospace; font-size: 10px; font-weight: 700; padding: 7px 10px; white-space: nowrap; }
+.actor-logs-body { padding: 0 28px 28px; }
+.actor-log-output { background: #0d2d27; border-radius: 12px; color: #d9efe9; font-family: var(--font-plex-mono), monospace; font-size: 12px; line-height: 1.65; margin: 0; max-height: 320px; overflow: auto; padding: 18px; white-space: pre-wrap; }
+.actor-logs-empty { color: var(--muted); margin: 0; padding: 24px 0 8px; text-align: center; }
+.actor-admin-panel .admin-block { padding: 30px 28px 26px; }
+.actor-admin-panel .admin-heading h2 { font-size: 19px; }
+.actor-admin-panel .admin-block input, .actor-admin-panel .admin-block select { height: 48px; }
 .actor-detail-layout { display: grid; gap: 22px; margin: 0 auto; max-width: 980px; }
 .actor-audit-panel { background: rgba(255, 254, 249, .8); border: 1px solid rgba(16, 43, 38, .1); border-radius: 22px; overflow: hidden; }
 .actor-audit-panel .section-heading { padding-block: 20px; }
@@ -585,7 +595,9 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   .actor-detail-panel .inspector-head { padding: 23px 20px 19px; }
   .actor-title-row { align-items: flex-start; flex-direction: column; gap: 7px; }
   .actor-detail-panel .detail-grid div { padding: 14px 18px; }
-  .actor-detail-panel .admin-block { padding: 24px 20px 20px; }
+  .actor-logs-body { padding: 0 20px 20px; }
+  .actor-logs-panel .section-heading { align-items: flex-start; }
+  .actor-admin-panel .admin-block { padding: 24px 20px 20px; }
   .section-heading { align-items: start; flex-direction: column; padding: 20px; }
   .topology-heading-actions { justify-content: flex-start; justify-self: stretch; width: 100%; }
   .topology-heading-actions .button { flex: 1; white-space: nowrap; }
@@ -731,9 +743,11 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   .status-refresh-button { font-size: 14px; }
   .actor-detail-panel .detail-grid dt { font-size: 15px; }
   .actor-detail-panel .detail-grid dd { font-size: 18px; }
-  .actor-detail-panel .admin-heading h2 { font-size: 32px; }
-  .actor-detail-panel .admin-block input,
-  .actor-detail-panel .admin-block select { font-size: 18px; }
+  .actor-admin-panel .admin-heading h2 { font-size: 32px; }
+  .actor-admin-panel .admin-block input,
+  .actor-admin-panel .admin-block select { font-size: 18px; }
+  .actor-logs-meta,
+  .actor-log-output { font-size: 14px; }
   .actor-audit-list article small,
   .actor-audit-list pre,
   .audit-outcome { font-size: 14px; }
@@ -934,7 +948,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   .actor-detail-main { min-height: calc(100vh - 104px); padding-block: 86px 106px; }
   .actor-detail-connectivity-alert { max-width: 1320px; }
   .actor-detail-layout { gap: 29px; max-width: 1320px; }
-  .actor-detail-panel { max-width: 1160px; }
+  .actor-detail-panel, .actor-logs-panel, .actor-admin-panel { max-width: 1160px; }
   .actor-detail-panel .inspector-head { padding: 40px 40px 35px; }
   .actor-detail-panel .inspector-head h1 { font-size: 33px; }
   .actor-detail-panel .inspector-head p { font-size: 14px; }
@@ -947,9 +961,13 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   .actor-detail-panel .detail-grid div { padding: 25px 38px; }
   .actor-detail-panel .detail-grid dt { font-size: 12px; }
   .actor-detail-panel .detail-grid dd { font-size: 14px; }
-  .actor-detail-panel .admin-block { padding: 40px 38px 35px; }
-  .actor-detail-panel .admin-heading h2 { font-size: 26px; }
-  .actor-detail-panel .admin-block input, .actor-detail-panel .admin-block select { font-size: 14px; height: 64px; }
+  .actor-logs-panel .section-heading { padding-block: 27px; }
+  .actor-logs-body { padding: 0 38px 38px; }
+  .actor-logs-meta, .actor-log-output { font-size: 16px; }
+  .actor-log-output { border-radius: 16px; max-height: 440px; padding: 24px; }
+  .actor-admin-panel .admin-block { padding: 40px 38px 35px; }
+  .actor-admin-panel .admin-heading h2 { font-size: 26px; }
+  .actor-admin-panel .admin-block input, .actor-admin-panel .admin-block select { font-size: 14px; height: 64px; }
   .actor-audit-panel .section-heading { padding-block: 27px; }
   .actor-audit-list article { gap: 19px; grid-template-columns: 110px minmax(200px, .7fr) minmax(0, 1.3fr); padding: 22px 35px; }
   .actor-audit-list article small, .actor-audit-list pre, .audit-outcome { font-size: 11px; }

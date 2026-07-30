@@ -1,4 +1,5 @@
 import { closeAllActorMonitoringConnections, refreshActorStatus } from "./actor-server";
+import { refreshActorLogs } from "./actor-logs";
 import { getActor, getSettings, listActors, markActorOffline, updateActor } from "./repository";
 import { hasRecentViewer } from "./viewer-presence";
 
@@ -64,7 +65,14 @@ async function refreshOneActor(actorId: string) {
   const actor = getActor(actorId);
   if (!actor || actor.demo) return;
   try {
-    updateActor(await refreshActorStatus(actor, disconnectHandler(actorId)));
+    const refreshed = updateActor(await refreshActorStatus(actor, disconnectHandler(actorId)));
+    if (!refreshed) return;
+    try {
+      await refreshActorLogs(refreshed, disconnectHandler(actorId));
+    } catch {
+      // Log retrieval is supplemental. A lastLogs failure must not override a
+      // successful actorStatus result or discard the last cached log window.
+    }
   } catch (error) {
     const message = error instanceof Error ? error.message : "Actor refresh failed.";
     markActorOffline(actor, message);

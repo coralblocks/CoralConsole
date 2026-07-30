@@ -8,6 +8,12 @@ import { ACTOR_META, auditOutcomeLabel, operationalStateForDisplay, operationalS
 import { useServerHealth } from "../../use-server-health";
 import type { AuditEntry, TopologySettings } from "@/lib/types";
 
+type ActorLogSnapshot = {
+  messagesSaved: number;
+  messages: string[];
+  updatedAt?: string;
+};
+
 async function apiRequest<T>(url: string, init?: RequestInit): Promise<T> {
   const response = await fetch(url, init);
   const payload = await response.json() as T & { error?: string };
@@ -27,6 +33,7 @@ function formatLastActorStatusResponse(value?: string) {
 
 export default function ActorDetail({ actorId }: { actorId: string }) {
   const [actor, setActor] = useState<Actor | null>(null);
+  const [logs, setLogs] = useState<ActorLogSnapshot>({ messagesSaved: 0, messages: [] });
   const [audit, setAudit] = useState<AuditEntry[]>([]);
   const [ready, setReady] = useState(false);
   const [removed, setRemoved] = useState(false);
@@ -44,15 +51,23 @@ export default function ActorDetail({ actorId }: { actorId: string }) {
     setAudit(payload.entries);
   }, [actorId]);
 
+  const loadActorLogs = useCallback(async () => {
+    const payload = await apiRequest<{ logs: ActorLogSnapshot }>(`/api/actors/${encodeURIComponent(actorId)}/logs`, { cache: "no-store" });
+    return payload.logs;
+  }, [actorId]);
+
   const refreshActor = useCallback(async (force = false) => {
     await apiRequest<{ actors: Actor[] }>("/api/actors/refresh", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ force }),
     });
-    const payload = await apiRequest<{ actor: Actor }>(`/api/actors/${encodeURIComponent(actorId)}`, { cache: "no-store" });
-    return payload.actor;
-  }, [actorId]);
+    const [actorPayload, logPayload] = await Promise.all([
+      apiRequest<{ actor: Actor }>(`/api/actors/${encodeURIComponent(actorId)}`, { cache: "no-store" }),
+      loadActorLogs(),
+    ]);
+    return { actor: actorPayload.actor, logs: logPayload };
+  }, [actorId, loadActorLogs]);
 
   useEffect(() => {
     let active = true;
@@ -60,10 +75,11 @@ export default function ActorDetail({ actorId }: { actorId: string }) {
       refreshActor(true),
       apiRequest<{ entries: AuditEntry[] }>(`/api/audit?actorId=${encodeURIComponent(actorId)}&limit=20`, { cache: "no-store" }),
       apiRequest<{ settings: TopologySettings }>("/api/settings", { cache: "no-store" }),
-    ]).then(([actorPayload, auditPayload, settingsPayload]) => {
+    ]).then(([snapshot, auditPayload, settingsPayload]) => {
       if (!active) return;
-      setActor(actorPayload);
-      setAction(actorPayload.actions[0] || "list");
+      setActor(snapshot.actor);
+      setLogs(snapshot.logs);
+      setAction(snapshot.actor.actions[0] || "list");
       setAudit(auditPayload.entries);
       setPollIntervalSeconds(settingsPayload.settings.pollIntervalSeconds);
     }).catch((requestError) => {
@@ -78,9 +94,10 @@ export default function ActorDetail({ actorId }: { actorId: string }) {
     if (!ready || removed) return;
     const timer = window.setInterval(() => {
       if (document.visibilityState !== "visible") return;
-      void refreshActor(false).then((updatedActor) => {
-        setActor(updatedActor);
-        setAction((current) => updatedActor.actions.includes(current) ? current : updatedActor.actions[0] || "list");
+      void refreshActor(false).then((snapshot) => {
+        setActor(snapshot.actor);
+        setLogs(snapshot.logs);
+        setAction((current) => snapshot.actor.actions.includes(current) ? current : snapshot.actor.actions[0] || "list");
         setError("");
       }).catch((requestError) => {
         setError(requestError instanceof Error ? requestError.message : "Actor details could not be refreshed.");
@@ -108,8 +125,10 @@ export default function ActorDetail({ actorId }: { actorId: string }) {
       void Promise.all([
         loadAudit(),
         apiRequest<{ actor: Actor }>(`/api/actors/${encodeURIComponent(actor.id)}`, { cache: "no-store" }),
-      ]).then(([, actorPayload]) => {
+        loadActorLogs(),
+      ]).then(([, actorPayload, logPayload]) => {
         setActor(actorPayload.actor);
+        setLogs(logPayload);
         setAction((current) => actorPayload.actor.actions.includes(current) ? current : actorPayload.actor.actions[0] || "list");
       }).catch(() => undefined);
     }
@@ -124,6 +143,7 @@ export default function ActorDetail({ actorId }: { actorId: string }) {
         method: "POST",
       });
       setActor(payload.actor);
+      setLogs(await loadActorLogs());
       setAction((current) => payload.actor.actions.includes(current) ? current : payload.actor.actions[0] || "list");
     } catch (requestError) {
       setError(requestError instanceof Error ? requestError.message : "Actor status could not be refreshed.");
@@ -202,8 +222,26 @@ export default function ActorDetail({ actorId }: { actorId: string }) {
                   <div key={`${field.label}-${index}`}><dt>{field.label}</dt><dd>{field.value}</dd></div>
                 ))}
               </dl>
+            </section>
+
+            <section className={`actor-logs-panel actor-${actor.kind}`} aria-labelledby="actor-logs-title">
+              <div className="section-heading">
+                <div>
+                  <p className="eyebrow">Actor logs</p>
+                  <h2 id="actor-logs-title">Recent log messages</h2>
+                </div>
+                <span className="actor-logs-meta">{logs.messagesSaved} saved · {logs.messages.length} shown</span>
+              </div>
+              <div className="actor-logs-body">
+                {logs.messages.length
+                  ? <pre className="actor-log-output">{logs.messages.join("\n")}</pre>
+                  : <p className="actor-logs-empty">No log messages have been received from this actor.</p>}
+              </div>
+            </section>
+
+            <section className={`actor-admin-panel actor-${actor.kind}`} aria-labelledby="actor-admin-title">
               <div className="admin-block">
-                <div className="admin-heading"><div><p className="eyebrow">REST admin</p><h2>Run an action</h2></div><span>{actor.actions.length} available</span></div>
+                <div className="admin-heading"><div><p className="eyebrow">REST admin</p><h2 id="actor-admin-title">Run an action</h2></div><span>{actor.actions.length} available</span></div>
                 <form onSubmit={runAction}>
                   <label htmlFor="action">Admin action</label>
                   <div className="select-wrap"><select id="action" value={action} onChange={(event) => setAction(event.target.value)}>{actor.actions.map((available) => <option value={available} key={available}>{available}</option>)}</select></div>

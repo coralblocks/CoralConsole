@@ -1,4 +1,5 @@
 import { actorUrl, closeActorMonitoringConnection } from "@/lib/actor-server";
+import { clearActorLogs } from "@/lib/actor-logs";
 import { apiErrorResponse, apiJson, ApiError, mutationAllowed, readJson } from "@/lib/http";
 import { runExclusiveActorMutation } from "@/lib/refresh";
 import { deleteActor, getActor, updateActorEndpoint } from "@/lib/repository";
@@ -40,6 +41,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       const updated = await runExclusiveActorMutation(id, () => {
         const saved = updateActorEndpoint(id, host, port);
         closeActorMonitoringConnection(id);
+        clearActorLogs(id);
         return saved;
       });
       return apiJson({ actor: updated });
@@ -63,6 +65,7 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
     if (actor.demo) throw new ApiError("Sample actors cannot be removed.", 400);
     await runExclusiveActorMutation(id, () => {
       closeActorMonitoringConnection(id);
+      clearActorLogs(id);
       deleteActor(id);
     });
     return apiJson({ removed: true });
