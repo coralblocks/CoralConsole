@@ -1,5 +1,5 @@
 import { closeAllActorMonitoringConnections, refreshActorStatus } from "./actor-server";
-import { refreshActorLogs } from "./actor-logs";
+import { refreshActorLogs, resetActorLogCursor } from "./actor-logs";
 import { getActor, getSettings, listActors, markActorOffline, updateActor } from "./repository";
 import { hasRecentViewer } from "./viewer-presence";
 
@@ -57,7 +57,10 @@ async function runScheduledActorOperation(actorId: string, operation: () => Prom
 function disconnectHandler(actorId: string) {
   return (message: string) => {
     const current = getActor(actorId);
-    if (current && !current.demo) markActorOffline(current, message);
+    if (current && !current.demo) {
+      resetActorLogCursor(actorId);
+      markActorOffline(current, message);
+    }
   };
 }
 
@@ -67,6 +70,9 @@ async function refreshOneActor(actorId: string) {
   try {
     const refreshed = updateActor(await refreshActorStatus(actor, disconnectHandler(actorId)));
     if (!refreshed) return;
+    if (actor.status === "offline" || actor.session !== refreshed.session) {
+      resetActorLogCursor(actorId);
+    }
     try {
       await refreshActorLogs(refreshed, disconnectHandler(actorId));
     } catch {

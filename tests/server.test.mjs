@@ -531,7 +531,7 @@ test("standalone server persists settings, actors, and admin action audit in SQL
     assert.deepEqual(actorServer.requests.slice(-3), [
       { adminCommand: "SEQ actorStatus", params: "", shouldLog: false },
       { adminCommand: "list", params: "SEQ", shouldLog: false },
-      { adminCommand: "VM lastLogs", params: "2", shouldLog: false },
+      { adminCommand: "VM lastLogs", params: "0", shouldLog: false },
     ]);
     assert.deepEqual(actorServer.requestConnections.slice(-3), [
       persistentConnection,
@@ -671,6 +671,8 @@ test("standalone server persists settings, actors, and admin action audit in SQL
     }
     assert.equal(disconnectedActor?.status, "offline");
 
+    actorServer.setLogs(2, ["LOGMSG_AFTER_RESTART_1", "LOGMSG_AFTER_RESTART_2"]);
+    const reconnectStart = actorServer.requests.length;
     const reconnected = await json(server.baseUrl, "/api/actors/refresh", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -680,6 +682,17 @@ test("standalone server persists settings, actors, and admin action audit in SQL
     assert.notEqual(actorServer.requestConnections.at(-1), persistentConnection);
     assert.equal(actorServer.requestConnections.at(-3), actorServer.requestConnections.at(-1));
     assert.equal(actorServer.requestConnections.at(-2), actorServer.requestConnections.at(-1));
+    assert.deepEqual(actorServer.requests.slice(reconnectStart, reconnectStart + 3), [
+      { adminCommand: "SEQ actorStatus", params: "", shouldLog: false },
+      { adminCommand: "list", params: "SEQ", shouldLog: false },
+      { adminCommand: "VM lastLogs", params: "0", shouldLog: false },
+    ]);
+    const sameCursorRestartLogs = await json(server.baseUrl, `/api/actors/${discovered.actor.id}/logs`);
+    assert.equal(sameCursorRestartLogs.logs.messagesSaved, 2);
+    assert.deepEqual(
+      sameCursorRestartLogs.logs.messages,
+      ["LOGMSG_AFTER_RESTART_1", "LOGMSG_AFTER_RESTART_2"],
+    );
 
     actorServer.setLogs(1, ["LOGMSG_AFTER_RESTART"]);
     await json(server.baseUrl, `/api/actors/${discovered.actor.id}/refresh`, { method: "POST" });
@@ -1140,9 +1153,13 @@ test("deployment and UI conventions stay explicit", async () => {
   assert.doesNotMatch(actorDetail, /actor-logs-meta|saved ·/);
   assert.match(actorDetail, /className=\{`actor-admin-panel actor-\$\{actor\.kind\}`\}/);
   assert.match(actorLogs, /coralActorLogCache\?: Map<string, ActorLogState>/);
+  assert.match(actorLogs, /coralActorLogCursorResets\?: Set<string>/);
   assert.match(actorLogs, /"VM lastLogs"/);
-  assert.match(actorLogs, /String\(current\?\.messagesSaved \?\? 0\)/);
+  assert.match(actorLogs, /const resetCursor = actorLogCursorResets\.has\(actor\.id\)/);
+  assert.match(actorLogs, /const cursor = resetCursor \? 0 : \(current\?\.messagesSaved \?\? 0\)/);
+  assert.match(actorLogs, /String\(cursor\)/);
   assert.match(actorLogs, /shouldLog: false/);
+  assert.match(actorLogs, /resetCursor[\s\S]*\|\| !current/);
   assert.match(actorLogs, /next\.messagesSaved !== current\.messagesSaved/);
   assert.match(actorLogsRoute, /getActorLogs\(id\)/);
   assert.doesNotMatch(actorDetail, /Back to topology/);

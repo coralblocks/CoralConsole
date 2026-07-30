@@ -15,10 +15,13 @@ type ActorLogState = {
 
 const globalLogCache = globalThis as typeof globalThis & {
   coralActorLogCache?: Map<string, ActorLogState>;
+  coralActorLogCursorResets?: Set<string>;
 };
 
 const actorLogCache = globalLogCache.coralActorLogCache
   ?? (globalLogCache.coralActorLogCache = new Map());
+const actorLogCursorResets = globalLogCache.coralActorLogCursorResets
+  ?? (globalLogCache.coralActorLogCursorResets = new Set());
 
 function snapshot(state?: ActorLogState): ActorLogSnapshot {
   return state
@@ -47,15 +50,22 @@ export function getActorLogs(actorId: string) {
 
 export function clearActorLogs(actorId: string) {
   actorLogCache.delete(actorId);
+  actorLogCursorResets.delete(actorId);
+}
+
+export function resetActorLogCursor(actorId: string) {
+  actorLogCursorResets.add(actorId);
 }
 
 export async function refreshActorLogs(actor: Actor, onDisconnect: (message: string) => void) {
   const current = actorLogCache.get(actor.id);
+  const resetCursor = actorLogCursorResets.has(actor.id);
+  const cursor = resetCursor ? 0 : (current?.messagesSaved ?? 0);
   const reply = await callActorEndpoint(
     actor.host,
     actor.port,
     "VM lastLogs",
-    String(current?.messagesSaved ?? 0),
+    String(cursor),
     { actorId: actor.id, onDisconnect, shouldLog: false },
   );
   if (reply.result !== true) {
@@ -64,7 +74,8 @@ export async function refreshActorLogs(actor: Actor, onDisconnect: (message: str
   const next = parseLastLogs(typeof reply.results === "string" ? reply.results : "");
 
   if (
-    !current
+    resetCursor
+    || !current
     || next.messagesSaved !== current.messagesSaved
     || next.messages.length > 0
   ) {
@@ -73,6 +84,7 @@ export async function refreshActorLogs(actor: Actor, onDisconnect: (message: str
       updatedAt: new Date().toISOString(),
     });
   }
+  actorLogCursorResets.delete(actor.id);
 
   return getActorLogs(actor.id);
 }
