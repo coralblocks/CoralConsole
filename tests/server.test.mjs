@@ -1155,6 +1155,7 @@ test("deployment and UI conventions stay explicit", async () => {
   assert.match(actorDetail, /New logs <span aria-hidden="true">↓<\/span>/);
   assert.match(actorDetail, /output\.scrollTop = output\.scrollHeight/);
   assert.match(actorDetail, /onScroll=\{handleLogScroll\}/);
+  assert.match(actorDetail, /className=\{`actor-log-output\$\{pendingLogs \? " actor-log-output-pending" : ""\}`\}/);
   assert.match(actorDetail, /logs\.messages\.map\(\(message, index\)/);
   assert.match(actorDetail, /text: message\.replace\(sgrPattern, ""\)/);
   assert.doesNotMatch(actorDetail, /actor-logs-meta|saved ·/);
@@ -1178,6 +1179,8 @@ test("deployment and UI conventions stay explicit", async () => {
   assert.match(styles, /\.actor-logs-new-button \{/);
   assert.match(styles, /\.actor-logs-new-row \{[^}]*justify-content: center/);
   assert.match(styles, /\.actor-logs-panel\.actor-logs-updated \.actor-log-output \{ animation: actor-logs-update-pulse 2\.4s ease-out; \}/);
+  assert.match(styles, /\.actor-log-output\.actor-log-output-pending \{[^}]*outline: 6px solid var\(--log-attention\)[^}]*outline-offset: -6px/);
+  assert.match(styles, /24%, 55% \{ box-shadow: inset 0 0 0 7px var\(--log-attention\), 0 0 38px 14px/);
   assert.match(styles, /@media \(prefers-reduced-motion: reduce\) \{[\s\S]*\.actor-logs-panel\.actor-logs-updated \.actor-log-output \{ animation: none; \}/);
   assert.match(actorUi, /failure: "Failure"/);
   assert.match(styles, /\.audit-outcome\.failure \{/);

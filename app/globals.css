@@ -334,7 +334,8 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .actor-logs-new-row { display: flex; justify-content: center; padding: 12px 20px 0; }
 .actor-logs-panel.actor-logs-updated .actor-log-output { animation: actor-logs-update-pulse 2.4s ease-out; }
 .actor-logs-body { padding: 0 0 28px; }
-.actor-log-output { background: #0d2d27; border-radius: 0; color: #d9efe9; font-family: var(--font-plex-mono), monospace; font-size: 12px; line-height: 1.65; margin: 0; max-height: 320px; overflow: auto; padding: 18px; position: relative; white-space: pre-wrap; z-index: 1; }
+.actor-log-output { --log-attention: #987200; background: #0d2d27; border-radius: 0; color: #d9efe9; font-family: var(--font-plex-mono), monospace; font-size: 12px; line-height: 1.65; margin: 0; max-height: 320px; overflow: auto; padding: 18px; position: relative; white-space: pre-wrap; z-index: 1; }
+.actor-log-output.actor-log-output-pending { outline: 6px solid var(--log-attention); outline-offset: -6px; }
 .actor-log-line { display: block; }
 .actor-logs-empty { color: var(--muted); margin: 0; padding: 24px 28px 8px; text-align: center; }
 .actor-admin-panel .admin-block { padding: 30px 28px 26px; }
@@ -352,7 +353,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 
 @keyframes actor-logs-update-pulse {
   0%, 100% { box-shadow: inset 0 0 0 0 transparent, 0 0 0 0 transparent; }
-  24%, 55% { box-shadow: inset 0 0 0 4px color-mix(in srgb, var(--actor-color) 78%, white), 0 0 30px 10px color-mix(in srgb, var(--actor-color) 55%, transparent); }
+  24%, 55% { box-shadow: inset 0 0 0 7px var(--log-attention), 0 0 38px 14px color-mix(in srgb, var(--log-attention) 72%, transparent); }
 }
 .audit-outcome.failure { background: var(--coral-soft); color: #9a3d36; }
 .audit-outcome.error { background: #fff0cd; color: #846018; }

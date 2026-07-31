@@ -385,7 +385,7 @@ export default function ActorDetail({ actorId }: { actorId: string }) {
                 {logs.messages.length
                   ? (
                       <pre
-                        className="actor-log-output"
+                        className={`actor-log-output${pendingLogs ? " actor-log-output-pending" : ""}`}
                         ref={logOutputRef}
                         onScroll={handleLogScroll}
                         tabIndex={0}
