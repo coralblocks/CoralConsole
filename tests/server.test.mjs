@@ -1144,10 +1144,17 @@ test("deployment and UI conventions stay explicit", async () => {
   assert.match(actorDetail, /formatLastActorStatusResponse\(actor\.actorStatusRespondedAt\)/);
   assert.match(actorDetail, /<dt>REST endpoint<\/dt>[\s\S]*<dt>Last response<\/dt>[\s\S]*actor\.actorStatusFields\.map/);
   assert.match(actorDetail, /\/api\/actors\/\$\{encodeURIComponent\(actorId\)\}\/logs/);
-  assert.match(actorDetail, /className=\{`actor-logs-panel actor-\$\{actor\.kind\}\$\{actor\.status === "offline" \? " actor-logs-offline" : ""\}`\}/);
+  assert.match(actorDetail, /className=\{`actor-logs-panel actor-\$\{actor\.kind\}\$\{actor\.status === "offline" \? " actor-logs-offline" : ""\}\$\{logsUpdated \? " actor-logs-updated" : ""\}`\}/);
   assert.match(actorDetail, /Recent log messages/);
   assert.equal((actorDetail.match(/className="actor-status-badges"/g) || []).length, 2);
   assert.match(actorDetail, /function formatSgrLogMessage\(message: string\)/);
+  assert.match(actorDetail, /function sameLogMessages\(left: ActorLogSnapshot, right: ActorLogSnapshot\)/);
+  assert.match(actorDetail, /if \(sameLogMessages\(displayedLogsRef\.current, snapshot\)\) \{\s*return;\s*\}/);
+  assert.match(actorDetail, /followingLogsRef\.current = nearBottom/);
+  assert.match(actorDetail, /if \(nearBottom && pendingLogsRef\.current\) revealLatestLogs\(\)/);
+  assert.match(actorDetail, /New logs <span aria-hidden="true">↓<\/span>/);
+  assert.match(actorDetail, /output\.scrollTop = output\.scrollHeight/);
+  assert.match(actorDetail, /onScroll=\{handleLogScroll\}/);
   assert.match(actorDetail, /logs\.messages\.map\(\(message, index\)/);
   assert.match(actorDetail, /text: message\.replace\(sgrPattern, ""\)/);
   assert.doesNotMatch(actorDetail, /actor-logs-meta|saved ·/);
@@ -1168,6 +1175,9 @@ test("deployment and UI conventions stay explicit", async () => {
   assert.match(styles, /\.actor-log-output \{[^}]*max-height: 320px[^}]*overflow: auto/);
   assert.match(styles, /\.actor-logs-body \{ padding: 0 0 28px; \}/);
   assert.match(styles, /\.actor-log-line \{ display: block; \}/);
+  assert.match(styles, /\.actor-logs-new-button \{/);
+  assert.match(styles, /\.actor-logs-panel\.actor-logs-updated \{ animation: actor-logs-update-pulse 1\.4s ease-out; \}/);
+  assert.match(styles, /@media \(prefers-reduced-motion: reduce\) \{[\s\S]*\.actor-logs-panel\.actor-logs-updated \{ animation: none; \}/);
   assert.match(actorUi, /failure: "Failure"/);
   assert.match(styles, /\.audit-outcome\.failure \{/);
   assert.doesNotMatch(styles, /\.audit-outcome\.failed \{/);

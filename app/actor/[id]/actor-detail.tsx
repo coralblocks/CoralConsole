@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useCallback, useEffect, useState } from "react";
+import { FormEvent, type UIEvent, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { RefreshCw } from "lucide-react";
 import { ConsoleBrand } from "../../console-chrome";
@@ -12,6 +12,14 @@ type ActorLogSnapshot = {
   messages: string[];
   updatedAt?: string;
 };
+
+const EMPTY_ACTOR_LOG_SNAPSHOT: ActorLogSnapshot = { messages: [] };
+const LOG_NEAR_BOTTOM_THRESHOLD = 36;
+
+function sameLogMessages(left: ActorLogSnapshot, right: ActorLogSnapshot) {
+  return left.messages.length === right.messages.length
+    && left.messages.every((message, index) => message === right.messages[index]);
+}
 
 const SGR_COLORS: Record<number, string> = {
   30: "#91a09c",
@@ -85,7 +93,9 @@ function formatLastActorStatusResponse(value?: string) {
 
 export default function ActorDetail({ actorId }: { actorId: string }) {
   const [actor, setActor] = useState<Actor | null>(null);
-  const [logs, setLogs] = useState<ActorLogSnapshot>({ messages: [] });
+  const [logs, setLogs] = useState<ActorLogSnapshot>(EMPTY_ACTOR_LOG_SNAPSHOT);
+  const [pendingLogs, setPendingLogs] = useState<ActorLogSnapshot | null>(null);
+  const [logsUpdated, setLogsUpdated] = useState(false);
   const [audit, setAudit] = useState<AuditEntry[]>([]);
   const [ready, setReady] = useState(false);
   const [removed, setRemoved] = useState(false);
@@ -96,7 +106,89 @@ export default function ActorDetail({ actorId }: { actorId: string }) {
   const [refreshingStatus, setRefreshingStatus] = useState(false);
   const [reply, setReply] = useState<AdminActionReply | null>(null);
   const [pollIntervalSeconds, setPollIntervalSeconds] = useState(5);
+  const displayedLogsRef = useRef<ActorLogSnapshot>(EMPTY_ACTOR_LOG_SNAPSHOT);
+  const pendingLogsRef = useRef<ActorLogSnapshot | null>(null);
+  const followingLogsRef = useRef(true);
+  const scrollLogsToBottomRef = useRef(false);
+  const logsPulseTimerRef = useRef<number | null>(null);
+  const logOutputRef = useRef<HTMLPreElement | null>(null);
   const serverConnected = useServerHealth();
+
+  const pulseLogPanel = useCallback(() => {
+    if (logsPulseTimerRef.current !== null) {
+      window.clearTimeout(logsPulseTimerRef.current);
+    }
+    setLogsUpdated(true);
+    logsPulseTimerRef.current = window.setTimeout(() => {
+      setLogsUpdated(false);
+      logsPulseTimerRef.current = null;
+    }, 1400);
+  }, []);
+
+  const displayLogSnapshot = useCallback((snapshot: ActorLogSnapshot, drawAttention: boolean) => {
+    if (sameLogMessages(displayedLogsRef.current, snapshot)) return;
+    displayedLogsRef.current = snapshot;
+    pendingLogsRef.current = null;
+    followingLogsRef.current = true;
+    scrollLogsToBottomRef.current = true;
+    setPendingLogs(null);
+    setLogs(snapshot);
+    if (drawAttention) pulseLogPanel();
+  }, [pulseLogPanel]);
+
+  const receiveLogSnapshot = useCallback((snapshot: ActorLogSnapshot, initial = false) => {
+    if (sameLogMessages(displayedLogsRef.current, snapshot)) {
+      return;
+    }
+    if (pendingLogsRef.current && sameLogMessages(pendingLogsRef.current, snapshot)) {
+      return;
+    }
+    if (initial || followingLogsRef.current) {
+      displayLogSnapshot(snapshot, !initial);
+      return;
+    }
+    pendingLogsRef.current = snapshot;
+    setPendingLogs(snapshot);
+    pulseLogPanel();
+  }, [displayLogSnapshot, pulseLogPanel]);
+
+  const revealLatestLogs = useCallback(() => {
+    followingLogsRef.current = true;
+    const snapshot = pendingLogsRef.current;
+    if (snapshot) {
+      displayLogSnapshot(snapshot, false);
+      return;
+    }
+    const output = logOutputRef.current;
+    if (output) output.scrollTop = output.scrollHeight;
+  }, [displayLogSnapshot]);
+
+  const handleLogScroll = useCallback((event: UIEvent<HTMLPreElement>) => {
+    const output = event.currentTarget;
+    const nearBottom = output.scrollHeight - output.scrollTop - output.clientHeight <= LOG_NEAR_BOTTOM_THRESHOLD;
+    followingLogsRef.current = nearBottom;
+    if (nearBottom && pendingLogsRef.current) revealLatestLogs();
+  }, [revealLatestLogs]);
+
+  useLayoutEffect(() => {
+    if (!scrollLogsToBottomRef.current) return;
+    const scrollToBottom = () => {
+      const output = logOutputRef.current;
+      if (output) output.scrollTop = output.scrollHeight;
+    };
+    scrollToBottom();
+    const frame = window.requestAnimationFrame(() => {
+      scrollToBottom();
+      scrollLogsToBottomRef.current = false;
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [logs]);
+
+  useEffect(() => () => {
+    if (logsPulseTimerRef.current !== null) {
+      window.clearTimeout(logsPulseTimerRef.current);
+    }
+  }, []);
 
   const loadAudit = useCallback(async () => {
     const payload = await apiRequest<{ entries: AuditEntry[] }>(`/api/audit?actorId=${encodeURIComponent(actorId)}&limit=20`, { cache: "no-store" });
@@ -130,7 +222,7 @@ export default function ActorDetail({ actorId }: { actorId: string }) {
     ]).then(([snapshot, auditPayload, settingsPayload]) => {
       if (!active) return;
       setActor(snapshot.actor);
-      setLogs(snapshot.logs);
+      receiveLogSnapshot(snapshot.logs, true);
       setAction(snapshot.actor.actions[0] || "list");
       setAudit(auditPayload.entries);
       setPollIntervalSeconds(settingsPayload.settings.pollIntervalSeconds);
@@ -140,7 +232,7 @@ export default function ActorDetail({ actorId }: { actorId: string }) {
       if (active) setReady(true);
     });
     return () => { active = false; };
-  }, [actorId, refreshActor]);
+  }, [actorId, receiveLogSnapshot, refreshActor]);
 
   useEffect(() => {
     if (!ready || removed) return;
@@ -148,7 +240,7 @@ export default function ActorDetail({ actorId }: { actorId: string }) {
       if (document.visibilityState !== "visible") return;
       void refreshActor(false).then((snapshot) => {
         setActor(snapshot.actor);
-        setLogs(snapshot.logs);
+        receiveLogSnapshot(snapshot.logs);
         setAction((current) => snapshot.actor.actions.includes(current) ? current : snapshot.actor.actions[0] || "list");
         setError("");
       }).catch((requestError) => {
@@ -156,7 +248,7 @@ export default function ActorDetail({ actorId }: { actorId: string }) {
       });
     }, pollIntervalSeconds * 1000);
     return () => window.clearInterval(timer);
-  }, [pollIntervalSeconds, ready, refreshActor, removed]);
+  }, [pollIntervalSeconds, ready, receiveLogSnapshot, refreshActor, removed]);
 
   async function runAction(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -180,7 +272,7 @@ export default function ActorDetail({ actorId }: { actorId: string }) {
         loadActorLogs(),
       ]).then(([, actorPayload, logPayload]) => {
         setActor(actorPayload.actor);
-        setLogs(logPayload);
+        receiveLogSnapshot(logPayload);
         setAction((current) => actorPayload.actor.actions.includes(current) ? current : actorPayload.actor.actions[0] || "list");
       }).catch(() => undefined);
     }
@@ -195,7 +287,7 @@ export default function ActorDetail({ actorId }: { actorId: string }) {
         method: "POST",
       });
       setActor(payload.actor);
-      setLogs(await loadActorLogs());
+      receiveLogSnapshot(await loadActorLogs());
       setAction((current) => payload.actor.actions.includes(current) ? current : payload.actor.actions[0] || "list");
     } catch (requestError) {
       setError(requestError instanceof Error ? requestError.message : "Actor status could not be refreshed.");
@@ -276,21 +368,39 @@ export default function ActorDetail({ actorId }: { actorId: string }) {
               </dl>
             </section>
 
-            <section className={`actor-logs-panel actor-${actor.kind}${actor.status === "offline" ? " actor-logs-offline" : ""}`} aria-labelledby="actor-logs-title">
+            <section className={`actor-logs-panel actor-${actor.kind}${actor.status === "offline" ? " actor-logs-offline" : ""}${logsUpdated ? " actor-logs-updated" : ""}`} aria-labelledby="actor-logs-title">
               <div className="section-heading">
                 <div>
                   <p className="eyebrow">Actor logs</p>
                   <h2 id="actor-logs-title">Recent log messages</h2>
                 </div>
-                <div className="actor-status-badges">
-                  <span className={`actor-state-badge state-${displayedState}`}>{operationalStateLabel(displayedState)}</span>
-                  <span className={`status-badge status-${actor.status}`}><i />{statusLabel(actor.status)}</span>
+                <div className="actor-logs-heading-actions">
+                  {pendingLogs && (
+                    <button
+                      className="actor-logs-new-button"
+                      type="button"
+                      onClick={revealLatestLogs}
+                      aria-label="Show new log messages and resume following"
+                    >
+                      New logs <span aria-hidden="true">↓</span>
+                    </button>
+                  )}
+                  <div className="actor-status-badges">
+                    <span className={`actor-state-badge state-${displayedState}`}>{operationalStateLabel(displayedState)}</span>
+                    <span className={`status-badge status-${actor.status}`}><i />{statusLabel(actor.status)}</span>
+                  </div>
                 </div>
               </div>
               <div className="actor-logs-body">
                 {logs.messages.length
                   ? (
-                      <pre className="actor-log-output">
+                      <pre
+                        className="actor-log-output"
+                        ref={logOutputRef}
+                        onScroll={handleLogScroll}
+                        tabIndex={0}
+                        aria-label="Recent actor log messages"
+                      >
                         {logs.messages.map((message, index) => {
                           const formatted = formatSgrLogMessage(message);
                           return (
