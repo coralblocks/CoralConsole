@@ -307,7 +307,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   border-color: color-mix(in srgb, var(--coral) 45%, var(--line));
   box-shadow: 0 18px 50px rgba(168, 55, 48, .14);
 }
-.actor-detail-panel, .actor-logs-panel, .actor-admin-panel { margin: 0 auto; max-width: 860px; width: 100%; }
+.actor-detail-panel, .actor-logs-panel, .actor-admin-panel, .actor-audit-panel { margin: 0 auto; max-width: 860px; width: 100%; }
 .actor-detail-panel { position: relative; top: auto; }
 .actor-detail-panel .inspector-head { padding: 30px 30px 26px; }
 .actor-detail-panel .inspector-head h1 { font-size: 24px; letter-spacing: -.035em; }
@@ -962,7 +962,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   .actor-detail-main { min-height: calc(100vh - 104px); padding-block: 86px 106px; }
   .actor-detail-connectivity-alert { max-width: 1320px; }
   .actor-detail-layout { gap: 29px; max-width: 1320px; }
-  .actor-detail-panel, .actor-logs-panel, .actor-admin-panel { max-width: 1160px; }
+  .actor-detail-panel, .actor-logs-panel, .actor-admin-panel, .actor-audit-panel { max-width: 1160px; }
   .actor-detail-panel .inspector-head { padding: 40px 40px 35px; }
   .actor-detail-panel .inspector-head h1 { font-size: 33px; }
   .actor-detail-panel .inspector-head p { font-size: 14px; }
