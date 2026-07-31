@@ -31,6 +31,7 @@ deployment.
   complete topology, regardless of the number of actors.
 - Dedicated actor pages with complete status fields and manual REST admin
   actions.
+- Recent actor log messages update automatically on each Actor Detail page.
 - Actor registry with endpoint editing, removal, and persisted precedence
   ordering within each actor type.
 - Protected, searchable audit history for manual actions, including outcome,
