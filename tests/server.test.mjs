@@ -1176,8 +1176,9 @@ test("deployment and UI conventions stay explicit", async () => {
   assert.match(styles, /\.actor-logs-body \{ padding: 0 0 28px; \}/);
   assert.match(styles, /\.actor-log-line \{ display: block; \}/);
   assert.match(styles, /\.actor-logs-new-button \{/);
-  assert.match(styles, /\.actor-logs-panel\.actor-logs-updated \{ animation: actor-logs-update-pulse 1\.4s ease-out; \}/);
-  assert.match(styles, /@media \(prefers-reduced-motion: reduce\) \{[\s\S]*\.actor-logs-panel\.actor-logs-updated \{ animation: none; \}/);
+  assert.match(styles, /\.actor-logs-new-row \{[^}]*justify-content: center/);
+  assert.match(styles, /\.actor-logs-panel\.actor-logs-updated \.actor-log-output \{ animation: actor-logs-update-pulse 2\.4s ease-out; \}/);
+  assert.match(styles, /@media \(prefers-reduced-motion: reduce\) \{[\s\S]*\.actor-logs-panel\.actor-logs-updated \.actor-log-output \{ animation: none; \}/);
   assert.match(actorUi, /failure: "Failure"/);
   assert.match(styles, /\.audit-outcome\.failure \{/);
   assert.doesNotMatch(styles, /\.audit-outcome\.failed \{/);

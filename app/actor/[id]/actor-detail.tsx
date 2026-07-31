@@ -375,16 +375,6 @@ export default function ActorDetail({ actorId }: { actorId: string }) {
                   <h2 id="actor-logs-title">Recent log messages</h2>
                 </div>
                 <div className="actor-logs-heading-actions">
-                  {pendingLogs && (
-                    <button
-                      className="actor-logs-new-button"
-                      type="button"
-                      onClick={revealLatestLogs}
-                      aria-label="Show new log messages and resume following"
-                    >
-                      New logs <span aria-hidden="true">↓</span>
-                    </button>
-                  )}
                   <div className="actor-status-badges">
                     <span className={`actor-state-badge state-${displayedState}`}>{operationalStateLabel(displayedState)}</span>
                     <span className={`status-badge status-${actor.status}`}><i />{statusLabel(actor.status)}</span>
@@ -419,6 +409,18 @@ export default function ActorDetail({ actorId }: { actorId: string }) {
                       </pre>
                     )
                   : <p className="actor-logs-empty">No log messages have been received from this actor.</p>}
+                {pendingLogs && (
+                  <div className="actor-logs-new-row">
+                    <button
+                      className="actor-logs-new-button"
+                      type="button"
+                      onClick={revealLatestLogs}
+                      aria-label="Show new log messages and resume following"
+                    >
+                      New logs <span aria-hidden="true">↓</span>
+                    </button>
+                  </div>
+                )}
               </div>
             </section>
 
