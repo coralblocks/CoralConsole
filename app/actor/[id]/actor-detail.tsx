@@ -92,7 +92,9 @@ function formatLastActorStatusResponse(value?: string) {
 }
 
 function actionsForAdminAccount(actor: Actor, account: string) {
-  return account === "VM" ? actor.vmActions : actor.actions;
+  return [...(account === "VM" ? actor.vmActions : actor.actions)].sort((left, right) =>
+    left.localeCompare(right, undefined, { sensitivity: "base" })
+  );
 }
 
 function actionReplyLabel(reply: AdminActionReply, account: string, action: string) {
@@ -234,7 +236,7 @@ export default function ActorDetail({ actorId }: { actorId: string }) {
       setActor(snapshot.actor);
       receiveLogSnapshot(snapshot.logs, true);
       setAdminAccount(snapshot.actor.account);
-      setAction(snapshot.actor.actions[0] || "list");
+      setAction(actionsForAdminAccount(snapshot.actor, snapshot.actor.account)[0] || "list");
       setAudit(auditPayload.entries);
       setPollIntervalSeconds(settingsPayload.settings.pollIntervalSeconds);
     }).catch((requestError) => {
