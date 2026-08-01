@@ -135,9 +135,16 @@ async function startMockActorServer(initialActorAccounts = ["SEQ"], reportedName
             "",
           ].join("\n") : "";
         } else if (input.adminCommand === "VM lastLogs") {
-          results = Number(input.params) === messagesSaved
-            ? `messagesSaved: ${messagesSaved}`
-            : [`messagesSaved: ${messagesSaved}`, ...logMessages].join("\n");
+          const [account, cursor, ...unexpectedParams] = String(input.params).trim().split(/\s+/);
+          const validParams = actorAccounts.includes(account)
+            && /^\d+$/.test(cursor || "")
+            && unexpectedParams.length === 0;
+          resultOverride = validParams;
+          results = !validParams
+            ? "VM lastLogs requires an actor account and message cursor"
+            : Number(cursor) === messagesSaved
+              ? `messagesSaved: ${messagesSaved}`
+              : [`messagesSaved: ${messagesSaved}`, ...logMessages].join("\n");
         } else if (input.adminCommand === "VM gc" && input.params === "") {
           results = "VM garbage collection requested";
         } else if (input.adminCommand === "SEQ rollSessionAuto" && input.params === "") {
@@ -480,7 +487,7 @@ test("standalone server persists settings, actors, and admin action audit in SQL
     const persistentConnection = actorServer.requestConnections[firstRefreshStart];
     assert.deepEqual(actorServer.requests.slice(firstRefreshStart, firstRefreshStart + 2), [
       { adminCommand: "SEQ actorStatus", params: "", shouldLog: false },
-      { adminCommand: "VM lastLogs", params: "0", shouldLog: false },
+      { adminCommand: "VM lastLogs", params: "SEQ 0", shouldLog: false },
     ]);
     assert.deepEqual(actorServer.requestConnections.slice(firstRefreshStart, firstRefreshStart + 2), [
       persistentConnection,
@@ -506,7 +513,7 @@ test("standalone server persists settings, actors, and admin action audit in SQL
       { adminCommand: "SEQ actorStatus", params: "", shouldLog: false },
       { adminCommand: "list", params: "SEQ", shouldLog: false },
       { adminCommand: "list", params: "VM", shouldLog: false },
-      { adminCommand: "VM lastLogs", params: "2", shouldLog: false },
+      { adminCommand: "VM lastLogs", params: "SEQ 2", shouldLog: false },
     ]);
 
     const failedVmRetryStart = actorServer.requests.length;
@@ -518,7 +525,7 @@ test("standalone server persists settings, actors, and admin action audit in SQL
     assert.deepEqual(actorServer.requests.slice(failedVmRetryStart, failedVmRetryStart + 3), [
       { adminCommand: "SEQ actorStatus", params: "", shouldLog: false },
       { adminCommand: "list", params: "VM", shouldLog: false },
-      { adminCommand: "VM lastLogs", params: "2", shouldLog: false },
+      { adminCommand: "VM lastLogs", params: "SEQ 2", shouldLog: false },
     ]);
 
     actorServer.setVmListResult(true);
@@ -531,7 +538,7 @@ test("standalone server persists settings, actors, and admin action audit in SQL
     assert.deepEqual(actorServer.requests.slice(successfulVmRetryStart, successfulVmRetryStart + 3), [
       { adminCommand: "SEQ actorStatus", params: "", shouldLog: false },
       { adminCommand: "list", params: "VM", shouldLog: false },
-      { adminCommand: "VM lastLogs", params: "2", shouldLog: false },
+      { adminCommand: "VM lastLogs", params: "SEQ 2", shouldLog: false },
     ]);
 
     const steadyRefreshStart = actorServer.requests.length;
@@ -542,7 +549,7 @@ test("standalone server persists settings, actors, and admin action audit in SQL
     });
     assert.deepEqual(actorServer.requests.slice(steadyRefreshStart, steadyRefreshStart + 2), [
       { adminCommand: "SEQ actorStatus", params: "", shouldLog: false },
-      { adminCommand: "VM lastLogs", params: "2", shouldLog: false },
+      { adminCommand: "VM lastLogs", params: "SEQ 2", shouldLog: false },
     ]);
 
     const operationalStateCases = [
@@ -591,7 +598,7 @@ test("standalone server persists settings, actors, and admin action audit in SQL
       { adminCommand: "SEQ actorStatus", params: "", shouldLog: false },
       { adminCommand: "list", params: "SEQ", shouldLog: false },
       { adminCommand: "list", params: "VM", shouldLog: false },
-      { adminCommand: "VM lastLogs", params: "0", shouldLog: false },
+      { adminCommand: "VM lastLogs", params: "SEQ 0", shouldLog: false },
     ]);
     actorServer.setSession("2607232154");
 
@@ -638,7 +645,7 @@ test("standalone server persists settings, actors, and admin action audit in SQL
       { adminCommand: "SEQ actorStatus", params: "", shouldLog: false },
       { adminCommand: "list", params: "SEQ", shouldLog: false },
       { adminCommand: "list", params: "VM", shouldLog: false },
-      { adminCommand: "VM lastLogs", params: "0", shouldLog: false },
+      { adminCommand: "VM lastLogs", params: "SEQ 0", shouldLog: false },
     ]);
     assert.deepEqual(actorServer.requestConnections.slice(-4), [
       persistentConnection,
@@ -665,7 +672,7 @@ test("standalone server persists settings, actors, and admin action audit in SQL
     assert.deepEqual(actorServer.requests.slice(manualStatusStart, manualStatusStart + 3), [
       { adminCommand: "SEQ status", params: "" },
       { adminCommand: "SEQ actorStatus", params: "", shouldLog: false },
-      { adminCommand: "VM lastLogs", params: "2", shouldLog: false },
+      { adminCommand: "VM lastLogs", params: "SEQ 2", shouldLog: false },
     ]);
     assert.notEqual(actorServer.requestConnections[manualStatusStart], persistentConnection);
     assert.deepEqual(
@@ -694,7 +701,7 @@ test("standalone server persists settings, actors, and admin action audit in SQL
     assert.deepEqual(actorServer.requests.slice(manualVmActionStart, manualVmActionStart + 3), [
       { adminCommand: "VM gc", params: "" },
       { adminCommand: "SEQ actorStatus", params: "", shouldLog: false },
-      { adminCommand: "VM lastLogs", params: "2", shouldLog: false },
+      { adminCommand: "VM lastLogs", params: "SEQ 2", shouldLog: false },
     ]);
     const vmAudit = await json(server.baseUrl, `/api/audit?actorId=${discoveredActor.id}&query=${encodeURIComponent("VM gc")}&outcome=success&limit=20`);
     assert.equal(vmAudit.entries[0].action, "VM gc");
@@ -709,7 +716,7 @@ test("standalone server persists settings, actors, and admin action audit in SQL
     assert.deepEqual(actorServer.requests.slice(manualVmListStart, manualVmListStart + 3), [
       { adminCommand: "list", params: "VM" },
       { adminCommand: "SEQ actorStatus", params: "", shouldLog: false },
-      { adminCommand: "VM lastLogs", params: "2", shouldLog: false },
+      { adminCommand: "VM lastLogs", params: "SEQ 2", shouldLog: false },
     ]);
 
     const requestsBeforeInvalidAccount = actorServer.requests.length;
@@ -732,7 +739,7 @@ test("standalone server persists settings, actors, and admin action audit in SQL
     assert.deepEqual(actorServer.requests.slice(manualHealthCheckStart, manualHealthCheckStart + 3), [
       { adminCommand: "SEQ healthCheck", params: "" },
       { adminCommand: "SEQ actorStatus", params: "", shouldLog: false },
-      { adminCommand: "VM lastLogs", params: "2", shouldLog: false },
+      { adminCommand: "VM lastLogs", params: "SEQ 2", shouldLog: false },
     ]);
     assert.notEqual(actorServer.requestConnections[manualHealthCheckStart], persistentConnection);
 
@@ -758,7 +765,7 @@ test("standalone server persists settings, actors, and admin action audit in SQL
     assert.deepEqual(actorServer.requests.slice(slowActionStart, slowActionStart + 3), [
       { adminCommand: "SEQ slowAction", params: "" },
       { adminCommand: "SEQ actorStatus", params: "", shouldLog: false },
-      { adminCommand: "VM lastLogs", params: "2", shouldLog: false },
+      { adminCommand: "VM lastLogs", params: "SEQ 2", shouldLog: false },
     ]);
     assert.notEqual(actorServer.requestConnections[slowActionStart], persistentConnection);
     assert.deepEqual(
@@ -832,7 +839,7 @@ test("standalone server persists settings, actors, and admin action audit in SQL
       { adminCommand: "SEQ actorStatus", params: "", shouldLog: false },
       { adminCommand: "list", params: "SEQ", shouldLog: false },
       { adminCommand: "list", params: "VM", shouldLog: false },
-      { adminCommand: "VM lastLogs", params: "0", shouldLog: false },
+      { adminCommand: "VM lastLogs", params: "SEQ 0", shouldLog: false },
     ]);
     const sameCursorRestartLogs = await json(server.baseUrl, `/api/actors/${discoveredActor.id}/logs`);
     assert.equal(sameCursorRestartLogs.logs.messagesSaved, 2);
@@ -845,7 +852,7 @@ test("standalone server persists settings, actors, and admin action audit in SQL
     await json(server.baseUrl, `/api/actors/${discoveredActor.id}/refresh`, { method: "POST" });
     assert.deepEqual(actorServer.requests.at(-1), {
       adminCommand: "VM lastLogs",
-      params: "2",
+      params: "SEQ 2",
       shouldLog: false,
     });
     const resetLogs = await json(server.baseUrl, `/api/actors/${discoveredActor.id}/logs`);
@@ -949,6 +956,17 @@ test("standalone server persists settings, actors, and admin action audit in SQL
         { adminCommand: "NODE12 actorStatus", params: "" },
       ],
     );
+
+    const sharedEndpointLogsStart = sharedEndpointActorServer.requests.length;
+    await Promise.all(sharedEndpointDiscovery.actors.map((actor) =>
+      json(server.baseUrl, `/api/actors/${actor.id}/refresh`, { method: "POST" })
+    ));
+    const sharedEndpointLogParams = sharedEndpointActorServer.requests
+      .slice(sharedEndpointLogsStart)
+      .filter((request) => request.adminCommand === "VM lastLogs")
+      .map((request) => request.params);
+    assert.equal(sharedEndpointLogParams.some((params) => /^NODE11 \d+$/.test(params)), true);
+    assert.equal(sharedEndpointLogParams.some((params) => /^NODE12 \d+$/.test(params)), true);
 
     const duplicateSharedEndpointResponse = await fetch(`${server.baseUrl}/api/actors`, {
       method: "POST",
@@ -1452,7 +1470,7 @@ test("deployment and UI conventions stay explicit", async () => {
   assert.match(actorLogs, /"VM lastLogs"/);
   assert.match(actorLogs, /const resetCursor = actorLogCursorResets\.has\(actor\.id\)/);
   assert.match(actorLogs, /const cursor = resetCursor \? 0 : \(current\?\.messagesSaved \?\? 0\)/);
-  assert.match(actorLogs, /String\(cursor\)/);
+  assert.match(actorLogs, /`\$\{actor\.account\} \$\{cursor\}`/);
   assert.match(actorLogs, /shouldLog: false/);
   assert.match(actorLogs, /resetCursor[\s\S]*\|\| !current/);
   assert.match(actorLogs, /next\.messagesSaved !== current\.messagesSaved/);

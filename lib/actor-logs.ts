@@ -65,7 +65,7 @@ export async function refreshActorLogs(actor: Actor, onDisconnect: (message: str
     actor.host,
     actor.port,
     "VM lastLogs",
-    String(cursor),
+    `${actor.account} ${cursor}`,
     { actorId: actor.id, onDisconnect, shouldLog: false },
   );
   if (reply.result !== true) {
