@@ -158,15 +158,15 @@ export function getActor(id: string) {
   return row ? rowToActor(row) : null;
 }
 
-export function getActorByEndpoint(host: string, port: number) {
+export function getActorByIdentity(host: string, port: number, account: string) {
   syncDemoMode();
   const row = getDb().select().from(actors)
-    .where(and(eq(actors.host, host), eq(actors.port, port)))
+    .where(and(eq(actors.host, host), eq(actors.port, port), eq(actors.account, account)))
     .get();
   return row ? rowToActor(row) : null;
 }
 
-export function createActor(actor: Actor) {
+function insertActor(actor: Actor) {
   const now = new Date().toISOString();
   const nextSortOrder = getSqlite()
     .prepare("SELECT COALESCE(MAX(sort_order), -1) + 1 AS nextSortOrder FROM actors WHERE kind = ?")
@@ -184,7 +184,14 @@ export function createActor(actor: Actor) {
     createdAt: now,
     updatedAt: now,
   }).run();
-  return getActor(actor.id)!;
+}
+
+export function createActors(discoveredActors: Actor[]) {
+  syncDemoMode();
+  getSqlite().transaction((pendingActors: Actor[]) => {
+    pendingActors.forEach(insertActor);
+  })(discoveredActors);
+  return discoveredActors.map((actor) => getActor(actor.id)!);
 }
 
 export function updateActor(actor: Actor, lastError: string | null = null) {

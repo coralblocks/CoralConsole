@@ -51,7 +51,7 @@ export const actors = sqliteTable("actors", {
   createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
   updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
 }, (table) => [
-  uniqueIndex("actors_endpoint_unique").on(table.host, table.port),
+  uniqueIndex("actors_identity_unique").on(table.host, table.port, table.account),
   index("actors_kind_idx").on(table.kind),
   index("actors_kind_order_idx").on(table.kind, table.sortOrder),
   index("actors_status_idx").on(table.status),

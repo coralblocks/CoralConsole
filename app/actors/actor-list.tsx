@@ -4,7 +4,7 @@ import { type DragEvent, type FormEvent, type KeyboardEvent, useCallback, useEff
 import { GripVertical } from "lucide-react";
 import { ACTOR_KINDS, ACTOR_META, statusLabel, type Actor, type ActorKind } from "../actor-ui";
 import { ConsoleBrand } from "../console-chrome";
-import type { TopologySettings } from "@/lib/types";
+import type { ActorDiscoveryResult, TopologySettings } from "@/lib/types";
 
 async function apiRequest<T>(url: string, init?: RequestInit): Promise<T> {
   const response = await fetch(url, init);
@@ -152,17 +152,33 @@ export default function ActorList() {
     setConnectError("");
     setConnecting(true);
     try {
-      const payload = await apiRequest<{ actor: Actor }>("/api/actors", {
+      const payload = await apiRequest<ActorDiscoveryResult>("/api/actors", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ host: connectHost.trim(), port: numericPort }),
       });
-      replaceActors([...actorsRef.current.filter((actor) => actor.id !== payload.actor.id), payload.actor]);
+      const discoveredIds = new Set(payload.actors.map((actor) => actor.id));
+      replaceActors([...actorsRef.current.filter((actor) => !discoveredIds.has(actor.id)), ...payload.actors]);
       setConnectHost("");
       setConnectPort("30001");
       setAddOpen(false);
       setAddKind(null);
-      showFeedback(payload.actor.kind, `${payload.actor.name} was added to CoralConsole.`, "notice", 7000);
+      const actorsByKind = new Map<ActorKind, Actor[]>();
+      payload.actors.forEach((actor) => actorsByKind.set(actor.kind, [...(actorsByKind.get(actor.kind) || []), actor]));
+      let firstFeedback = true;
+      for (const [kind, addedActors] of actorsByKind) {
+        const names = addedActors.map((actor) => actor.name).join(", ");
+        const duplicateNote = firstFeedback && payload.duplicateAccounts.length
+          ? ` Already present: ${payload.duplicateAccounts.join(", ")}.`
+          : "";
+        showFeedback(
+          kind,
+          `${names} ${addedActors.length === 1 ? "was" : "were"} added to CoralConsole.${duplicateNote}`,
+          "notice",
+          7000,
+        );
+        firstFeedback = false;
+      }
     } catch (requestError) {
       setConnectError(requestError instanceof Error ? requestError.message : "Could not reach this actor.");
     } finally {
@@ -431,8 +447,8 @@ export default function ActorList() {
           <section className={`add-modal${addKind ? ` actor-${addKind}` : ""}`} role="dialog" aria-modal="true" aria-labelledby="actor-list-add-title">
             <button className="modal-close" type="button" onClick={closeAddActor} aria-label="Close add actor dialog">×</button>
             <p className="eyebrow">{addKind ? `Add to ${groupLabel(addKind)}` : "Auto-discovery"}</p>
-            <h2 id="actor-list-add-title">Connect an actor</h2>
-            <p>Enter the actor’s network address. The server will discover its role and actions, then place it in the appropriate actor table.</p>
+            <h2 id="actor-list-add-title">Connect actors</h2>
+            <p>Enter a REST admin server address. CoralConsole will discover every actor account and place each actor in the appropriate table.</p>
             <div className="actor-type-list" aria-label="Supported actor types">{ACTOR_KINDS.filter((kind) => kind !== "link").map((kind) => <span className={kind === addKind ? "selected" : ""} key={kind}>{ACTOR_META[kind].label}</span>)}</div>
             <form onSubmit={addActor}>
               <label htmlFor="actor-list-host">IP address or host</label>
@@ -442,7 +458,7 @@ export default function ActorList() {
               {connectError && <p className="form-error" role="alert">{connectError}</p>}
               <div className="modal-actions">
                 <button className="button button-ghost" type="button" onClick={closeAddActor} disabled={connecting}>Cancel</button>
-                <button className="button button-primary" type="submit" disabled={connecting}>{connecting ? "Discovering…" : "Discover actor"}</button>
+                <button className="button button-primary" type="submit" disabled={connecting}>{connecting ? "Discovering…" : "Discover actors"}</button>
               </div>
             </form>
             <div className="privacy-note"><span aria-hidden="true">⌂</span><p><strong>Shared internal configuration</strong>The actor is contacted by this server and stored in its SQLite database.</p></div>

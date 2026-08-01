@@ -17,6 +17,7 @@ import { sessionStartFromId } from "@/lib/session";
 import {
   DEFAULT_SUMMARY_ACTOR_KINDS,
   SUMMARY_ACTOR_KINDS,
+  type ActorDiscoveryResult,
   type SummaryActorKind,
   type TopologySettings,
 } from "@/lib/types";
@@ -507,12 +508,13 @@ export default function Home() {
     }
     setConnecting(true);
     try {
-      const payload = await apiRequest<{ actor: Actor }>("/api/actors", {
+      const payload = await apiRequest<ActorDiscoveryResult>("/api/actors", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ host: host.trim(), port: numericPort }),
       });
-      setActors((current) => [...current.filter((actor) => actor.id !== payload.actor.id), payload.actor]);
+      const discoveredIds = new Set(payload.actors.map((actor) => actor.id));
+      setActors((current) => [...current.filter((actor) => !discoveredIds.has(actor.id)), ...payload.actors]);
       setHost("");
       setPort("30001");
       setAddOpen(false);
@@ -556,7 +558,7 @@ export default function Home() {
     const remaining: Actor[] = [];
     for (const legacy of legacyActors) {
       try {
-        await apiRequest<{ actor: Actor }>("/api/actors", {
+        await apiRequest<ActorDiscoveryResult>("/api/actors", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ host: legacy.host, port: legacy.port }),
@@ -825,14 +827,14 @@ export default function Home() {
         <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setAddOpen(false); }}>
           <section className="add-modal" role="dialog" aria-modal="true" aria-labelledby="add-title">
             <button className="modal-close" type="button" onClick={() => setAddOpen(false)} aria-label="Close add actor dialog">×</button>
-            <p className="eyebrow">Auto-discovery</p><h2 id="add-title">Connect an actor</h2>
-            <p>Enter the actor’s network address. The server will discover its role and actions, then save it for everyone using this console.</p>
+            <p className="eyebrow">Auto-discovery</p><h2 id="add-title">Connect actors</h2>
+            <p>Enter a REST admin server address. CoralConsole will discover and save every actor account exposed by that server.</p>
             <div className="actor-type-list" aria-label="Supported actor types">{ACTOR_KINDS.filter((kind) => kind !== "link").map((kind) => <span key={kind}>{ACTOR_META[kind].label}</span>)}</div>
             <form onSubmit={addActor}>
               <label htmlFor="host">IP address or host</label><input id="host" value={host} onChange={(event) => setHost(event.target.value)} placeholder="10.42.0.10" autoFocus />
               <label htmlFor="port">REST admin port</label><input id="port" value={port} onChange={(event) => setPort(event.target.value)} inputMode="numeric" placeholder="30001" />
               {connectError && <p className="form-error" role="alert">{connectError}</p>}
-              <div className="modal-actions"><button className="button button-ghost" type="button" onClick={() => setAddOpen(false)}>Cancel</button><button className="button button-primary" type="submit" disabled={connecting}>{connecting ? "Discovering…" : "Discover actor"}</button></div>
+              <div className="modal-actions"><button className="button button-ghost" type="button" onClick={() => setAddOpen(false)}>Cancel</button><button className="button button-primary" type="submit" disabled={connecting}>{connecting ? "Discovering…" : "Discover actors"}</button></div>
             </form>
             <div className="privacy-note"><span aria-hidden="true">⌂</span><p><strong>Shared internal configuration</strong>The actor is contacted by this server and stored in its SQLite database.</p></div>
           </section>

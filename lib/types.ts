@@ -53,6 +53,11 @@ export type Actor = {
   demo?: boolean;
 };
 
+export type ActorDiscoveryResult = {
+  actors: Actor[];
+  duplicateAccounts: string[];
+};
+
 export type AdminActionReply = {
   result?: boolean;
   adminCommand?: string;

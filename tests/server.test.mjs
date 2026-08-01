@@ -21,12 +21,13 @@ async function availablePort() {
   });
 }
 
-async function startMockActorServer() {
+async function startMockActorServer(initialActorAccounts = ["SEQ"], reportedNames = {}) {
+  let actorAccounts = [...initialActorAccounts];
   const requests = [];
   const requestConnections = [];
   const sockets = new Map();
   let connectionCount = 0;
-  let scopedListCount = 0;
+  let actorAccountListCount = 0;
   let actorStatusCount = 0;
   let actorStatusResult = true;
   let actorStatusHasFields = true;
@@ -63,32 +64,45 @@ async function startMockActorServer() {
         let results = "";
         let resultOverride;
         if (input.adminCommand === "list" && input.params === "") {
-          results = "VM\nSEQ\n";
-        } else if (input.adminCommand === "list" && input.params === "SEQ") {
-          scopedListCount += 1;
-          results = [
-            "SEQ open",
-            "SEQ close",
-            "SEQ actorStatus",
-            "SEQ status",
-            ...(scopedListCount > 1 ? ["SEQ healthCheck"] : []),
-            "SEQ rollSessionAuto",
-            "SEQ slowAction",
-            "SEQ invalidResult",
-            "SEQ dropConnection",
-            "",
-            "SEQ-CommandReceiver-0.0.0.0:40002",
-            "SEQ-SequencerMoldPublisher-224.0.0.0:40040",
-            "SEQ-CircularStore-2607232154-1048576",
-            "",
-          ].join("\n");
-        } else if (input.adminCommand === "SEQ actorStatus" && input.params === "") {
+          results = ["VM", ...actorAccounts, ""].join("\n");
+        } else if (input.adminCommand === "list" && actorAccounts.includes(input.params)) {
+          const account = input.params;
+          actorAccountListCount += 1;
+          results = account === "SEQ"
+            ? [
+                "SEQ open",
+                "SEQ close",
+                "SEQ actorStatus",
+                "SEQ status",
+                ...(actorAccountListCount > 1 ? ["SEQ healthCheck"] : []),
+                "SEQ rollSessionAuto",
+                "SEQ slowAction",
+                "SEQ invalidResult",
+                "SEQ dropConnection",
+                "",
+                "SEQ-CommandReceiver-0.0.0.0:40002",
+                "SEQ-SequencerMoldPublisher-224.0.0.0:40040",
+                "SEQ-CircularStore-2607232154-1048576",
+                "",
+              ].join("\n")
+            : [
+                `${account} open`,
+                `${account} close`,
+                `${account} actorStatus`,
+                `${account} status`,
+                `${account} healthCheck`,
+                "",
+                `${account}-SimpleNode-127.0.0.1:40001`,
+                "",
+              ].join("\n");
+        } else if (actorAccounts.some((account) => input.adminCommand === `${account} actorStatus`) && input.params === "") {
+          const account = input.adminCommand.slice(0, input.adminCommand.length - " actorStatus".length);
           actorStatusCount += 1;
           resultOverride = actorStatusResult;
           results = actorStatusHasFields ? [
-            "name:\tSEQ",
-            "type:\tSEQUENCER",
-            "class:\tPassThroughSequencer",
+            `name:\t${reportedNames[account] || account}`,
+            `type:\t${account === "SEQ" ? "SEQUENCER" : "NODE"}`,
+            `class:\t${account === "SEQ" ? "PassThroughSequencer" : "SimpleNode"}`,
             `open:\t${operationalState.open}`,
             `rewinding:\t${operationalState.rewinding}`,
             `active:\t${operationalState.active}`,
@@ -185,6 +199,9 @@ async function startMockActorServer() {
     setLogs(nextMessagesSaved, nextMessages) {
       messagesSaved = nextMessagesSaved;
       logMessages = nextMessages;
+    },
+    setActorAccounts(nextActorAccounts) {
+      actorAccounts = [...nextActorAccounts];
     },
     closeConnection(connectionId) {
       const socket = sockets.get(connectionId);
@@ -291,6 +308,7 @@ test("standalone server persists settings, actors, and admin action audit in SQL
   const port = await availablePort();
   let server;
   let actorServer;
+  const additionalActorServers = [];
   try {
     actorServer = await startMockActorServer();
     server = await startServer(databasePath, port);
@@ -344,26 +362,29 @@ test("standalone server persists settings, actors, and admin action audit in SQL
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ host: "127.0.0.1", port: actorServer.port }),
     });
-    assert.equal(discovered.actor.name, "SEQ");
-    assert.equal(discovered.actor.kind, "sequencer");
-    assert.equal(discovered.actor.className, "PassThroughSequencer");
-    assert.equal(discovered.actor.account, "SEQ");
-    assert.equal(discovered.actor.status, "online");
-    assert.equal(discovered.actor.operationalState, "active");
-    assert.equal(discovered.actor.session, "2607232154");
-    assert.equal(discovered.actor.outboundSequence, "41");
-    assert.equal(discovered.actor.accounts, "3");
-    assert.equal(discovered.actor.clockTickInterval, "1000");
-    assert.deepEqual(discovered.actor.actorStatusFields.at(-1), {
+    assert.equal(discovered.actors.length, 1);
+    assert.deepEqual(discovered.duplicateAccounts, []);
+    const discoveredActor = discovered.actors[0];
+    assert.equal(discoveredActor.name, "SEQ");
+    assert.equal(discoveredActor.kind, "sequencer");
+    assert.equal(discoveredActor.className, "PassThroughSequencer");
+    assert.equal(discoveredActor.account, "SEQ");
+    assert.equal(discoveredActor.status, "online");
+    assert.equal(discoveredActor.operationalState, "active");
+    assert.equal(discoveredActor.session, "2607232154");
+    assert.equal(discoveredActor.outboundSequence, "41");
+    assert.equal(discoveredActor.accounts, "3");
+    assert.equal(discoveredActor.clockTickInterval, "1000");
+    assert.deepEqual(discoveredActor.actorStatusFields.at(-1), {
       label: "store implementation",
       value: "CircularStore-1048576-1450",
     });
-    assert.equal(discovered.actor.sessionStarted, "23 Jul 2026 · 21:54");
-    assert.equal(Number.isNaN(Date.parse(discovered.actor.actorStatusRespondedAt)), false);
-    assert.equal(discovered.actor.actions.includes("actorStatus"), true);
-    assert.equal(discovered.actor.actions.includes("status"), true);
-    assert.equal(discovered.actor.actions.includes("healthCheck"), true);
-    assert.equal("commands" in discovered.actor, false);
+    assert.equal(discoveredActor.sessionStarted, "23 Jul 2026 · 21:54");
+    assert.equal(Number.isNaN(Date.parse(discoveredActor.actorStatusRespondedAt)), false);
+    assert.equal(discoveredActor.actions.includes("actorStatus"), true);
+    assert.equal(discoveredActor.actions.includes("status"), true);
+    assert.equal(discoveredActor.actions.includes("healthCheck"), true);
+    assert.equal("commands" in discoveredActor, false);
     assert.deepEqual(actorServer.requests, [
       { adminCommand: "list", params: "" },
       { adminCommand: "list", params: "SEQ" },
@@ -389,14 +410,15 @@ test("standalone server persists settings, actors, and admin action audit in SQL
         && request.params === ""
         && !Object.hasOwn(request, "shouldLog")
       ).length,
-      discoveryRequestsBeforeDuplicate,
+      discoveryRequestsBeforeDuplicate + 1,
     );
+    assert.deepEqual(actorServer.requests.at(-1), { adminCommand: "list", params: "" });
 
     const orderBefore = await json(server.baseUrl, "/api/actors");
     const sequencersBefore = orderBefore.actors.filter((actor) => actor.kind === "sequencer");
     const reorderedIds = [
-      discovered.actor.id,
-      ...sequencersBefore.filter((actor) => actor.id !== discovered.actor.id).map((actor) => actor.id),
+      discoveredActor.id,
+      ...sequencersBefore.filter((actor) => actor.id !== discoveredActor.id).map((actor) => actor.id),
     ];
     const reordered = await json(server.baseUrl, "/api/actors/order", {
       method: "PATCH",
@@ -415,7 +437,7 @@ test("standalone server persists settings, actors, and admin action audit in SQL
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         kind: "sequencer",
-        actorIds: [discovered.actor.id, orderBefore.actors.find((actor) => actor.kind === "replayer").id],
+        actorIds: [discoveredActor.id, orderBefore.actors.find((actor) => actor.kind === "replayer").id],
       }),
     });
     assert.equal(invalidOrder.status, 400);
@@ -426,7 +448,7 @@ test("standalone server persists settings, actors, and admin action audit in SQL
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ force: true }),
     });
-    const firstRefreshedActor = firstRefresh.actors.find((actor) => actor.id === discovered.actor.id);
+    const firstRefreshedActor = firstRefresh.actors.find((actor) => actor.id === discoveredActor.id);
     assert.equal(firstRefreshedActor?.status, "online");
     assert.equal(firstRefreshedActor?.operationalState, "active");
     assert.equal(firstRefreshedActor?.outboundSequence, "42");
@@ -445,7 +467,7 @@ test("standalone server persists settings, actors, and admin action audit in SQL
       persistentConnection,
       persistentConnection,
     ]);
-    const initialLogs = await json(server.baseUrl, `/api/actors/${discovered.actor.id}/logs`);
+    const initialLogs = await json(server.baseUrl, `/api/actors/${discoveredActor.id}/logs`);
     assert.equal(initialLogs.logs.messagesSaved, 2);
     assert.deepEqual(initialLogs.logs.messages, ["LOGMSG_1", "LOGMSG_2"]);
     assert.equal(Number.isNaN(Date.parse(initialLogs.logs.updatedAt)), false);
@@ -461,10 +483,10 @@ test("standalone server persists settings, actors, and admin action audit in SQL
     for (const [reportedState, expectedState] of operationalStateCases) {
       actorServer.setOperationalState(reportedState);
       const targetedRefreshStart = actorServer.requests.length;
-      const targetedRefresh = await json(server.baseUrl, `/api/actors/${discovered.actor.id}/refresh`, {
+      const targetedRefresh = await json(server.baseUrl, `/api/actors/${discoveredActor.id}/refresh`, {
         method: "POST",
       });
-      assert.equal(targetedRefresh.actor.id, discovered.actor.id);
+      assert.equal(targetedRefresh.actor.id, discoveredActor.id);
       assert.equal(targetedRefresh.actor.operationalState, expectedState);
       assert.equal(Number.isNaN(Date.parse(targetedRefresh.actor.actorStatusRespondedAt)), false);
       const targetedPollRequests = actorServer.requests.slice(targetedRefreshStart)
@@ -482,14 +504,14 @@ test("standalone server persists settings, actors, and admin action audit in SQL
     ]);
 
     actorServer.setSession("overnight-primary");
-    const unparseableSessionRefresh = await json(server.baseUrl, `/api/actors/${discovered.actor.id}/refresh`, {
+    const unparseableSessionRefresh = await json(server.baseUrl, `/api/actors/${discoveredActor.id}/refresh`, {
       method: "POST",
     });
     assert.equal(unparseableSessionRefresh.actor.session, "overnight-primary");
     assert.equal(unparseableSessionRefresh.actor.sessionStarted, undefined);
     actorServer.setSession("2607232154");
 
-    const auditAfterTargetedRefresh = await json(server.baseUrl, `/api/audit?actorId=${discovered.actor.id}&limit=20`);
+    const auditAfterTargetedRefresh = await json(server.baseUrl, `/api/audit?actorId=${discoveredActor.id}&limit=20`);
     assert.equal(auditAfterTargetedRefresh.entries.length, 0);
 
     actorServer.setActorStatusHasFields(false);
@@ -498,7 +520,7 @@ test("standalone server persists settings, actors, and admin action audit in SQL
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ force: true }),
     });
-    const emptyActorStatusActor = emptyActorStatus.actors.find((actor) => actor.id === discovered.actor.id);
+    const emptyActorStatusActor = emptyActorStatus.actors.find((actor) => actor.id === discoveredActor.id);
     assert.equal(emptyActorStatusActor?.status, "online");
     assert.deepEqual(emptyActorStatusActor?.actorStatusFields, unparseableSessionRefresh.actor.actorStatusFields);
     actorServer.setActorStatusHasFields(true);
@@ -509,7 +531,7 @@ test("standalone server persists settings, actors, and admin action audit in SQL
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ force: true }),
     });
-    assert.equal(failedActorStatus.actors.find((actor) => actor.id === discovered.actor.id)?.status, "offline");
+    assert.equal(failedActorStatus.actors.find((actor) => actor.id === discoveredActor.id)?.status, "offline");
     assert.deepEqual(actorServer.requests.at(-1), { adminCommand: "SEQ actorStatus", params: "", shouldLog: false });
 
     actorServer.setActorStatusResult("invalid");
@@ -518,7 +540,7 @@ test("standalone server persists settings, actors, and admin action audit in SQL
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ force: true }),
     });
-    assert.equal(invalidActorStatus.actors.find((actor) => actor.id === discovered.actor.id)?.status, "offline");
+    assert.equal(invalidActorStatus.actors.find((actor) => actor.id === discoveredActor.id)?.status, "offline");
     assert.deepEqual(actorServer.requests.at(-1), { adminCommand: "SEQ actorStatus", params: "", shouldLog: false });
 
     actorServer.setActorStatusResult(true);
@@ -527,7 +549,7 @@ test("standalone server persists settings, actors, and admin action audit in SQL
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ force: true }),
     });
-    assert.equal(recoveredActorStatus.actors.find((actor) => actor.id === discovered.actor.id)?.status, "online");
+    assert.equal(recoveredActorStatus.actors.find((actor) => actor.id === discoveredActor.id)?.status, "online");
     assert.deepEqual(actorServer.requests.slice(-3), [
       { adminCommand: "SEQ actorStatus", params: "", shouldLog: false },
       { adminCommand: "list", params: "SEQ", shouldLog: false },
@@ -539,12 +561,12 @@ test("standalone server persists settings, actors, and admin action audit in SQL
       persistentConnection,
     ]);
     assert.equal(actorServer.connectionCount, connectionsAfterFirstRefresh);
-    const unchangedLogs = await json(server.baseUrl, `/api/actors/${discovered.actor.id}/logs`);
+    const unchangedLogs = await json(server.baseUrl, `/api/actors/${discoveredActor.id}/logs`);
     assert.equal(unchangedLogs.logs.messagesSaved, 2);
     assert.deepEqual(unchangedLogs.logs.messages, ["LOGMSG_1", "LOGMSG_2"]);
 
     const manualStatusStart = actorServer.requests.length;
-    await json(server.baseUrl, `/api/actors/${discovered.actor.id}/actions`, {
+    await json(server.baseUrl, `/api/actors/${discoveredActor.id}/actions`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -565,7 +587,7 @@ test("standalone server persists settings, actors, and admin action audit in SQL
       actorServer.requestConnections.slice(manualStatusStart + 1, manualStatusStart + 4),
       [persistentConnection, persistentConnection, persistentConnection],
     );
-    const successAudit = await json(server.baseUrl, `/api/audit?actorId=${discovered.actor.id}&query=status&outcome=success&limit=20`);
+    const successAudit = await json(server.baseUrl, `/api/audit?actorId=${discoveredActor.id}&query=status&outcome=success&limit=20`);
     assert.equal(successAudit.entries[0].outcome, "success");
     assert.equal(successAudit.entries[0].sourceIp, "127.0.0.1");
     assert.equal("success" in successAudit.entries[0], false);
@@ -576,7 +598,7 @@ test("standalone server persists settings, actors, and admin action audit in SQL
     assert.equal(quotedPhraseAudit.entries.length, 0);
 
     const manualHealthCheckStart = actorServer.requests.length;
-    const manualHealthCheck = await json(server.baseUrl, `/api/actors/${discovered.actor.id}/actions`, {
+    const manualHealthCheck = await json(server.baseUrl, `/api/actors/${discoveredActor.id}/actions`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ action: "healthCheck", params: "" }),
@@ -591,7 +613,7 @@ test("standalone server persists settings, actors, and admin action audit in SQL
     assert.notEqual(actorServer.requestConnections[manualHealthCheckStart], persistentConnection);
 
     const slowActionStart = actorServer.requests.length;
-    const slowAction = json(server.baseUrl, `/api/actors/${discovered.actor.id}/actions`, {
+    const slowAction = json(server.baseUrl, `/api/actors/${discoveredActor.id}/actions`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ action: "slowAction", params: "" }),
@@ -621,7 +643,7 @@ test("standalone server persists settings, actors, and admin action audit in SQL
       [persistentConnection, persistentConnection, persistentConnection],
     );
 
-    const failedResponse = await fetch(`${server.baseUrl}/api/actors/${discovered.actor.id}/actions`, {
+    const failedResponse = await fetch(`${server.baseUrl}/api/actors/${discoveredActor.id}/actions`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ action: "rollSessionAuto", params: "" }),
@@ -629,13 +651,13 @@ test("standalone server persists settings, actors, and admin action audit in SQL
     const failedPayload = await failedResponse.json();
     assert.equal(failedResponse.ok, false);
     assert.match(failedPayload.error, /admin action failed/i);
-    const failureAudit = await json(server.baseUrl, `/api/audit?actorId=${discovered.actor.id}&query=rollSessionAuto&outcome=failure&limit=20`);
+    const failureAudit = await json(server.baseUrl, `/api/audit?actorId=${discoveredActor.id}&query=rollSessionAuto&outcome=failure&limit=20`);
     assert.equal(failureAudit.entries.length, 1);
     assert.equal(failureAudit.entries[0].action, "SEQ rollSessionAuto");
     assert.equal(failureAudit.entries[0].outcome, "failure");
     assert.match(failureAudit.entries[0].output, /safeguard/);
 
-    const errorResponse = await fetch(`${server.baseUrl}/api/actors/${discovered.actor.id}/actions`, {
+    const errorResponse = await fetch(`${server.baseUrl}/api/actors/${discoveredActor.id}/actions`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ action: "invalidResult", params: "" }),
@@ -643,12 +665,12 @@ test("standalone server persists settings, actors, and admin action audit in SQL
     const errorPayload = await errorResponse.json();
     assert.equal(errorResponse.ok, false);
     assert.match(errorPayload.error, /required boolean result/i);
-    const errorAudit = await json(server.baseUrl, `/api/audit?actorId=${discovered.actor.id}&outcome=error&limit=20`);
+    const errorAudit = await json(server.baseUrl, `/api/audit?actorId=${discoveredActor.id}&outcome=error&limit=20`);
     assert.equal(errorAudit.entries.length, 1);
     assert.equal(errorAudit.entries[0].action, "SEQ invalidResult");
     assert.equal(errorAudit.entries[0].outcome, "error");
 
-    const unreachableResponse = await fetch(`${server.baseUrl}/api/actors/${discovered.actor.id}/actions`, {
+    const unreachableResponse = await fetch(`${server.baseUrl}/api/actors/${discoveredActor.id}/actions`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ action: "dropConnection", params: "" }),
@@ -656,7 +678,7 @@ test("standalone server persists settings, actors, and admin action audit in SQL
     const unreachablePayload = await unreachableResponse.json();
     assert.equal(unreachableResponse.ok, false);
     assert.match(unreachablePayload.error, /could not reach the actor/i);
-    const unreachableAudit = await json(server.baseUrl, `/api/audit?actorId=${discovered.actor.id}&outcome=unreachable&limit=20`);
+    const unreachableAudit = await json(server.baseUrl, `/api/audit?actorId=${discoveredActor.id}&outcome=unreachable&limit=20`);
     assert.equal(unreachableAudit.entries.length, 1);
     assert.equal(unreachableAudit.entries[0].action, "SEQ dropConnection");
     assert.equal(unreachableAudit.entries[0].outcome, "unreachable");
@@ -665,7 +687,7 @@ test("standalone server persists settings, actors, and admin action audit in SQL
     let disconnectedActor;
     for (let attempt = 0; attempt < 50; attempt += 1) {
       const payload = await json(server.baseUrl, "/api/actors");
-      disconnectedActor = payload.actors.find((actor) => actor.id === discovered.actor.id);
+      disconnectedActor = payload.actors.find((actor) => actor.id === discoveredActor.id);
       if (disconnectedActor?.status === "offline") break;
       await new Promise((resolveWait) => setTimeout(resolveWait, 20));
     }
@@ -678,7 +700,7 @@ test("standalone server persists settings, actors, and admin action audit in SQL
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ force: true }),
     });
-    assert.equal(reconnected.actors.find((actor) => actor.id === discovered.actor.id)?.status, "online");
+    assert.equal(reconnected.actors.find((actor) => actor.id === discoveredActor.id)?.status, "online");
     assert.notEqual(actorServer.requestConnections.at(-1), persistentConnection);
     assert.equal(actorServer.requestConnections.at(-3), actorServer.requestConnections.at(-1));
     assert.equal(actorServer.requestConnections.at(-2), actorServer.requestConnections.at(-1));
@@ -687,7 +709,7 @@ test("standalone server persists settings, actors, and admin action audit in SQL
       { adminCommand: "list", params: "SEQ", shouldLog: false },
       { adminCommand: "VM lastLogs", params: "0", shouldLog: false },
     ]);
-    const sameCursorRestartLogs = await json(server.baseUrl, `/api/actors/${discovered.actor.id}/logs`);
+    const sameCursorRestartLogs = await json(server.baseUrl, `/api/actors/${discoveredActor.id}/logs`);
     assert.equal(sameCursorRestartLogs.logs.messagesSaved, 2);
     assert.deepEqual(
       sameCursorRestartLogs.logs.messages,
@@ -695,13 +717,13 @@ test("standalone server persists settings, actors, and admin action audit in SQL
     );
 
     actorServer.setLogs(1, ["LOGMSG_AFTER_RESTART"]);
-    await json(server.baseUrl, `/api/actors/${discovered.actor.id}/refresh`, { method: "POST" });
+    await json(server.baseUrl, `/api/actors/${discoveredActor.id}/refresh`, { method: "POST" });
     assert.deepEqual(actorServer.requests.at(-1), {
       adminCommand: "VM lastLogs",
       params: "2",
       shouldLog: false,
     });
-    const resetLogs = await json(server.baseUrl, `/api/actors/${discovered.actor.id}/logs`);
+    const resetLogs = await json(server.baseUrl, `/api/actors/${discoveredActor.id}/logs`);
     assert.equal(resetLogs.logs.messagesSaved, 1);
     assert.deepEqual(resetLogs.logs.messages, ["LOGMSG_AFTER_RESTART"]);
 
@@ -775,15 +797,78 @@ test("standalone server persists settings, actors, and admin action audit in SQL
     }
     assert.ok(actorServer.requests.length > requestsAfterGrace);
 
-    const duplicateEndpointResponse = await fetch(`${server.baseUrl}/api/actors/${discovered.actor.id}`, {
+    const sharedEndpointActorServer = await startMockActorServer(["NODE11", "NODE12"]);
+    additionalActorServers.push(sharedEndpointActorServer);
+    const sharedEndpointDiscovery = await json(server.baseUrl, "/api/actors", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ host: "127.0.0.1", port: sharedEndpointActorServer.port }),
+    });
+    assert.deepEqual(sharedEndpointDiscovery.actors.map((actor) => actor.account), ["NODE11", "NODE12"]);
+    assert.deepEqual(sharedEndpointDiscovery.duplicateAccounts, []);
+    assert.equal(sharedEndpointDiscovery.actors.every((actor) => actor.kind === "node"), true);
+    assert.equal(sharedEndpointDiscovery.actors.every((actor) => actor.className === "SimpleNode"), true);
+    assert.equal(sharedEndpointDiscovery.actors.every((actor) => actor.status === "online"), true);
+    assert.equal(sharedEndpointDiscovery.actors.every((actor) =>
+      actor.host === "127.0.0.1" && actor.port === sharedEndpointActorServer.port
+    ), true);
+    assert.deepEqual(
+      sharedEndpointActorServer.requests.filter((request) => !Object.hasOwn(request, "shouldLog")),
+      [
+        { adminCommand: "list", params: "" },
+        { adminCommand: "list", params: "NODE11" },
+        { adminCommand: "list", params: "NODE12" },
+        { adminCommand: "NODE11 actorStatus", params: "" },
+        { adminCommand: "NODE12 actorStatus", params: "" },
+      ],
+    );
+
+    const duplicateSharedEndpointResponse = await fetch(`${server.baseUrl}/api/actors`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ host: "127.0.0.1", port: sharedEndpointActorServer.port }),
+    });
+    assert.equal(duplicateSharedEndpointResponse.status, 409);
+    assert.match((await duplicateSharedEndpointResponse.json()).error, /already exists/i);
+
+    sharedEndpointActorServer.setActorAccounts(["NODE11", "NODE12", "NODE13"]);
+    const partialSharedEndpointDiscovery = await json(server.baseUrl, "/api/actors", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ host: "127.0.0.1", port: sharedEndpointActorServer.port }),
+    });
+    assert.deepEqual(partialSharedEndpointDiscovery.actors.map((actor) => actor.account), ["NODE13"]);
+    assert.deepEqual(partialSharedEndpointDiscovery.duplicateAccounts, ["NODE11", "NODE12"]);
+
+    const sameAccountActorServer = await startMockActorServer(["NODE11"], { NODE11: "DISPLAY-NODE11" });
+    additionalActorServers.push(sameAccountActorServer);
+    const sameAccountDiscovery = await json(server.baseUrl, "/api/actors", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ host: "127.0.0.1", port: sameAccountActorServer.port }),
+    });
+    assert.equal(sameAccountDiscovery.actors.length, 1);
+    assert.equal(sameAccountDiscovery.actors[0].account, "NODE11");
+    assert.equal(sameAccountDiscovery.actors[0].name, "DISPLAY-NODE11");
+    assert.notEqual(sameAccountDiscovery.actors[0].port, sharedEndpointDiscovery.actors[0].port);
+    await json(server.baseUrl, `/api/actors/${sameAccountDiscovery.actors[0].id}/actions`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "status", params: "" }),
+    });
+    assert.equal(sameAccountActorServer.requests.some((request) =>
+      request.adminCommand === "NODE11 status" && !Object.hasOwn(request, "shouldLog")
+    ), true);
+
+    const duplicateIdentityEditResponse = await fetch(`${server.baseUrl}/api/actors/${sameAccountDiscovery.actors[0].id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ host: actorPayload.actors[0].host, port: actorPayload.actors[0].port }),
+      body: JSON.stringify({ host: "127.0.0.1", port: sharedEndpointActorServer.port }),
     });
-    assert.equal(duplicateEndpointResponse.status, 409);
-    assert.match((await duplicateEndpointResponse.json()).error, /already exists/i);
+    assert.equal(duplicateIdentityEditResponse.status, 409);
+    assert.match((await duplicateIdentityEditResponse.json()).error, /already exists/i);
 
-    const editedEndpoint = await json(server.baseUrl, `/api/actors/${discovered.actor.id}`, {
+    const editedEndpoint = await json(server.baseUrl, `/api/actors/${discoveredActor.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ host: "localhost", port: actorServer.port }),
@@ -804,16 +889,19 @@ test("standalone server persists settings, actors, and admin action audit in SQL
     assert.equal(persistedSettings.settings.viewerGracePeriodSeconds, 5);
     assert.deepEqual(persistedSettings.settings.summaryActorKinds, ["sequencer", "replayer", "application"]);
     assert.equal(persistedAudit.entries.length, 1);
-    const persistedActor = persistedActors.actors.find((actor) => actor.id === discovered.actor.id);
+    const persistedActor = persistedActors.actors.find((actor) => actor.id === discoveredActor.id);
     assert.equal(persistedActor.host, "localhost");
     assert.equal(persistedActor.port, actorServer.port);
     assert.equal(
       persistedActors.actors.filter((actor) => actor.kind === "sequencer").at(0).id,
-      discovered.actor.id,
+      discoveredActor.id,
     );
   } finally {
     if (server) await stopServer(server);
     if (actorServer) await new Promise((resolveClose) => actorServer.server.close(resolveClose));
+    await Promise.all(additionalActorServers.map((additionalActorServer) =>
+      new Promise((resolveClose) => additionalActorServer.server.close(resolveClose))
+    ));
     await rm(directory, { recursive: true, force: true });
   }
 });
@@ -838,6 +926,7 @@ test("actor migrations preserve audit references and initialize status metadata"
       "0012_milky_kingpin",
       "0013_concerned_gamma_corps",
       "0014_chilly_cammi",
+      "0015_tough_zaladane",
     ];
     for (const [index, name] of migrationNames.entries()) {
       if (index === 5) {
@@ -850,7 +939,7 @@ test("actor migrations preserve audit references and initialize status metadata"
           ["c", "warning", "node"],
           ["d", "offline", "logger"],
         ]) {
-          insertActor.run(id, id, kind, status, id, 30001, id, "Node", "[]");
+          insertActor.run(id, id, kind, status, id, 30001, id === "a" ? "legacy-account" : id, "Node", "[]");
         }
         database.prepare(
           "INSERT INTO command_audit (actor_id, actor_name, actor_endpoint, command, output, outcome, duration_ms) VALUES (?, ?, ?, ?, ?, ?, ?)",
@@ -873,6 +962,7 @@ test("actor migrations preserve audit references and initialize status metadata"
       { id: "c", status: "offline" },
       { id: "d", status: "offline" },
     ]);
+    assert.deepEqual(database.prepare("SELECT name, account FROM actors WHERE id = 'a'").get(), { name: "a", account: "a" });
     assert.deepEqual(database.prepare("SELECT actor_id AS actorId FROM command_audit").get(), { actorId: "a" });
     assert.deepEqual(
       database.prepare("SELECT outcome, source_ip AS sourceIp FROM command_audit").get(),
@@ -892,6 +982,17 @@ test("actor migrations preserve audit references and initialize status metadata"
       ],
     );
     assert.equal(database.pragma("index_list('actors')").some((index) => index.name === "actors_kind_order_idx"), true);
+    assert.equal(database.pragma("index_list('actors')").some((index) => index.name === "actors_identity_unique"), true);
+    const insertIdentityActor = database.prepare(
+      "INSERT INTO actors (id, name, kind, status, host, port, account, class_name, commands) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+    );
+    insertIdentityActor.run("same-endpoint-a", "NODE11", "node", "online", "shared-host", 30081, "NODE11", "SimpleNode", "[]");
+    insertIdentityActor.run("same-endpoint-b", "NODE12", "node", "online", "shared-host", 30081, "NODE12", "SimpleNode", "[]");
+    insertIdentityActor.run("same-account-other-endpoint", "NODE11", "node", "online", "other-host", 30081, "NODE11", "SimpleNode", "[]");
+    assert.throws(
+      () => insertIdentityActor.run("duplicate-identity", "NODE11", "node", "online", "shared-host", 30081, "NODE11", "SimpleNode", "[]"),
+      /UNIQUE constraint failed/,
+    );
     assert.deepEqual(
       database.prepare("SELECT poll_interval_seconds AS pollIntervalSeconds FROM topology_settings WHERE id = 1").get(),
       { pollIntervalSeconds: 7 },
@@ -1109,7 +1210,7 @@ test("deployment and UI conventions stay explicit", async () => {
   assert.match(actorList, /showFeedback\(kind, `\$\{groupLabel\(kind\)\} order saved\.`, "notice", 7000\)/);
   assert.match(actorList, /CoralConsole is checking the new address\.`, "notice", 7000\)/);
   assert.match(actorList, /was removed from CoralConsole\.`, "notice", 7000\)/);
-  assert.match(actorList, /was added to CoralConsole\.`, "notice", 7000\)/);
+  assert.match(actorList, /added to CoralConsole\.\$\{duplicateNote\}/);
   assert.match(actorList, /disabled=\{Boolean\(editingId\) \|\| Boolean\(removingId\) \|\| actor\.demo\}/);
   assert.match(actorList, /\/api\/actors\/order/);
   assert.match(actorList, /method: "PATCH"/);

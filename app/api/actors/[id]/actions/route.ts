@@ -17,7 +17,7 @@ export async function POST(request: Request, { params: routeParams }: { params: 
   const started = Date.now();
   let actor = null as ReturnType<typeof getActor>;
   let action = "";
-  let scopedAction = "";
+  let actorAccountAction = "";
   let actionParams = "";
   try {
     if (!mutationAllowed(request)) throw new ApiError("Cross-origin requests are not allowed.", 403);
@@ -30,20 +30,20 @@ export async function POST(request: Request, { params: routeParams }: { params: 
     if (!actor.actions.includes(action)) throw new ApiError("That admin action is not available for this actor.");
     if (actionParams.length > MAX_PARAMS) throw new ApiError("Admin action parameters are too long.");
 
-    scopedAction = action === "list" ? "list" : `${actor.name} ${action}`;
+    actorAccountAction = action === "list" ? "list" : `${actor.account} ${action}`;
     const actionActor = actor;
     const reply = await runCoordinatedAdminAction<AdminActionReply>(actionActor.id, async () => {
       if (actionActor.demo) {
-        return { result: true, adminCommand: scopedAction, params: actionParams, results: `${action} simulated successfully on ${actionActor.name}` };
+        return { result: true, adminCommand: actorAccountAction, params: actionParams, results: `${action} simulated successfully on ${actionActor.name}` };
       }
-      return callActorEndpoint(actionActor.host, actionActor.port, scopedAction, actionParams);
+      return callActorEndpoint(actionActor.host, actionActor.port, actorAccountAction, actionParams);
     });
     const output = bounded(reply.results || "");
     recordAudit({
       actorId: actor.id,
       actorName: actor.name,
       actorEndpoint: `${actor.host}:${actor.port}`,
-      action: scopedAction,
+      action: actorAccountAction,
       params: actionParams,
       output: output.value,
       outcome: "success",
@@ -62,7 +62,7 @@ export async function POST(request: Request, { params: routeParams }: { params: 
         actorId: actor.id,
         actorName: actor.name,
         actorEndpoint: `${actor.host}:${actor.port}`,
-        action: scopedAction || action,
+        action: actorAccountAction || action,
         params: actionParams,
         output: output.value,
         outcome: error instanceof ActorCallError ? error.outcome : "error",

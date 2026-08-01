@@ -270,8 +270,8 @@ export async function callActorEndpoint(
   }
 }
 
-export function kindFromDiscovery(scope: string, details: string): ActorKind {
-  const signal = `${scope} ${details}`.toLowerCase();
+export function kindFromDiscovery(account: string, details: string): ActorKind {
+  const signal = `${account} ${details}`.toLowerCase();
   const compact = signal.replace(/[^a-z0-9]/g, "");
   if (/multimqapp/.test(compact)) return "multimqapp";
   if (/backupsequencer|sequencerbackup/.test(compact)) return "backup-sequencer";
@@ -286,8 +286,8 @@ export function kindFromDiscovery(scope: string, details: string): ActorKind {
   return "node";
 }
 
-export function actionsFromDiscovery(scope: string, details: string) {
-  const prefix = `${scope} `;
+export function actionsFromDiscovery(account: string, details: string) {
+  const prefix = `${account} `;
   const discovered = details.split(/\r?\n/)
     .filter((line) => line.startsWith(prefix))
     .map((line) => line.slice(prefix.length).trim())
@@ -298,13 +298,13 @@ export function actionsFromDiscovery(scope: string, details: string) {
   ])];
 }
 
-export function classFromDiscovery(scope: string, details: string, kind: ActorKind) {
-  const component = details.split(/\r?\n/).find((line) => line.startsWith(`${scope}-`)
+export function classFromDiscovery(account: string, details: string, kind: ActorKind) {
+  const component = details.split(/\r?\n/).find((line) => line.startsWith(`${account}-`)
     && /Receiver|Publisher|Store|Replayer|Bridge|Dispatcher|Archiver|Application|Node|Logger|Link|MultiMQ|Sequencer/i.test(line));
   if (!component) return kind === "backup-sequencer" ? "Sequencer" : kind.split("-").map((part) => part[0]?.toUpperCase() + part.slice(1)).join(" ");
-  const withoutScope = component.slice(scope.length + 1);
-  const addressStart = withoutScope.search(/-(?:\d{1,3}\.){3}\d{1,3}:\d+|-[\d.]+$/);
-  return addressStart > 0 ? withoutScope.slice(0, addressStart) : withoutScope;
+  const withoutAccount = component.slice(account.length + 1);
+  const addressStart = withoutAccount.search(/-(?:\d{1,3}\.){3}\d{1,3}:\d+|-[\d.]+$/);
+  return addressStart > 0 ? withoutAccount.slice(0, addressStart) : withoutAccount;
 }
 
 function actorStatusKey(label: string) {
@@ -378,7 +378,7 @@ function actorFromActorStatus(actor: Actor, actorStatusDetails: string): Actor {
     kind: discoveredKind,
     status: "online",
     operationalState: operationalStateFromActorStatus(fields, actor.operationalState),
-    account: actorStatusValue(fields, "account") || name,
+    account: actor.account,
     className: actorStatusValue(fields, "class") || actor.className,
     sequencerRole: isSequencer ? (isBackup ? "Backup" : "Primary") : undefined,
     latency: "connected",
@@ -398,7 +398,7 @@ export async function refreshActorStatus(actor: Actor, onDisconnect: MonitoringD
   const reply = await callActorEndpoint(
     actor.host,
     actor.port,
-    `${actor.name} actorStatus`,
+    `${actor.account} actorStatus`,
     "",
     persistentMonitoring,
   );
@@ -409,10 +409,10 @@ export async function refreshActorStatus(actor: Actor, onDisconnect: MonitoringD
       actor.host,
       actor.port,
       "list",
-      actor.name,
+      actor.account,
       persistentMonitoring,
     );
-    const actions = actionsFromDiscovery(actor.name, listReply.results || "");
+    const actions = actionsFromDiscovery(actor.account, listReply.results || "");
     return actions.length ? { ...refreshed, actions } : refreshed;
   } catch {
     // Actor connectivity comes exclusively from actorStatus. A list failure
@@ -421,48 +421,65 @@ export async function refreshActorStatus(actor: Actor, onDisconnect: MonitoringD
   }
 }
 
-export async function discoverActor(host: string, port: number, id = crypto.randomUUID()): Promise<Actor> {
-  const root = await callActorEndpoint(host, port, "list");
-  const scopes = (root.results || "").split(/\r?\n/).map((line) => line.trim()).filter((line) => line && line.toUpperCase() !== "VM");
-  const scope = scopes[0] || `ACTOR-${id.slice(0, 8)}`;
+async function discoverActorAccount(host: string, port: number, account: string): Promise<Actor> {
+  const id = crypto.randomUUID();
   let details = "";
   try {
-    details = (await callActorEndpoint(host, port, "list", scope)).results || "";
+    details = (await callActorEndpoint(host, port, "list", account)).results || "";
   } catch {
     // A root-only list still provides enough information for a useful actor.
   }
 
-  const actions = actionsFromDiscovery(scope, details);
-  const kind = kindFromDiscovery(scope, details);
+  const actions = actionsFromDiscovery(account, details);
+  const kind = kindFromDiscovery(account, details);
   const isSequencer = kind === "sequencer" || kind === "backup-sequencer";
   const isBackup = kind === "backup-sequencer";
   const discoveredKind: ActorKind = isBackup ? "backup-sequencer" : kind;
   const actor: Actor = {
     id,
-    name: scope,
+    name: account,
     kind: discoveredKind,
-    status: "online",
+    status: "offline",
     operationalState: "inactive",
     host,
     port,
-    account: scope,
-    className: classFromDiscovery(scope, details, discoveredKind),
+    account,
+    className: classFromDiscovery(account, details, discoveredKind),
     sequencerRole: isSequencer ? (isBackup ? "Backup" : "Primary") : undefined,
-    latency: "connected",
+    latency: "unreachable",
     session: "Not reported",
     outboundSequence: "Not reported",
     accounts: "Not reported",
     clockTickInterval: "Not reported",
     actorStatusFields: [],
-    lastSeen: "just now",
+    lastSeen: "Never",
     actions,
   };
   try {
-    const actorStatusReply = await callActorEndpoint(host, port, `${scope} actorStatus`);
+    const actorStatusReply = await callActorEndpoint(host, port, `${account} actorStatus`);
     const actorStatusDetails = typeof actorStatusReply.results === "string" ? actorStatusReply.results : "";
     return actorFromActorStatus(actor, actorStatusDetails);
   } catch {
-    // Root and scoped list responses still provide a usable actor if metadata is temporarily unavailable.
+    // Root and actor-account list responses still provide a usable actor if metadata is temporarily unavailable.
     return actor;
   }
+}
+
+export async function listActorAccounts(host: string, port: number): Promise<string[]> {
+  const root = await callActorEndpoint(host, port, "list");
+  const accounts = [...new Set(
+    (root.results || "")
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter((line) => line && line.toUpperCase() !== "VM"),
+  )];
+  if (!accounts.length) {
+    throw new ActorCallError("The REST admin server did not report any actor accounts.", 400);
+  }
+  return accounts;
+}
+
+export async function discoverActors(host: string, port: number, accounts?: string[]): Promise<Actor[]> {
+  const actorAccounts = accounts || await listActorAccounts(host, port);
+  return Promise.all(actorAccounts.map((account) => discoverActorAccount(host, port, account)));
 }

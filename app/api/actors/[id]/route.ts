@@ -47,7 +47,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       return apiJson({ actor: updated });
     } catch (error) {
       if (error instanceof Error && /UNIQUE constraint failed/i.test(error.message)) {
-        throw new ApiError("That actor endpoint already exists.", 409);
+        throw new ApiError("That actor account at that REST endpoint already exists.", 409);
       }
       throw error;
     }
