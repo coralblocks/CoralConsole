@@ -20,6 +20,7 @@
   --shell-content-max: 1600px;
   --shell-wide-content-max: 1700px;
   --shell-gutter: clamp(24px, 5vw, 80px);
+  --environment-rail-height: 6px;
 }
 
 * { box-sizing: border-box; }
@@ -40,16 +41,31 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 
 .console-shell {
   background:
-    linear-gradient(color-mix(in srgb, var(--topology-color, var(--paper)) 16%, transparent), transparent 34rem);
+    radial-gradient(circle at 4% 0%, color-mix(in srgb, var(--topology-color, var(--paper)) 21%, transparent), transparent 27rem),
+    linear-gradient(color-mix(in srgb, var(--topology-color, var(--paper)) 12%, transparent), transparent 38rem);
   min-height: 100vh;
   overflow: hidden;
+}
+.console-shell::before {
+  background: var(--topology-color, var(--paper));
+  box-shadow: 0 1px 0 color-mix(in srgb, var(--topology-color, var(--paper)) 72%, var(--ink));
+  content: "";
+  height: var(--environment-rail-height);
+  inset: 0 0 auto;
+  pointer-events: none;
+  position: fixed;
+  z-index: 60;
 }
 .console-shell.home-page { overflow: clip; }
 .topbar {
   align-items: center;
   backdrop-filter: blur(18px);
-  background: rgba(244, 241, 233, 0.84);
-  border-bottom: 1px solid rgba(16, 43, 38, 0.1);
+  background:
+    linear-gradient(100deg,
+      color-mix(in srgb, var(--topology-color, var(--paper)) 25%, rgba(244, 241, 233, .94)) 0%,
+      color-mix(in srgb, var(--topology-color, var(--paper)) 10%, rgba(244, 241, 233, .9)) 44%,
+      rgba(244, 241, 233, .88) 100%);
+  border-bottom: 1px solid color-mix(in srgb, var(--topology-color, var(--paper)) 27%, rgba(16, 43, 38, .1));
   display: flex;
   height: 78px;
   justify-content: space-between;
@@ -66,10 +82,10 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .brand strong { font-size: 18px; letter-spacing: -0.045em; }
 .brand-version { color: var(--muted); font-family: var(--font-plex-mono), monospace; font-size: .5em; font-weight: 500; letter-spacing: 0; margin-left: 10px; white-space: nowrap; }
 .brand small { color: var(--muted); font-family: var(--font-plex-mono), monospace; font-size: 8px; letter-spacing: .055em; margin-top: 4px; white-space: nowrap; }
-.brand-mark { align-items: center; background: var(--ink); border-radius: 10px; color: var(--coral-light); display: flex; flex: 0 0 40px; height: 40px; justify-content: center; width: 40px; }
+.brand-mark { align-items: center; background: color-mix(in srgb, var(--topology-color, var(--paper)) 58%, var(--ink)); border-radius: 10px; box-shadow: 0 0 0 3px color-mix(in srgb, var(--topology-color, var(--paper)) 20%, transparent); color: white; display: flex; flex: 0 0 40px; height: 40px; justify-content: center; width: 40px; }
 .brand-mark svg { height: 25px; stroke-width: 2; width: 25px; }
 .topbar-actions { align-items: center; display: flex; gap: 14px; }
-.environment { align-items: center; background: rgba(255,255,255,.62); border: 1px solid var(--line); border-radius: 999px; color: var(--muted); display: flex; font-family: var(--font-plex-mono), monospace; font-size: 11px; gap: 8px; padding: 10px 14px; text-transform: uppercase; }
+.environment { align-items: center; background: color-mix(in srgb, var(--topology-color, var(--paper)) 18%, rgba(255,255,255,.8)); border: 1px solid color-mix(in srgb, var(--topology-color, var(--paper)) 55%, var(--line)); border-radius: 999px; box-shadow: 0 5px 18px color-mix(in srgb, var(--topology-color, var(--paper)) 13%, transparent); color: color-mix(in srgb, var(--topology-color, var(--paper)) 20%, var(--ink)); display: flex; font-family: var(--font-plex-mono), monospace; font-size: 11px; font-weight: 700; gap: 8px; padding: 10px 14px; text-transform: uppercase; }
 .environment i { border-radius: 50%; flex: 0 0 7px; height: 7px; transition: background-color .2s ease, box-shadow .2s ease; width: 7px; }
 .environment.server-status-online i { animation: server-status-pulse 1.8s ease-out infinite; background: var(--lime); box-shadow: 0 0 0 4px var(--lime-soft); }
 .environment.server-status-offline i { animation: none; background: var(--coral); box-shadow: 0 0 0 4px var(--coral-soft); }
@@ -690,6 +706,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
  * every panel, gutter, and card.
  */
 @media (min-width: 1200px) and (max-width: 1999px) {
+  :root { --environment-rail-height: 7px; }
   body { font-size: 20px; }
 
   .brand strong { font-size: 30px; }
@@ -836,6 +853,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
     --shell-content-max: 2200px;
     --shell-wide-content-max: 2320px;
     --shell-gutter: clamp(84px, 4vw, 120px);
+    --environment-rail-height: 8px;
   }
 
   .topbar { height: 104px; }

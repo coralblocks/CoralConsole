@@ -1,6 +1,8 @@
+import type { CSSProperties } from "react";
 import type { Metadata } from "next";
 import { IBM_Plex_Mono, Manrope } from "next/font/google";
 import { headers } from "next/headers";
+import { getSettings } from "@/lib/repository";
 import { ConsoleFooter } from "./console-chrome";
 import ViewerPresence from "./viewer-presence";
 import "./globals.css";
@@ -40,9 +42,11 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
+  const themeStyle = { "--topology-color": getSettings().backgroundColor } as CSSProperties;
+
   return (
     <html lang="en">
-      <body suppressHydrationWarning className={`${manrope.variable} ${plexMono.variable}`}><ViewerPresence />{children}<ConsoleFooter /></body>
+      <body suppressHydrationWarning className={`${manrope.variable} ${plexMono.variable}`} style={themeStyle}><ViewerPresence />{children}<ConsoleFooter /></body>
     </html>
   );
 }

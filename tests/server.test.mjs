@@ -938,6 +938,12 @@ test("deployment and UI conventions stay explicit", async () => {
   ]);
   assert.match(page, /target="_blank"/);
   assert.match(page, /<main className="console-shell home-page" style=\{themeStyle\}>/);
+  assert.match(page, /settingsOpen \? settingsDraft\.backgroundColor : settings\.backgroundColor/);
+  assert.match(page, /Environment color/);
+  assert.match(styles, /\.console-shell::before \{[^}]*background: var\(--topology-color[^}]*position: fixed/);
+  assert.match(styles, /\.topbar \{[^}]*color-mix\(in srgb, var\(--topology-color/);
+  assert.match(styles, /\.brand-mark \{[^}]*var\(--topology-color/);
+  assert.doesNotMatch(styles, /\.environment \{[^}]*box-shadow:[^}]*inset/);
   assert.match(page, /href="\/audit" target="_blank" rel="noopener noreferrer">Audit/);
   assert.match(page, /\/api\/actors\/refresh/);
   assert.doesNotMatch(page, /\/api\/actors\/health/);

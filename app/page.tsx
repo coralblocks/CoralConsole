@@ -503,7 +503,9 @@ export default function Home() {
     setImporting(false);
   }
 
-  const themeStyle = { "--topology-color": settings.backgroundColor } as CSSProperties;
+  const themeStyle = {
+    "--topology-color": settingsOpen ? settingsDraft.backgroundColor : settings.backgroundColor,
+  } as CSSProperties;
   const serverStatusLabel = serverConnected === false
     ? "CoralConsole server unavailable"
     : serverConnected === true
@@ -771,7 +773,7 @@ export default function Home() {
             <p>These settings apply to every person who opens this CoralConsole installation.</p>
             <form onSubmit={saveTopologySettings}>
               <label htmlFor="topology-name">Topology name</label><input id="topology-name" value={settingsDraft.topologyName} onChange={(event) => setSettingsDraft((current) => ({ ...current, topologyName: event.target.value }))} autoFocus />
-              <label htmlFor="background-color">Workspace color</label><div className="color-input"><input id="background-color" type="color" value={settingsDraft.backgroundColor} onChange={(event) => setSettingsDraft((current) => ({ ...current, backgroundColor: event.target.value }))} /><code>{settingsDraft.backgroundColor}</code></div>
+              <label htmlFor="background-color">Environment color</label><div className="color-input"><input id="background-color" type="color" value={settingsDraft.backgroundColor} onChange={(event) => setSettingsDraft((current) => ({ ...current, backgroundColor: event.target.value }))} /><code>{settingsDraft.backgroundColor}</code></div>
               <div className="settings-grid">
                 <div><label htmlFor="poll-interval">Actor polling interval (seconds)</label><input id="poll-interval" type="number" min="1" max="300" value={settingsDraft.pollIntervalSeconds} onChange={(event) => setSettingsDraft((current) => ({ ...current, pollIntervalSeconds: Number(event.target.value) }))} /></div>
                 <div><label htmlFor="audit-retention">Audit retention (days)</label><input id="audit-retention" type="number" min="1" max="3650" value={settingsDraft.auditRetentionDays} onChange={(event) => setSettingsDraft((current) => ({ ...current, auditRetentionDays: Number(event.target.value) }))} /></div>
