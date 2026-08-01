@@ -9,6 +9,7 @@ const base = {
   actorStatusRespondedAt: "2026-07-17T17:25:00.000Z",
   operationalState: "active",
   lastSeen: "sample data",
+  vmActions: ["list", "status", "gc", "lastLogs"] as Actor["vmActions"],
   demo: true,
 } as const;
 

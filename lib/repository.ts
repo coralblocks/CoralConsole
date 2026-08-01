@@ -4,6 +4,7 @@ import { actors, adminActionAudit, topologySettings, type ActorRow } from "@/db/
 import { DEMO_ACTORS } from "./demo-actors";
 import {
   BASELINE_ADMIN_ACTIONS,
+  BASELINE_VM_ADMIN_ACTIONS,
   DEFAULT_SUMMARY_ACTOR_KINDS,
   SUMMARY_ACTOR_KINDS,
   type Actor,
@@ -75,9 +76,9 @@ function validSummaryActorKinds(value: unknown): SummaryActorKind[] {
   return SUMMARY_ACTOR_KINDS.filter((kind) => selected.has(kind));
 }
 
-function validActions(value: unknown) {
+function validActions(value: unknown, baseline: readonly string[]) {
   const stored = Array.isArray(value) ? value.filter((action): action is string => typeof action === "string") : [];
-  return [...new Set([...BASELINE_ADMIN_ACTIONS, ...stored])];
+  return [...new Set([...baseline, ...stored])];
 }
 
 function validActorStatusFields(value: unknown): ActorStatusField[] {
@@ -119,7 +120,8 @@ export function rowToActor(row: ActorRow): Actor {
     sessionStarted: row.sessionStarted || undefined,
     actorStatusRespondedAt: row.actorStatusRespondedAt || undefined,
     lastSeen: row.lastSeen,
-    actions: validActions(row.actions),
+    actions: validActions(row.actions, BASELINE_ADMIN_ACTIONS),
+    vmActions: validActions(row.vmActions, BASELINE_VM_ADMIN_ACTIONS),
     demo: row.demo || undefined,
   };
 }
@@ -225,6 +227,7 @@ export function updateActor(actor: Actor, lastError: string | null = null) {
     lastSeenAt: lastError ? undefined : now,
     lastError,
     actions: actor.actions,
+    vmActions: actor.vmActions,
     demo: Boolean(actor.demo),
     sortOrder,
     updatedAt: now,

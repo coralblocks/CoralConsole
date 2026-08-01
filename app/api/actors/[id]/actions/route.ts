@@ -17,34 +17,45 @@ export async function POST(request: Request, { params: routeParams }: { params: 
   const started = Date.now();
   let actor = null as ReturnType<typeof getActor>;
   let action = "";
-  let actorAccountAction = "";
-  let actionParams = "";
+  let accountAction = "";
+  let adminAccount = "";
+  let submittedParams = "";
+  let requestParams = "";
   try {
     if (!mutationAllowed(request)) throw new ApiError("Cross-origin requests are not allowed.", 403);
     const { id } = await routeParams;
     actor = getActor(id);
     if (!actor) throw new ApiError("Actor not found.", 404);
-    const input = await readJson<{ action?: string; params?: string }>(request);
+    const input = await readJson<{ account?: string; action?: string; params?: string }>(request);
+    if (input.account !== undefined && typeof input.account !== "string") {
+      throw new ApiError("Admin account must be text.");
+    }
     action = input.action?.trim() || "";
-    actionParams = input.params || "";
-    if (!actor.actions.includes(action)) throw new ApiError("That admin action is not available for this actor.");
-    if (actionParams.length > MAX_PARAMS) throw new ApiError("Admin action parameters are too long.");
+    adminAccount = input.account?.trim() || actor.account;
+    submittedParams = input.params || "";
+    if (adminAccount !== actor.account && adminAccount !== "VM") {
+      throw new ApiError("That admin account is not available for this actor.");
+    }
+    const availableActions = adminAccount === "VM" ? actor.vmActions : actor.actions;
+    if (!availableActions.includes(action)) throw new ApiError("That admin action is not available for the selected account.");
+    if (submittedParams.length > MAX_PARAMS) throw new ApiError("Admin action parameters are too long.");
 
-    actorAccountAction = action === "list" ? "list" : `${actor.account} ${action}`;
+    accountAction = action === "list" ? "list" : `${adminAccount} ${action}`;
+    requestParams = action === "list" ? adminAccount : submittedParams;
     const actionActor = actor;
     const reply = await runCoordinatedAdminAction<AdminActionReply>(actionActor.id, async () => {
       if (actionActor.demo) {
-        return { result: true, adminCommand: actorAccountAction, params: actionParams, results: `${action} simulated successfully on ${actionActor.name}` };
+        return { result: true, adminCommand: accountAction, params: requestParams, results: `${action} simulated successfully on ${adminAccount} for ${actionActor.name}` };
       }
-      return callActorEndpoint(actionActor.host, actionActor.port, actorAccountAction, actionParams);
+      return callActorEndpoint(actionActor.host, actionActor.port, accountAction, requestParams);
     });
     const output = bounded(reply.results || "");
     recordAudit({
       actorId: actor.id,
       actorName: actor.name,
       actorEndpoint: `${actor.host}:${actor.port}`,
-      action: actorAccountAction,
-      params: actionParams,
+      action: accountAction,
+      params: requestParams,
       output: output.value,
       outcome: "success",
       error: null,
@@ -62,8 +73,8 @@ export async function POST(request: Request, { params: routeParams }: { params: 
         actorId: actor.id,
         actorName: actor.name,
         actorEndpoint: `${actor.host}:${actor.port}`,
-        action: actorAccountAction || action,
-        params: actionParams,
+        action: accountAction || action,
+        params: requestParams || submittedParams,
         output: output.value,
         outcome: error instanceof ActorCallError ? error.outcome : "error",
         error: error instanceof Error ? error.message : "Admin action failed.",

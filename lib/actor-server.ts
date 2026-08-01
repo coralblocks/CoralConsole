@@ -2,7 +2,7 @@ import { Agent as HttpAgent, request as requestHttp } from "node:http";
 import { Agent as HttpsAgent, request as requestHttps } from "node:https";
 import type { Socket } from "node:net";
 import { sessionStartFromId } from "./session";
-import { BASELINE_ADMIN_ACTIONS, type Actor, type ActorKind, type ActorOperationalState, type ActorStatusField, type AdminActionReply, type AuditOutcome } from "./types";
+import { BASELINE_ADMIN_ACTIONS, BASELINE_VM_ADMIN_ACTIONS, type Actor, type ActorKind, type ActorOperationalState, type ActorStatusField, type AdminActionReply, type AuditOutcome } from "./types";
 
 const ACTOR_TIMEOUT_MS = 6500;
 const MONITORING_CONNECTION_LOST = "The persistent actor monitoring connection was lost.";
@@ -286,16 +286,24 @@ export function kindFromDiscovery(account: string, details: string): ActorKind {
   return "node";
 }
 
-export function actionsFromDiscovery(account: string, details: string) {
+function actionsFromScopedList(account: string, details: string, baseline: readonly string[]) {
   const prefix = `${account} `;
   const discovered = details.split(/\r?\n/)
     .filter((line) => line.startsWith(prefix))
     .map((line) => line.slice(prefix.length).trim())
     .filter(Boolean);
   return [...new Set([
-    ...BASELINE_ADMIN_ACTIONS,
-    ...discovered.filter((action) => !BASELINE_ADMIN_ACTIONS.includes(action as typeof BASELINE_ADMIN_ACTIONS[number])),
+    ...baseline,
+    ...discovered.filter((action) => !baseline.includes(action)),
   ])];
+}
+
+export function actionsFromDiscovery(account: string, details: string) {
+  return actionsFromScopedList(account, details, BASELINE_ADMIN_ACTIONS);
+}
+
+export function vmActionsFromDiscovery(details: string) {
+  return actionsFromScopedList("VM", details, BASELINE_VM_ADMIN_ACTIONS);
 }
 
 export function classFromDiscovery(account: string, details: string, kind: ActorKind) {
@@ -404,6 +412,7 @@ export async function refreshActorStatus(actor: Actor, onDisconnect: MonitoringD
   );
   const refreshed = actorFromActorStatus(actor, typeof reply.results === "string" ? reply.results : "");
 
+  let withActorActions = refreshed;
   try {
     const listReply = await callActorEndpoint(
       actor.host,
@@ -413,15 +422,29 @@ export async function refreshActorStatus(actor: Actor, onDisconnect: MonitoringD
       persistentMonitoring,
     );
     const actions = actionsFromDiscovery(actor.account, listReply.results || "");
-    return actions.length ? { ...refreshed, actions } : refreshed;
+    withActorActions = { ...refreshed, actions };
   } catch {
     // Actor connectivity comes exclusively from actorStatus. A list failure
     // must not override a valid actorStatus response.
-    return refreshed;
+  }
+
+  try {
+    const vmListReply = await callActorEndpoint(
+      actor.host,
+      actor.port,
+      "list",
+      "VM",
+      persistentMonitoring,
+    );
+    return { ...withActorActions, vmActions: vmActionsFromDiscovery(vmListReply.results || "") };
+  } catch {
+    // VM actions are supplemental. Preserve the last known list when the VM
+    // account cannot be queried without changing actor connectivity.
+    return withActorActions;
   }
 }
 
-async function discoverActorAccount(host: string, port: number, account: string): Promise<Actor> {
+async function discoverActorAccount(host: string, port: number, account: string, vmActions: string[]): Promise<Actor> {
   const id = crypto.randomUUID();
   let details = "";
   try {
@@ -454,6 +477,7 @@ async function discoverActorAccount(host: string, port: number, account: string)
     actorStatusFields: [],
     lastSeen: "Never",
     actions,
+    vmActions,
   };
   try {
     const actorStatusReply = await callActorEndpoint(host, port, `${account} actorStatus`);
@@ -481,5 +505,13 @@ export async function listActorAccounts(host: string, port: number): Promise<str
 
 export async function discoverActors(host: string, port: number, accounts?: string[]): Promise<Actor[]> {
   const actorAccounts = accounts || await listActorAccounts(host, port);
-  return Promise.all(actorAccounts.map((account) => discoverActorAccount(host, port, account)));
+  let vmActions: string[] = [...BASELINE_VM_ADMIN_ACTIONS];
+  try {
+    const vmListReply = await callActorEndpoint(host, port, "list", "VM");
+    vmActions = vmActionsFromDiscovery(vmListReply.results || "");
+  } catch {
+    // The actor accounts remain discoverable even when the VM list is
+    // temporarily unavailable. Monitoring will retry it after persistence.
+  }
+  return Promise.all(actorAccounts.map((account) => discoverActorAccount(host, port, account, vmActions)));
 }

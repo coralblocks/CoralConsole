@@ -21,6 +21,7 @@ export type ActorStatus = "online" | "offline";
 export type ActorOperationalState = "closed" | "disconnected" | "rewinding" | "active" | "inactive";
 
 export const BASELINE_ADMIN_ACTIONS = ["list", "actorStatus", "healthCheck"] as const;
+export const BASELINE_VM_ADMIN_ACTIONS = ["list"] as const;
 
 export type ActorStatusField = {
   label: string;
@@ -50,6 +51,7 @@ export type Actor = {
   actorStatusRespondedAt?: string;
   lastSeen: string;
   actions: string[];
+  vmActions: string[];
   demo?: boolean;
 };
 

@@ -270,9 +270,10 @@ function normalizeSavedActors(value: unknown): Actor[] {
   if (!Array.isArray(value)) return [];
   return value.flatMap((entry) => {
     if (!entry || typeof entry !== "object") return [];
-    const legacy = entry as Omit<Actor, "kind" | "status" | "actions"> & {
+    const legacy = entry as Omit<Actor, "kind" | "status" | "actions" | "vmActions"> & {
       actions?: string[];
       commands?: string[];
+      vmActions?: string[];
       kind: string;
       status: string;
       statusRespondedAt?: string;
@@ -287,6 +288,7 @@ function normalizeSavedActors(value: unknown): Actor[] {
     return [{
       ...legacy,
       actions: Array.isArray(legacy.actions) ? legacy.actions : Array.isArray(legacy.commands) ? legacy.commands : [],
+      vmActions: Array.isArray(legacy.vmActions) ? legacy.vmActions : ["list"],
       commands: undefined,
       kind,
       port: Number(legacy.port),

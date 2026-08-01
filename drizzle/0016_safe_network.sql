@@ -1,0 +1,1 @@
+ALTER TABLE `actors` ADD `vm_actions` text DEFAULT '["list"]' NOT NULL;

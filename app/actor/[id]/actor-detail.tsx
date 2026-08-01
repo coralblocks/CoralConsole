@@ -91,6 +91,15 @@ function formatLastActorStatusResponse(value?: string) {
   return Number.isNaN(timestamp.getTime()) ? "Not received" : timestamp.toLocaleString();
 }
 
+function actionsForAdminAccount(actor: Actor, account: string) {
+  return account === "VM" ? actor.vmActions : actor.actions;
+}
+
+function actionReplyLabel(reply: AdminActionReply, account: string, action: string) {
+  if (reply.adminCommand === "list" && reply.params) return `list ${reply.params}`;
+  return reply.adminCommand || `${account} ${action}`;
+}
+
 export default function ActorDetail({ actorId }: { actorId: string }) {
   const [actor, setActor] = useState<Actor | null>(null);
   const [logs, setLogs] = useState<ActorLogSnapshot>(EMPTY_ACTOR_LOG_SNAPSHOT);
@@ -100,6 +109,7 @@ export default function ActorDetail({ actorId }: { actorId: string }) {
   const [ready, setReady] = useState(false);
   const [removed, setRemoved] = useState(false);
   const [error, setError] = useState("");
+  const [adminAccount, setAdminAccount] = useState("");
   const [action, setAction] = useState("actorStatus");
   const [params, setParams] = useState("");
   const [running, setRunning] = useState(false);
@@ -223,6 +233,7 @@ export default function ActorDetail({ actorId }: { actorId: string }) {
       if (!active) return;
       setActor(snapshot.actor);
       receiveLogSnapshot(snapshot.logs, true);
+      setAdminAccount(snapshot.actor.account);
       setAction(snapshot.actor.actions[0] || "list");
       setAudit(auditPayload.entries);
       setPollIntervalSeconds(settingsPayload.settings.pollIntervalSeconds);
@@ -241,14 +252,30 @@ export default function ActorDetail({ actorId }: { actorId: string }) {
       void refreshActor(false).then((snapshot) => {
         setActor(snapshot.actor);
         receiveLogSnapshot(snapshot.logs);
-        setAction((current) => snapshot.actor.actions.includes(current) ? current : snapshot.actor.actions[0] || "list");
+        const availableActions = actionsForAdminAccount(snapshot.actor, adminAccount);
+        setAction((current) => availableActions.includes(current) ? current : availableActions[0] || "");
         setError("");
       }).catch((requestError) => {
         setError(requestError instanceof Error ? requestError.message : "Actor details could not be refreshed.");
       });
     }, pollIntervalSeconds * 1000);
     return () => window.clearInterval(timer);
-  }, [pollIntervalSeconds, ready, receiveLogSnapshot, refreshActor, removed]);
+  }, [adminAccount, pollIntervalSeconds, ready, receiveLogSnapshot, refreshActor, removed]);
+
+  function changeAdminAccount(nextAccount: string) {
+    if (!actor || (nextAccount !== actor.account && nextAccount !== "VM")) return;
+    const availableActions = actionsForAdminAccount(actor, nextAccount);
+    setAdminAccount(nextAccount);
+    setAction(availableActions[0] || "");
+    setParams("");
+    setReply(null);
+  }
+
+  function changeAdminAction(nextAction: string) {
+    setAction(nextAction);
+    if (nextAction === "list") setParams("");
+    setReply(null);
+  }
 
   async function runAction(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -259,7 +286,7 @@ export default function ActorDetail({ actorId }: { actorId: string }) {
       const result = await apiRequest<AdminActionReply>(`/api/actors/${encodeURIComponent(actor.id)}/actions`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action, params }),
+        body: JSON.stringify({ account: adminAccount, action, params }),
       });
       setReply(result);
     } catch (requestError) {
@@ -273,7 +300,8 @@ export default function ActorDetail({ actorId }: { actorId: string }) {
       ]).then(([, actorPayload, logPayload]) => {
         setActor(actorPayload.actor);
         receiveLogSnapshot(logPayload);
-        setAction((current) => actorPayload.actor.actions.includes(current) ? current : actorPayload.actor.actions[0] || "list");
+        const availableActions = actionsForAdminAccount(actorPayload.actor, adminAccount);
+        setAction((current) => availableActions.includes(current) ? current : availableActions[0] || "");
       }).catch(() => undefined);
     }
   }
@@ -288,7 +316,8 @@ export default function ActorDetail({ actorId }: { actorId: string }) {
       });
       setActor(payload.actor);
       receiveLogSnapshot(await loadActorLogs());
-      setAction((current) => payload.actor.actions.includes(current) ? current : payload.actor.actions[0] || "list");
+      const availableActions = actionsForAdminAccount(payload.actor, adminAccount);
+      setAction((current) => availableActions.includes(current) ? current : availableActions[0] || "");
     } catch (requestError) {
       setError(requestError instanceof Error ? requestError.message : "Actor status could not be refreshed.");
     } finally {
@@ -309,6 +338,7 @@ export default function ActorDetail({ actorId }: { actorId: string }) {
 
   const Icon = actor ? ACTOR_META[actor.kind].icon : null;
   const displayedState = actor ? operationalStateForDisplay(actor.status, actor.operationalState) : "unknown";
+  const availableActions = actor ? actionsForAdminAccount(actor, adminAccount) : [];
 
   return (
     <main className="console-shell actor-detail-page">
@@ -426,14 +456,16 @@ export default function ActorDetail({ actorId }: { actorId: string }) {
 
             <section className={`actor-admin-panel actor-${actor.kind}`} aria-labelledby="actor-admin-title">
               <div className="admin-block">
-                <div className="admin-heading"><div><p className="eyebrow">REST admin</p><h2 id="actor-admin-title">Run an action</h2></div><span>{actor.actions.length} available</span></div>
+                <div className="admin-heading"><div><p className="eyebrow">REST admin</p><h2 id="actor-admin-title">Run an action</h2></div><span>{availableActions.length} available</span></div>
                 <form onSubmit={runAction}>
+                  <label htmlFor="admin-account">Admin account</label>
+                  <div className="select-wrap"><select id="admin-account" value={adminAccount} onChange={(event) => changeAdminAccount(event.target.value)} disabled={running}><option value={actor.account}>{actor.account}</option><option value="VM">VM</option></select></div>
                   <label htmlFor="action">Admin action</label>
-                  <div className="select-wrap"><select id="action" value={action} onChange={(event) => setAction(event.target.value)}>{actor.actions.map((available) => <option value={available} key={available}>{available}</option>)}</select></div>
-                  <label htmlFor="params">Parameters <span>optional</span></label><input id="params" value={params} onChange={(event) => setParams(event.target.value)} placeholder="e.g. 10 16" />
-                  <button className="button button-dark" type="submit" disabled={running || !actor.actions.length}>{running ? "Running…" : "Run action"}<span aria-hidden="true">→</span></button>
+                  <div className="select-wrap"><select id="action" value={action} onChange={(event) => changeAdminAction(event.target.value)} disabled={running}>{availableActions.map((available) => <option value={available} key={available}>{available}</option>)}</select></div>
+                  <label htmlFor="params">Parameters <span>optional</span></label><input id="params" value={params} onChange={(event) => setParams(event.target.value)} placeholder={action === "list" ? "Selected account is used" : "e.g. 10 16"} disabled={running || action === "list"} />
+                  <button className="button button-dark" type="submit" disabled={running || !availableActions.length}>{running ? "Running…" : "Run action"}<span aria-hidden="true">→</span></button>
                 </form>
-                {reply && <div className={`action-result ${reply.result ? "success" : "failure"}`} role="status"><div><strong>{reply.result ? "Action complete" : "Action failed"}</strong><span>{reply.adminCommand || action}</span></div><pre>{reply.error || reply.results || "No output returned."}</pre></div>}
+                {reply && <div className={`action-result ${reply.result ? "success" : "failure"}`} role="status"><div><strong>{reply.result ? "Action complete" : "Action failed"}</strong><span>{actionReplyLabel(reply, adminAccount, action)}</span></div><pre>{reply.error || reply.results || "No output returned."}</pre></div>}
               </div>
               {error && <p className="page-alert embedded" role="alert">{error}</p>}
               {actor.demo ? <p className="demo-note"><i /> Sample actor — actions are safely simulated.</p> : <button className="remove-button" type="button" onClick={() => void removeActor()}>Remove actor from shared topology</button>}

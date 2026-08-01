@@ -31,6 +31,7 @@ async function startMockActorServer(initialActorAccounts = ["SEQ"], reportedName
   let actorStatusCount = 0;
   let actorStatusResult = true;
   let actorStatusHasFields = true;
+  let vmListResult = true;
   let session = "2607232154";
   let messagesSaved = 2;
   let logMessages = ["LOGMSG_1", "LOGMSG_2"];
@@ -65,6 +66,17 @@ async function startMockActorServer(initialActorAccounts = ["SEQ"], reportedName
         let resultOverride;
         if (input.adminCommand === "list" && input.params === "") {
           results = ["VM", ...actorAccounts, ""].join("\n");
+        } else if (input.adminCommand === "list" && input.params === "VM") {
+          resultOverride = vmListResult;
+          results = [
+            "VM status",
+            "VM gc",
+            "VM lastLogs",
+            "VM exitVM",
+            "",
+            "VM-RestAdmin-30081",
+            "",
+          ].join("\n");
         } else if (input.adminCommand === "list" && actorAccounts.includes(input.params)) {
           const account = input.params;
           actorAccountListCount += 1;
@@ -126,6 +138,8 @@ async function startMockActorServer(initialActorAccounts = ["SEQ"], reportedName
           results = Number(input.params) === messagesSaved
             ? `messagesSaved: ${messagesSaved}`
             : [`messagesSaved: ${messagesSaved}`, ...logMessages].join("\n");
+        } else if (input.adminCommand === "VM gc" && input.params === "") {
+          results = "VM garbage collection requested";
         } else if (input.adminCommand === "SEQ rollSessionAuto" && input.params === "") {
           results = "As a safeguard, pass 'true' to indicate you really want to do this!";
         } else if (input.adminCommand === "SEQ slowAction" && input.params === "") {
@@ -195,6 +209,9 @@ async function startMockActorServer(initialActorAccounts = ["SEQ"], reportedName
     },
     setActorStatusHasFields(next) {
       actorStatusHasFields = next;
+    },
+    setVmListResult(next) {
+      vmListResult = next;
     },
     setLogs(nextMessagesSaved, nextMessages) {
       messagesSaved = nextMessagesSaved;
@@ -384,13 +401,16 @@ test("standalone server persists settings, actors, and admin action audit in SQL
     assert.equal(discoveredActor.actions.includes("actorStatus"), true);
     assert.equal(discoveredActor.actions.includes("status"), true);
     assert.equal(discoveredActor.actions.includes("healthCheck"), true);
+    assert.deepEqual(discoveredActor.vmActions.slice(0, 4), ["list", "status", "gc", "lastLogs"]);
+    assert.equal(discoveredActor.vmActions.includes("actorStatus"), false);
     assert.equal("commands" in discoveredActor, false);
     assert.deepEqual(actorServer.requests, [
       { adminCommand: "list", params: "" },
+      { adminCommand: "list", params: "VM" },
       { adminCommand: "list", params: "SEQ" },
       { adminCommand: "SEQ actorStatus", params: "" },
     ]);
-    assert.deepEqual(actorServer.requestConnections, [1, 2, 3]);
+    assert.deepEqual(actorServer.requestConnections, [1, 2, 3, 4]);
 
     const discoveryRequestsBeforeDuplicate = actorServer.requests.filter((request) =>
       request.adminCommand === "list"
@@ -457,12 +477,14 @@ test("standalone server persists settings, actors, and admin action audit in SQL
     assert.equal(firstRefreshedActor?.actions.includes("healthCheck"), true);
     assert.equal(Number.isNaN(Date.parse(firstRefreshedActor?.actorStatusRespondedAt)), false);
     const persistentConnection = actorServer.requestConnections.at(-1);
-    assert.deepEqual(actorServer.requests.slice(-3), [
+    assert.deepEqual(actorServer.requests.slice(-4), [
       { adminCommand: "SEQ actorStatus", params: "", shouldLog: false },
       { adminCommand: "list", params: "SEQ", shouldLog: false },
+      { adminCommand: "list", params: "VM", shouldLog: false },
       { adminCommand: "VM lastLogs", params: "0", shouldLog: false },
     ]);
-    assert.deepEqual(actorServer.requestConnections.slice(-3), [
+    assert.deepEqual(actorServer.requestConnections.slice(-4), [
+      persistentConnection,
       persistentConnection,
       persistentConnection,
       persistentConnection,
@@ -472,6 +494,20 @@ test("standalone server persists settings, actors, and admin action audit in SQL
     assert.deepEqual(initialLogs.logs.messages, ["LOGMSG_1", "LOGMSG_2"]);
     assert.equal(Number.isNaN(Date.parse(initialLogs.logs.updatedAt)), false);
     const connectionsAfterFirstRefresh = actorServer.connectionCount;
+
+    actorServer.setVmListResult(false);
+    const failedVmListRefresh = await json(server.baseUrl, `/api/actors/${discoveredActor.id}/refresh`, {
+      method: "POST",
+    });
+    assert.equal(failedVmListRefresh.actor.status, "online");
+    assert.deepEqual(failedVmListRefresh.actor.vmActions, firstRefreshedActor.vmActions);
+    assert.deepEqual(actorServer.requests.slice(-4), [
+      { adminCommand: "SEQ actorStatus", params: "", shouldLog: false },
+      { adminCommand: "list", params: "SEQ", shouldLog: false },
+      { adminCommand: "list", params: "VM", shouldLog: false },
+      { adminCommand: "VM lastLogs", params: "2", shouldLog: false },
+    ]);
+    actorServer.setVmListResult(true);
 
     const operationalStateCases = [
       [{ open: false, disconnected: true, rewinding: true, active: true }, "closed"],
@@ -490,14 +526,16 @@ test("standalone server persists settings, actors, and admin action audit in SQL
       assert.equal(targetedRefresh.actor.operationalState, expectedState);
       assert.equal(Number.isNaN(Date.parse(targetedRefresh.actor.actorStatusRespondedAt)), false);
       const targetedPollRequests = actorServer.requests.slice(targetedRefreshStart)
-        .filter((request) => request.adminCommand === "SEQ actorStatus" || (request.adminCommand === "list" && request.params === "SEQ"));
+        .filter((request) => request.adminCommand === "SEQ actorStatus" || request.adminCommand === "list");
       assert.deepEqual(targetedPollRequests, [
         { adminCommand: "SEQ actorStatus", params: "", shouldLog: false },
         { adminCommand: "list", params: "SEQ", shouldLog: false },
+        { adminCommand: "list", params: "VM", shouldLog: false },
       ]);
     }
     actorServer.setOperationalState({ open: true, disconnected: false, rewinding: false, active: true });
-    assert.deepEqual(actorServer.requestConnections.slice(-3), [
+    assert.deepEqual(actorServer.requestConnections.slice(-4), [
+      persistentConnection,
       persistentConnection,
       persistentConnection,
       persistentConnection,
@@ -550,12 +588,14 @@ test("standalone server persists settings, actors, and admin action audit in SQL
       body: JSON.stringify({ force: true }),
     });
     assert.equal(recoveredActorStatus.actors.find((actor) => actor.id === discoveredActor.id)?.status, "online");
-    assert.deepEqual(actorServer.requests.slice(-3), [
+    assert.deepEqual(actorServer.requests.slice(-4), [
       { adminCommand: "SEQ actorStatus", params: "", shouldLog: false },
       { adminCommand: "list", params: "SEQ", shouldLog: false },
+      { adminCommand: "list", params: "VM", shouldLog: false },
       { adminCommand: "VM lastLogs", params: "0", shouldLog: false },
     ]);
-    assert.deepEqual(actorServer.requestConnections.slice(-3), [
+    assert.deepEqual(actorServer.requestConnections.slice(-4), [
+      persistentConnection,
       persistentConnection,
       persistentConnection,
       persistentConnection,
@@ -574,19 +614,21 @@ test("standalone server persists settings, actors, and admin action audit in SQL
         "X-Forwarded-For": "203.0.113.77",
         "X-Real-IP": "192.0.2.18",
       },
-      body: JSON.stringify({ action: "status", params: "" }),
+      body: JSON.stringify({ account: "SEQ", action: "status", params: "" }),
     });
-    assert.deepEqual(actorServer.requests.slice(manualStatusStart, manualStatusStart + 4), [
+    assert.deepEqual(actorServer.requests.slice(manualStatusStart, manualStatusStart + 5), [
       { adminCommand: "SEQ status", params: "" },
       { adminCommand: "SEQ actorStatus", params: "", shouldLog: false },
       { adminCommand: "list", params: "SEQ", shouldLog: false },
+      { adminCommand: "list", params: "VM", shouldLog: false },
       { adminCommand: "VM lastLogs", params: "2", shouldLog: false },
     ]);
     assert.notEqual(actorServer.requestConnections[manualStatusStart], persistentConnection);
     assert.deepEqual(
-      actorServer.requestConnections.slice(manualStatusStart + 1, manualStatusStart + 4),
-      [persistentConnection, persistentConnection, persistentConnection],
+      actorServer.requestConnections.slice(manualStatusStart + 1, manualStatusStart + 5),
+      [persistentConnection, persistentConnection, persistentConnection, persistentConnection],
     );
+
     const successAudit = await json(server.baseUrl, `/api/audit?actorId=${discoveredActor.id}&query=status&outcome=success&limit=20`);
     assert.equal(successAudit.entries[0].outcome, "success");
     assert.equal(successAudit.entries[0].sourceIp, "127.0.0.1");
@@ -597,6 +639,43 @@ test("standalone server persists settings, actors, and admin action audit in SQL
     const quotedPhraseAudit = await json(server.baseUrl, `/api/audit?query=${encodeURIComponent("\"SEQ 127.0.0.1\"")}&limit=20`);
     assert.equal(quotedPhraseAudit.entries.length, 0);
 
+    const manualVmActionStart = actorServer.requests.length;
+    const manualVmAction = await json(server.baseUrl, `/api/actors/${discoveredActor.id}/actions`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ account: "VM", action: "gc", params: "" }),
+    });
+    assert.equal(manualVmAction.result, true);
+    assert.match(manualVmAction.results, /garbage collection/i);
+    assert.deepEqual(actorServer.requests.slice(manualVmActionStart, manualVmActionStart + 5), [
+      { adminCommand: "VM gc", params: "" },
+      { adminCommand: "SEQ actorStatus", params: "", shouldLog: false },
+      { adminCommand: "list", params: "SEQ", shouldLog: false },
+      { adminCommand: "list", params: "VM", shouldLog: false },
+      { adminCommand: "VM lastLogs", params: "2", shouldLog: false },
+    ]);
+    const vmAudit = await json(server.baseUrl, `/api/audit?actorId=${discoveredActor.id}&query=${encodeURIComponent("VM gc")}&outcome=success&limit=20`);
+    assert.equal(vmAudit.entries[0].action, "VM gc");
+
+    const manualVmListStart = actorServer.requests.length;
+    const manualVmList = await json(server.baseUrl, `/api/actors/${discoveredActor.id}/actions`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ account: "VM", action: "list", params: "ignored" }),
+    });
+    assert.equal(manualVmList.params, "VM");
+    assert.deepEqual(actorServer.requests[manualVmListStart], { adminCommand: "list", params: "VM" });
+
+    const requestsBeforeInvalidAccount = actorServer.requests.length;
+    const invalidAccountResponse = await fetch(`${server.baseUrl}/api/actors/${discoveredActor.id}/actions`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ account: "OTHER", action: "status", params: "" }),
+    });
+    assert.equal(invalidAccountResponse.status, 400);
+    assert.match((await invalidAccountResponse.json()).error, /admin account is not available/i);
+    assert.equal(actorServer.requests.length, requestsBeforeInvalidAccount);
+
     const manualHealthCheckStart = actorServer.requests.length;
     const manualHealthCheck = await json(server.baseUrl, `/api/actors/${discoveredActor.id}/actions`, {
       method: "POST",
@@ -604,10 +683,11 @@ test("standalone server persists settings, actors, and admin action audit in SQL
       body: JSON.stringify({ action: "healthCheck", params: "" }),
     });
     assert.equal(manualHealthCheck.result, true);
-    assert.deepEqual(actorServer.requests.slice(manualHealthCheckStart, manualHealthCheckStart + 4), [
+    assert.deepEqual(actorServer.requests.slice(manualHealthCheckStart, manualHealthCheckStart + 5), [
       { adminCommand: "SEQ healthCheck", params: "" },
       { adminCommand: "SEQ actorStatus", params: "", shouldLog: false },
       { adminCommand: "list", params: "SEQ", shouldLog: false },
+      { adminCommand: "list", params: "VM", shouldLog: false },
       { adminCommand: "VM lastLogs", params: "2", shouldLog: false },
     ]);
     assert.notEqual(actorServer.requestConnections[manualHealthCheckStart], persistentConnection);
@@ -631,16 +711,17 @@ test("standalone server persists settings, actors, and admin action audit in SQL
     assert.equal(actorServer.requests.length, requestsDuringSlowAction);
     const slowActionReply = await slowAction;
     assert.equal(slowActionReply.result, true);
-    assert.deepEqual(actorServer.requests.slice(slowActionStart, slowActionStart + 4), [
+    assert.deepEqual(actorServer.requests.slice(slowActionStart, slowActionStart + 5), [
       { adminCommand: "SEQ slowAction", params: "" },
       { adminCommand: "SEQ actorStatus", params: "", shouldLog: false },
       { adminCommand: "list", params: "SEQ", shouldLog: false },
+      { adminCommand: "list", params: "VM", shouldLog: false },
       { adminCommand: "VM lastLogs", params: "2", shouldLog: false },
     ]);
     assert.notEqual(actorServer.requestConnections[slowActionStart], persistentConnection);
     assert.deepEqual(
-      actorServer.requestConnections.slice(slowActionStart + 1, slowActionStart + 4),
-      [persistentConnection, persistentConnection, persistentConnection],
+      actorServer.requestConnections.slice(slowActionStart + 1, slowActionStart + 5),
+      [persistentConnection, persistentConnection, persistentConnection, persistentConnection],
     );
 
     const failedResponse = await fetch(`${server.baseUrl}/api/actors/${discoveredActor.id}/actions`, {
@@ -665,7 +746,7 @@ test("standalone server persists settings, actors, and admin action audit in SQL
     const errorPayload = await errorResponse.json();
     assert.equal(errorResponse.ok, false);
     assert.match(errorPayload.error, /required boolean result/i);
-    const errorAudit = await json(server.baseUrl, `/api/audit?actorId=${discoveredActor.id}&outcome=error&limit=20`);
+    const errorAudit = await json(server.baseUrl, `/api/audit?actorId=${discoveredActor.id}&query=invalidResult&outcome=error&limit=20`);
     assert.equal(errorAudit.entries.length, 1);
     assert.equal(errorAudit.entries[0].action, "SEQ invalidResult");
     assert.equal(errorAudit.entries[0].outcome, "error");
@@ -702,11 +783,13 @@ test("standalone server persists settings, actors, and admin action audit in SQL
     });
     assert.equal(reconnected.actors.find((actor) => actor.id === discoveredActor.id)?.status, "online");
     assert.notEqual(actorServer.requestConnections.at(-1), persistentConnection);
+    assert.equal(actorServer.requestConnections.at(-4), actorServer.requestConnections.at(-1));
     assert.equal(actorServer.requestConnections.at(-3), actorServer.requestConnections.at(-1));
     assert.equal(actorServer.requestConnections.at(-2), actorServer.requestConnections.at(-1));
-    assert.deepEqual(actorServer.requests.slice(reconnectStart, reconnectStart + 3), [
+    assert.deepEqual(actorServer.requests.slice(reconnectStart, reconnectStart + 4), [
       { adminCommand: "SEQ actorStatus", params: "", shouldLog: false },
       { adminCommand: "list", params: "SEQ", shouldLog: false },
+      { adminCommand: "list", params: "VM", shouldLog: false },
       { adminCommand: "VM lastLogs", params: "0", shouldLog: false },
     ]);
     const sameCursorRestartLogs = await json(server.baseUrl, `/api/actors/${discoveredActor.id}/logs`);
@@ -809,6 +892,7 @@ test("standalone server persists settings, actors, and admin action audit in SQL
     assert.equal(sharedEndpointDiscovery.actors.every((actor) => actor.kind === "node"), true);
     assert.equal(sharedEndpointDiscovery.actors.every((actor) => actor.className === "SimpleNode"), true);
     assert.equal(sharedEndpointDiscovery.actors.every((actor) => actor.status === "online"), true);
+    assert.equal(sharedEndpointDiscovery.actors.every((actor) => actor.vmActions.includes("gc")), true);
     assert.equal(sharedEndpointDiscovery.actors.every((actor) =>
       actor.host === "127.0.0.1" && actor.port === sharedEndpointActorServer.port
     ), true);
@@ -816,6 +900,7 @@ test("standalone server persists settings, actors, and admin action audit in SQL
       sharedEndpointActorServer.requests.filter((request) => !Object.hasOwn(request, "shouldLog")),
       [
         { adminCommand: "list", params: "" },
+        { adminCommand: "list", params: "VM" },
         { adminCommand: "list", params: "NODE11" },
         { adminCommand: "list", params: "NODE12" },
         { adminCommand: "NODE11 actorStatus", params: "" },
@@ -927,6 +1012,7 @@ test("actor migrations preserve audit references and initialize status metadata"
       "0013_concerned_gamma_corps",
       "0014_chilly_cammi",
       "0015_tough_zaladane",
+      "0016_safe_network",
     ];
     for (const [index, name] of migrationNames.entries()) {
       if (index === 5) {
@@ -971,6 +1057,10 @@ test("actor migrations preserve audit references and initialize status metadata"
     assert.deepEqual(
       database.prepare("SELECT outbound_sequence AS outboundSequence, accounts, clock_tick_interval AS clockTickInterval, actor_status_fields AS actorStatusFields, status_responded_at AS actorStatusRespondedAt, operational_state AS operationalState FROM actors WHERE id = 'a'").get(),
       { outboundSequence: "Not reported", accounts: "Not reported", clockTickInterval: "Not reported", actorStatusFields: "[]", actorStatusRespondedAt: null, operationalState: "inactive" },
+    );
+    assert.deepEqual(
+      database.prepare("SELECT vm_actions AS vmActions FROM actors WHERE id = 'a'").get(),
+      { vmActions: '["list"]' },
     );
     assert.deepEqual(
       database.prepare("SELECT id, kind, sort_order AS sortOrder FROM actors ORDER BY id").all(),
@@ -1287,6 +1377,11 @@ test("deployment and UI conventions stay explicit", async () => {
   assert.match(actorDetail, /text: message\.replace\(sgrPattern, ""\)/);
   assert.doesNotMatch(actorDetail, /actor-logs-meta|saved ·/);
   assert.match(actorDetail, /className=\{`actor-admin-panel actor-\$\{actor\.kind\}`\}/);
+  assert.match(actorDetail, /function actionsForAdminAccount\(actor: Actor, account: string\)/);
+  assert.match(actorDetail, /account === "VM" \? actor\.vmActions : actor\.actions/);
+  assert.match(actorDetail, /<label htmlFor="admin-account">Admin account<\/label>/);
+  assert.match(actorDetail, /<option value=\{actor\.account\}>\{actor\.account\}<\/option><option value="VM">VM<\/option>/);
+  assert.match(actorDetail, /JSON\.stringify\(\{ account: adminAccount, action, params \}\)/);
   assert.match(actorLogs, /coralActorLogCache\?: Map<string, ActorLogState>/);
   assert.match(actorLogs, /coralActorLogCursorResets\?: Set<string>/);
   assert.match(actorLogs, /"VM lastLogs"/);
