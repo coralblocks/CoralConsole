@@ -461,7 +461,7 @@ export default function ActorDetail({ actorId }: { actorId: string }) {
                 <div className="admin-heading"><div><p className="eyebrow">REST admin</p><h2 id="actor-admin-title">Run an action</h2></div><span>{availableActions.length} available</span></div>
                 <form onSubmit={runAction}>
                   <label htmlFor="admin-account">Admin account</label>
-                  <div className="select-wrap"><select id="admin-account" value={adminAccount} onChange={(event) => changeAdminAccount(event.target.value)} disabled={running}><option value={actor.account}>{actor.account}</option><option value="VM">VM</option></select></div>
+                  <div className="select-wrap"><select id="admin-account" value={adminAccount} onChange={(event) => changeAdminAccount(event.target.value)} disabled={running}><option value="VM">VM</option><option value={actor.account}>{actor.account}</option></select></div>
                   <label htmlFor="action">Admin action</label>
                   <div className="select-wrap"><select id="action" value={action} onChange={(event) => changeAdminAction(event.target.value)} disabled={running}>{availableActions.map((available) => <option value={available} key={available}>{available}</option>)}</select></div>
                   <label htmlFor="params">Parameters <span>optional</span></label><input id="params" value={params} onChange={(event) => setParams(event.target.value)} placeholder={action === "list" ? "Selected account is used" : "e.g. 10 16"} disabled={running || action === "list"} />

@@ -1464,7 +1464,8 @@ test("deployment and UI conventions stay explicit", async () => {
   assert.match(actorDetail, /account === "VM" \? actor\.vmActions : actor\.actions/);
   assert.match(actorDetail, /\.sort\(\(left, right\) =>\s*left\.localeCompare\(right, undefined, \{ sensitivity: "base" \}\)/);
   assert.match(actorDetail, /<label htmlFor="admin-account">Admin account<\/label>/);
-  assert.match(actorDetail, /<option value=\{actor\.account\}>\{actor\.account\}<\/option><option value="VM">VM<\/option>/);
+  assert.match(actorDetail, /<option value="VM">VM<\/option><option value=\{actor\.account\}>\{actor\.account\}<\/option>/);
+  assert.match(actorDetail, /setAdminAccount\(snapshot\.actor\.account\)/);
   assert.match(actorDetail, /JSON\.stringify\(\{ account: adminAccount, action, params \}\)/);
   assert.match(actorLogs, /coralActorLogCache\?: Map<string, ActorLogState>/);
   assert.match(actorLogs, /coralActorLogCursorResets\?: Set<string>/);
