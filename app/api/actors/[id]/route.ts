@@ -1,4 +1,4 @@
-import { actorUrl, closeActorMonitoringConnection } from "@/lib/actor-server";
+import { actorUrl, closeActorMonitoringConnection, forgetActorActionLists, invalidateActorActionLists } from "@/lib/actor-server";
 import { clearActorLogs } from "@/lib/actor-logs";
 import { apiErrorResponse, apiJson, ApiError, mutationAllowed, readJson } from "@/lib/http";
 import { runExclusiveActorMutation } from "@/lib/refresh";
@@ -41,6 +41,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       const updated = await runExclusiveActorMutation(id, () => {
         const saved = updateActorEndpoint(id, host, port);
         closeActorMonitoringConnection(id);
+        invalidateActorActionLists(id);
         clearActorLogs(id);
         return saved;
       });
@@ -67,6 +68,7 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
       closeActorMonitoringConnection(id);
       clearActorLogs(id);
       deleteActor(id);
+      forgetActorActionLists(id);
     });
     return apiJson({ removed: true });
   } catch (error) {

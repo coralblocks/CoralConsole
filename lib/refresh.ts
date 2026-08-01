@@ -1,10 +1,19 @@
-import { closeAllActorMonitoringConnections, refreshActorStatus } from "./actor-server";
+import { closeAllActorMonitoringConnections, invalidateActorActionLists, refreshActorStatus } from "./actor-server";
 import { refreshActorLogs, resetActorLogCursor } from "./actor-logs";
 import { getActor, getSettings, listActors, markActorOffline, updateActor } from "./repository";
 import { hasRecentViewer } from "./viewer-presence";
 
 let refreshPromise: Promise<ReturnType<typeof listActors>> | null = null;
+let refreshPromiseRefreshesActions = false;
 let lastRefreshAt = 0;
+
+type ActorRefreshOptions = {
+  refreshActions?: boolean;
+};
+
+type RefreshActorsOptions = ActorRefreshOptions & {
+  force?: boolean;
+};
 
 type ActorOperationState = {
   manualActions: number;
@@ -58,17 +67,18 @@ function disconnectHandler(actorId: string) {
   return (message: string) => {
     const current = getActor(actorId);
     if (current && !current.demo) {
+      invalidateActorActionLists(actorId);
       resetActorLogCursor(actorId);
       markActorOffline(current, message);
     }
   };
 }
 
-async function refreshOneActor(actorId: string) {
+async function refreshOneActor(actorId: string, options: ActorRefreshOptions = {}) {
   const actor = getActor(actorId);
   if (!actor || actor.demo) return;
   try {
-    const refreshed = updateActor(await refreshActorStatus(actor, disconnectHandler(actorId)));
+    const refreshed = updateActor(await refreshActorStatus(actor, disconnectHandler(actorId), options));
     if (!refreshed) return;
     if (actor.status === "offline" || actor.session !== refreshed.session) {
       resetActorLogCursor(actorId);
@@ -81,6 +91,7 @@ async function refreshOneActor(actorId: string) {
     }
   } catch (error) {
     const message = error instanceof Error ? error.message : "Actor refresh failed.";
+    invalidateActorActionLists(actorId);
     markActorOffline(actor, message);
   }
 }
@@ -120,14 +131,14 @@ export function runExclusiveActorMutation<T>(actorId: string, mutation: () => Pr
   });
 }
 
-async function refreshWithLimit() {
+async function refreshWithLimit(options: ActorRefreshOptions = {}) {
   const actors = listActors();
   let cursor = 0;
   const workers = Array.from({ length: Math.min(4, actors.length) }, async () => {
     while (cursor < actors.length) {
       const actor = actors[cursor++];
       if (!actor || actor.demo) continue;
-      await runScheduledActorOperation(actor.id, () => refreshOneActor(actor.id));
+      await runScheduledActorOperation(actor.id, () => refreshOneActor(actor.id, options));
     }
   });
   await Promise.all(workers);
@@ -135,19 +146,28 @@ async function refreshWithLimit() {
   return listActors();
 }
 
-export function refreshActors(force = false) {
-  if (refreshPromise) return refreshPromise;
+export function refreshActors(options: RefreshActorsOptions = {}): Promise<ReturnType<typeof listActors>> {
+  const force = Boolean(options.force);
+  const refreshActions = Boolean(options.refreshActions);
+  if (refreshPromise) {
+    if (!refreshActions || refreshPromiseRefreshesActions) return refreshPromise;
+    return refreshPromise.then(() => refreshActors({ force: true, refreshActions: true }));
+  }
   const intervalMs = getSettings().pollIntervalSeconds * 1000;
   if (!force && Date.now() - lastRefreshAt < intervalMs) return Promise.resolve(listActors());
-  refreshPromise = refreshWithLimit().finally(() => { refreshPromise = null; });
+  refreshPromiseRefreshesActions = refreshActions;
+  refreshPromise = refreshWithLimit({ refreshActions }).finally(() => {
+    refreshPromise = null;
+    refreshPromiseRefreshesActions = false;
+  });
   return refreshPromise;
 }
 
-export async function refreshActorNow(actorId: string) {
+export async function refreshActorNow(actorId: string, options: ActorRefreshOptions = {}) {
   const actor = getActor(actorId);
   if (!actor || actor.demo) return actor;
   const state = operationState(actorId);
-  await enqueueActorOperation(actorId, state, () => refreshOneActor(actorId));
+  await enqueueActorOperation(actorId, state, () => refreshOneActor(actorId, options));
   return getActor(actorId);
 }
 
@@ -178,7 +198,7 @@ export function ensureActorScheduler() {
       }
       const resumed = !state.polling;
       state.polling = true;
-      await refreshActors(resumed);
+      await refreshActors({ force: resumed });
     } finally {
       state.running = false;
     }

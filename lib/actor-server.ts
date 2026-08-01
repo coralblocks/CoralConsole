@@ -28,6 +28,37 @@ type MonitoringConnection = {
 
 const monitoringConnections = new Map<string, MonitoringConnection>();
 
+type ActorActionListFreshness = {
+  actorAccount: boolean;
+  vm: boolean;
+};
+
+const globalActorActionLists = globalThis as typeof globalThis & {
+  coralActorActionListFreshness?: Map<string, ActorActionListFreshness>;
+};
+
+const actorActionListFreshness = globalActorActionLists.coralActorActionListFreshness
+  ?? (globalActorActionLists.coralActorActionListFreshness = new Map());
+
+function actionListFreshness(actorId: string) {
+  let freshness = actorActionListFreshness.get(actorId);
+  if (!freshness) {
+    freshness = { actorAccount: false, vm: false };
+    actorActionListFreshness.set(actorId, freshness);
+  }
+  return freshness;
+}
+
+export function invalidateActorActionLists(actorId: string) {
+  const freshness = actionListFreshness(actorId);
+  freshness.actorAccount = false;
+  freshness.vm = false;
+}
+
+export function forgetActorActionLists(actorId: string) {
+  actorActionListFreshness.delete(actorId);
+}
+
 export class ActorCallError extends Error {
   constructor(
     message: string,
@@ -401,7 +432,11 @@ function actorFromActorStatus(actor: Actor, actorStatusDetails: string): Actor {
   };
 }
 
-export async function refreshActorStatus(actor: Actor, onDisconnect: MonitoringDisconnectHandler) {
+export async function refreshActorStatus(
+  actor: Actor,
+  onDisconnect: MonitoringDisconnectHandler,
+  options: { refreshActions?: boolean } = {},
+) {
   const persistentMonitoring = { actorId: actor.id, onDisconnect, shouldLog: false };
   const reply = await callActorEndpoint(
     actor.host,
@@ -411,44 +446,56 @@ export async function refreshActorStatus(actor: Actor, onDisconnect: MonitoringD
     persistentMonitoring,
   );
   const refreshed = actorFromActorStatus(actor, typeof reply.results === "string" ? reply.results : "");
+  if (options.refreshActions || actor.status === "offline" || actor.session !== refreshed.session) {
+    invalidateActorActionLists(actor.id);
+  }
+  const freshness = actionListFreshness(actor.id);
 
   let withActorActions = refreshed;
-  try {
-    const listReply = await callActorEndpoint(
-      actor.host,
-      actor.port,
-      "list",
-      actor.account,
-      persistentMonitoring,
-    );
-    const actions = actionsFromDiscovery(actor.account, listReply.results || "");
-    withActorActions = { ...refreshed, actions };
-  } catch {
-    // Actor connectivity comes exclusively from actorStatus. A list failure
-    // must not override a valid actorStatus response.
+  if (!freshness.actorAccount) {
+    try {
+      const listReply = await callActorEndpoint(
+        actor.host,
+        actor.port,
+        "list",
+        actor.account,
+        persistentMonitoring,
+      );
+      const actions = actionsFromDiscovery(actor.account, listReply.results || "");
+      withActorActions = { ...refreshed, actions };
+      freshness.actorAccount = true;
+    } catch {
+      // Actor connectivity comes exclusively from actorStatus. Preserve the
+      // cached actions and retry only this list on the next successful cycle.
+    }
   }
 
-  try {
-    const vmListReply = await callActorEndpoint(
-      actor.host,
-      actor.port,
-      "list",
-      "VM",
-      persistentMonitoring,
-    );
-    return { ...withActorActions, vmActions: vmActionsFromDiscovery(vmListReply.results || "") };
-  } catch {
-    // VM actions are supplemental. Preserve the last known list when the VM
-    // account cannot be queried without changing actor connectivity.
-    return withActorActions;
+  if (!freshness.vm) {
+    try {
+      const vmListReply = await callActorEndpoint(
+        actor.host,
+        actor.port,
+        "list",
+        "VM",
+        persistentMonitoring,
+      );
+      freshness.vm = true;
+      return { ...withActorActions, vmActions: vmActionsFromDiscovery(vmListReply.results || "") };
+    } catch {
+      // VM actions are supplemental. Preserve the cached actions and retry
+      // only this list on the next successful cycle.
+    }
   }
+  return withActorActions;
 }
 
 async function discoverActorAccount(host: string, port: number, account: string, vmActions: string[]): Promise<Actor> {
   const id = crypto.randomUUID();
   let details = "";
+  let actorListSucceeded = false;
   try {
     details = (await callActorEndpoint(host, port, "list", account)).results || "";
+    actorListSucceeded = true;
   } catch {
     // A root-only list still provides enough information for a useful actor.
   }
@@ -479,14 +526,16 @@ async function discoverActorAccount(host: string, port: number, account: string,
     actions,
     vmActions,
   };
+  let discovered = actor;
   try {
     const actorStatusReply = await callActorEndpoint(host, port, `${account} actorStatus`);
     const actorStatusDetails = typeof actorStatusReply.results === "string" ? actorStatusReply.results : "";
-    return actorFromActorStatus(actor, actorStatusDetails);
+    discovered = actorFromActorStatus(actor, actorStatusDetails);
   } catch {
     // Root and actor-account list responses still provide a usable actor if metadata is temporarily unavailable.
-    return actor;
   }
+  if (actorListSucceeded) actionListFreshness(id).actorAccount = true;
+  return discovered;
 }
 
 export async function listActorAccounts(host: string, port: number): Promise<string[]> {
@@ -506,12 +555,18 @@ export async function listActorAccounts(host: string, port: number): Promise<str
 export async function discoverActors(host: string, port: number, accounts?: string[]): Promise<Actor[]> {
   const actorAccounts = accounts || await listActorAccounts(host, port);
   let vmActions: string[] = [...BASELINE_VM_ADMIN_ACTIONS];
+  let vmListSucceeded = false;
   try {
     const vmListReply = await callActorEndpoint(host, port, "list", "VM");
     vmActions = vmActionsFromDiscovery(vmListReply.results || "");
+    vmListSucceeded = true;
   } catch {
     // The actor accounts remain discoverable even when the VM list is
     // temporarily unavailable. Monitoring will retry it after persistence.
   }
-  return Promise.all(actorAccounts.map((account) => discoverActorAccount(host, port, account, vmActions)));
+  const discovered = await Promise.all(actorAccounts.map((account) => discoverActorAccount(host, port, account, vmActions)));
+  if (vmListSucceeded) {
+    discovered.forEach((actor) => { actionListFreshness(actor.id).vm = true; });
+  }
+  return discovered;
 }

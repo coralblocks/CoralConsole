@@ -410,7 +410,7 @@ export default function Home() {
       const payload = await apiRequest<{ actors: Actor[] }>("/api/actors/refresh", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ force }),
+        body: JSON.stringify({ force, refreshActions: force }),
       });
       setActors(payload.actors);
       setPageError("");
