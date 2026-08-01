@@ -1005,9 +1005,10 @@ test("actor migrations preserve audit references and initialize status metadata"
 });
 
 test("deployment and UI conventions stay explicit", async () => {
-  const [page, actorList, actorDetail, actorLogs, actorLogsRoute, auditView, auditRoute, actorUi, consoleChrome, serverHealthHook, styles, layout, viewerPresence, guide, packageMetadata, packageLock, setVersion, compose, dockerfile, dockerStart, dockerStop, dockerBackup, gitMergeToMain, devCompose, devDockerfile, devStart, dockerRelease, nextConfig, trustedIngress, httpHelpers] = await Promise.all([
+  const [page, actorList, addActorDialog, actorDetail, actorLogs, actorLogsRoute, auditView, auditRoute, actorUi, consoleChrome, serverHealthHook, styles, layout, viewerPresence, guide, packageMetadata, packageLock, setVersion, compose, dockerfile, dockerStart, dockerStop, dockerBackup, gitMergeToMain, devCompose, devDockerfile, devStart, dockerRelease, nextConfig, trustedIngress, httpHelpers] = await Promise.all([
     readFile(join(projectRoot, "app/page.tsx"), "utf8"),
     readFile(join(projectRoot, "app/actors/actor-list.tsx"), "utf8"),
+    readFile(join(projectRoot, "app/add-actor-dialog.tsx"), "utf8"),
     readFile(join(projectRoot, "app/actor/[id]/actor-detail.tsx"), "utf8"),
     readFile(join(projectRoot, "lib/actor-logs.ts"), "utf8"),
     readFile(join(projectRoot, "app/api/actors/[id]/logs/route.ts"), "utf8"),
@@ -1076,6 +1077,14 @@ test("deployment and UI conventions stay explicit", async () => {
   assert.match(page, /GROUPS\.filter\(\(group\) => categoryFilter === "all" \|\| group\.category === categoryFilter\)/);
   assert.match(page, /className="section-heading topology-heading"/);
   assert.match(page, /className="button button-ghost" type="button" onClick=\{\(\) => setAddOpen\(true\)\}>＋ Add Actor<\/button>/);
+  assert.match(page, /<AddActorDialog open=\{addOpen\} onClose=\{\(\) => setAddOpen\(false\)\} onDiscovered=\{actorsDiscovered\} \/>/);
+  assert.match(actorList, /<AddActorDialog open=\{addOpen\} onClose=\{closeAddActor\} onDiscovered=\{actorsDiscovered\} preferredKind=\{addKind\} \/>/);
+  assert.doesNotMatch(page, /<section className="add-modal"/);
+  assert.doesNotMatch(actorList, /<section className=\{`add-modal/);
+  assert.match(addActorDialog, /fetch\("\/api\/actors"/);
+  assert.match(addActorDialog, /ACTOR_KINDS\.filter\(\(kind\) => kind !== "link"\)/);
+  assert.match(addActorDialog, /\{connecting \? "Discovering…" : "Discover actors"\}/);
+  assert.match(addActorDialog, /preferredKind \? ` actor-\$\{preferredKind\}` : ""/);
   assert.match(page, /href="\/actors"[\s\S]*target="_blank"[\s\S]*List Actors/);
   assert.match(page, /\{refreshing \? "Refreshing…" : "Refresh Now"\}/);
   assert.match(page, /online in the console/);
@@ -1143,7 +1152,7 @@ test("deployment and UI conventions stay explicit", async () => {
   assert.match(page, /state-\$\{displayedState\}/);
   assert.match(actorUi, /return status === "offline" \? "unknown" : state/);
   assert.doesNotMatch(page, /className="actor-data|className="actor-foot/);
-  assert.match(page, /ACTOR_KINDS\.filter\(\(kind\) => kind !== "link"\)\.map/);
+  assert.match(addActorDialog, /ACTOR_KINDS\.filter\(\(kind\) => kind !== "link"\)\.map/);
   assert.match(styles, /\.group-cards \{[^}]*grid-auto-flow: row[^}]*grid-template-columns: repeat\(auto-fill, minmax\(min\(100%, var\(--actor-card-min-width, 300px\)\), var\(--actor-card-max-width, 420px\)\)\)/);
   assert.match(styles, /\.actor-card\.actor-card-offline,\s*\.actor-detail-panel\.actor-detail-offline \.inspector-head,\s*\.actor-logs-panel\.actor-logs-offline \.section-heading/);
   assert.match(styles, /background-image: repeating-linear-gradient/);
@@ -1237,7 +1246,6 @@ test("deployment and UI conventions stay explicit", async () => {
   assert.match(actorList, /className="actor-list-add-button"/);
   assert.match(actorList, /className="actor-list-global-add-button"/);
   assert.match(actorList, /onClick=\{\(\) => openAddActor\(\)\}/);
-  assert.match(actorList, /<section className=\{`add-modal\$\{addKind \? ` actor-\$\{addKind\}` : ""\}`\}/);
   assert.match(styles, /\.actor-list-notice \{[^}]*var\(--actor-soft\)[^}]*var\(--actor-color\)/);
   assert.match(styles, /\.actor-list-add-button \{[^}]*background: var\(--actor-soft\)/);
   assert.match(styles, /\.actor-list-global-add-button \{[^}]*background: transparent[^}]*border: 1px solid var\(--line\)/);

@@ -2,6 +2,7 @@
 
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type WheelEvent as ReactWheelEvent } from "react";
 import Link from "next/link";
+import { AddActorDialog } from "./add-actor-dialog";
 import { ConsoleBrand } from "./console-chrome";
 import {
   ACTOR_KINDS,
@@ -353,10 +354,6 @@ export default function Home() {
   const [categoryFilter, setCategoryFilter] = useState<ActorCategoryFilter>("all");
   const [addOpen, setAddOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [host, setHost] = useState("");
-  const [port, setPort] = useState("30001");
-  const [connectError, setConnectError] = useState("");
-  const [connecting, setConnecting] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [savingSettings, setSavingSettings] = useState(false);
   const [settingsError, setSettingsError] = useState("");
@@ -432,7 +429,6 @@ export default function Home() {
   useEffect(() => {
     function closeOnEscape(event: KeyboardEvent) {
       if (event.key !== "Escape") return;
-      setAddOpen(false);
       if (settings.setupComplete) setSettingsOpen(false);
     }
     window.addEventListener("keydown", closeOnEscape);
@@ -498,31 +494,9 @@ export default function Home() {
     setSettingsOpen(true);
   }
 
-  async function addActor(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setConnectError("");
-    const numericPort = Number(port);
-    if (!host.trim() || !Number.isInteger(numericPort) || numericPort < 1 || numericPort > 65535) {
-      setConnectError("Enter a host and a valid REST admin port.");
-      return;
-    }
-    setConnecting(true);
-    try {
-      const payload = await apiRequest<ActorDiscoveryResult>("/api/actors", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ host: host.trim(), port: numericPort }),
-      });
-      const discoveredIds = new Set(payload.actors.map((actor) => actor.id));
-      setActors((current) => [...current.filter((actor) => !discoveredIds.has(actor.id)), ...payload.actors]);
-      setHost("");
-      setPort("30001");
-      setAddOpen(false);
-    } catch (error) {
-      setConnectError(error instanceof Error ? error.message : "Could not reach this actor.");
-    } finally {
-      setConnecting(false);
-    }
+  function actorsDiscovered(payload: ActorDiscoveryResult) {
+    const discoveredIds = new Set(payload.actors.map((actor) => actor.id));
+    setActors((current) => [...current.filter((actor) => !discoveredIds.has(actor.id)), ...payload.actors]);
   }
 
   async function saveTopologySettings(event: FormEvent<HTMLFormElement>) {
@@ -823,23 +797,7 @@ export default function Home() {
         </div>
       </section>
 
-      {addOpen && (
-        <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setAddOpen(false); }}>
-          <section className="add-modal" role="dialog" aria-modal="true" aria-labelledby="add-title">
-            <button className="modal-close" type="button" onClick={() => setAddOpen(false)} aria-label="Close add actor dialog">×</button>
-            <p className="eyebrow">Auto-discovery</p><h2 id="add-title">Connect actors</h2>
-            <p>Enter a REST admin server address. CoralConsole will discover and save every actor account exposed by that server.</p>
-            <div className="actor-type-list" aria-label="Supported actor types">{ACTOR_KINDS.filter((kind) => kind !== "link").map((kind) => <span key={kind}>{ACTOR_META[kind].label}</span>)}</div>
-            <form onSubmit={addActor}>
-              <label htmlFor="host">IP address or host</label><input id="host" value={host} onChange={(event) => setHost(event.target.value)} placeholder="10.42.0.10" autoFocus />
-              <label htmlFor="port">REST admin port</label><input id="port" value={port} onChange={(event) => setPort(event.target.value)} inputMode="numeric" placeholder="30001" />
-              {connectError && <p className="form-error" role="alert">{connectError}</p>}
-              <div className="modal-actions"><button className="button button-ghost" type="button" onClick={() => setAddOpen(false)}>Cancel</button><button className="button button-primary" type="submit" disabled={connecting}>{connecting ? "Discovering…" : "Discover actors"}</button></div>
-            </form>
-            <div className="privacy-note"><span aria-hidden="true">⌂</span><p><strong>Shared internal configuration</strong>The actor is contacted by this server and stored in its SQLite database.</p></div>
-          </section>
-        </div>
-      )}
+      <AddActorDialog open={addOpen} onClose={() => setAddOpen(false)} onDiscovered={actorsDiscovered} />
 
       {settingsOpen && (
         <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget && settings.setupComplete) setSettingsOpen(false); }}>

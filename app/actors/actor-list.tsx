@@ -1,7 +1,8 @@
 "use client";
 
-import { type DragEvent, type FormEvent, type KeyboardEvent, useCallback, useEffect, useRef, useState } from "react";
+import { type DragEvent, type KeyboardEvent, useCallback, useEffect, useRef, useState } from "react";
 import { GripVertical } from "lucide-react";
+import { AddActorDialog } from "../add-actor-dialog";
 import { ACTOR_KINDS, ACTOR_META, statusLabel, type Actor, type ActorKind } from "../actor-ui";
 import { ConsoleBrand } from "../console-chrome";
 import type { ActorDiscoveryResult, TopologySettings } from "@/lib/types";
@@ -44,10 +45,6 @@ export default function ActorList() {
   const [pollIntervalSeconds, setPollIntervalSeconds] = useState(5);
   const [addOpen, setAddOpen] = useState(false);
   const [addKind, setAddKind] = useState<ActorKind | null>(null);
-  const [connectHost, setConnectHost] = useState("");
-  const [connectPort, setConnectPort] = useState("30001");
-  const [connectError, setConnectError] = useState("");
-  const [connecting, setConnecting] = useState(false);
 
   const replaceActors = useCallback((next: Actor[]) => {
     actorsRef.current = next;
@@ -132,57 +129,31 @@ export default function ActorList() {
   function openAddActor(kind: ActorKind | null = null) {
     setAddKind(kind);
     setAddOpen(true);
-    setConnectError("");
   }
 
   function closeAddActor() {
-    if (connecting) return;
     setAddOpen(false);
     setAddKind(null);
-    setConnectError("");
   }
 
-  async function addActor(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const numericPort = Number(connectPort);
-    if (!connectHost.trim() || !Number.isInteger(numericPort) || numericPort < 1 || numericPort > 65535) {
-      setConnectError("Enter a host and a valid REST admin port.");
-      return;
-    }
-    setConnectError("");
-    setConnecting(true);
-    try {
-      const payload = await apiRequest<ActorDiscoveryResult>("/api/actors", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ host: connectHost.trim(), port: numericPort }),
-      });
-      const discoveredIds = new Set(payload.actors.map((actor) => actor.id));
-      replaceActors([...actorsRef.current.filter((actor) => !discoveredIds.has(actor.id)), ...payload.actors]);
-      setConnectHost("");
-      setConnectPort("30001");
-      setAddOpen(false);
-      setAddKind(null);
-      const actorsByKind = new Map<ActorKind, Actor[]>();
-      payload.actors.forEach((actor) => actorsByKind.set(actor.kind, [...(actorsByKind.get(actor.kind) || []), actor]));
-      let firstFeedback = true;
-      for (const [kind, addedActors] of actorsByKind) {
-        const names = addedActors.map((actor) => actor.name).join(", ");
-        const duplicateNote = firstFeedback && payload.duplicateAccounts.length
-          ? ` Already present: ${payload.duplicateAccounts.join(", ")}.`
-          : "";
-        showFeedback(
-          kind,
-          `${names} ${addedActors.length === 1 ? "was" : "were"} added to CoralConsole.${duplicateNote}`,
-          "notice",
-          7000,
-        );
-        firstFeedback = false;
-      }
-    } catch (requestError) {
-      setConnectError(requestError instanceof Error ? requestError.message : "Could not reach this actor.");
-    } finally {
-      setConnecting(false);
+  function actorsDiscovered(payload: ActorDiscoveryResult) {
+    const discoveredIds = new Set(payload.actors.map((actor) => actor.id));
+    replaceActors([...actorsRef.current.filter((actor) => !discoveredIds.has(actor.id)), ...payload.actors]);
+    const actorsByKind = new Map<ActorKind, Actor[]>();
+    payload.actors.forEach((actor) => actorsByKind.set(actor.kind, [...(actorsByKind.get(actor.kind) || []), actor]));
+    let firstFeedback = true;
+    for (const [kind, addedActors] of actorsByKind) {
+      const names = addedActors.map((actor) => actor.name).join(", ");
+      const duplicateNote = firstFeedback && payload.duplicateAccounts.length
+        ? ` Already present: ${payload.duplicateAccounts.join(", ")}.`
+        : "";
+      showFeedback(
+        kind,
+        `${names} ${addedActors.length === 1 ? "was" : "were"} added to CoralConsole.${duplicateNote}`,
+        "notice",
+        7000,
+      );
+      firstFeedback = false;
     }
   }
 
@@ -442,29 +413,7 @@ export default function ActorList() {
           )}
       </section>
 
-      {addOpen && (
-        <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) closeAddActor(); }}>
-          <section className={`add-modal${addKind ? ` actor-${addKind}` : ""}`} role="dialog" aria-modal="true" aria-labelledby="actor-list-add-title">
-            <button className="modal-close" type="button" onClick={closeAddActor} aria-label="Close add actor dialog">×</button>
-            <p className="eyebrow">{addKind ? `Add to ${groupLabel(addKind)}` : "Auto-discovery"}</p>
-            <h2 id="actor-list-add-title">Connect actors</h2>
-            <p>Enter a REST admin server address. CoralConsole will discover every actor account and place each actor in the appropriate table.</p>
-            <div className="actor-type-list" aria-label="Supported actor types">{ACTOR_KINDS.filter((kind) => kind !== "link").map((kind) => <span className={kind === addKind ? "selected" : ""} key={kind}>{ACTOR_META[kind].label}</span>)}</div>
-            <form onSubmit={addActor}>
-              <label htmlFor="actor-list-host">IP address or host</label>
-              <input id="actor-list-host" value={connectHost} onChange={(event) => setConnectHost(event.target.value)} placeholder="10.42.0.10" autoFocus />
-              <label htmlFor="actor-list-port">REST admin port</label>
-              <input id="actor-list-port" value={connectPort} onChange={(event) => setConnectPort(event.target.value)} inputMode="numeric" placeholder="30001" />
-              {connectError && <p className="form-error" role="alert">{connectError}</p>}
-              <div className="modal-actions">
-                <button className="button button-ghost" type="button" onClick={closeAddActor} disabled={connecting}>Cancel</button>
-                <button className="button button-primary" type="submit" disabled={connecting}>{connecting ? "Discovering…" : "Discover actors"}</button>
-              </div>
-            </form>
-            <div className="privacy-note"><span aria-hidden="true">⌂</span><p><strong>Shared internal configuration</strong>The actor is contacted by this server and stored in its SQLite database.</p></div>
-          </section>
-        </div>
-      )}
+      <AddActorDialog open={addOpen} onClose={closeAddActor} onDiscovered={actorsDiscovered} preferredKind={addKind} />
     </main>
   );
 }

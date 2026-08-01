@@ -79,6 +79,7 @@ The optional `shouldLog` boolean defaults to `true` at the actor. Omit it for di
 ## Code structure
 
 - `app/page.tsx` owns the shared topology UI, first-run settings, refresh polling, add-actor flow, and one-time browser migration.
+- `app/add-actor-dialog.tsx` owns the shared Add Actor dialog, REST endpoint validation, and multi-account discovery request used by both the topology and actor registry.
 - `app/actor-ui.tsx` owns shared actor labels, icons, and UI metadata.
 - `app/actors/` renders the dedicated actor registry tab for endpoint editing, persisted drag ordering, and confirmed deletion.
 - `app/actor/[id]/` loads direct actor details and the latest in-memory log window, and runs audited admin actions in a dedicated tab.
