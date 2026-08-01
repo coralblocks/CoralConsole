@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import { FormEvent, useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type WheelEvent as ReactWheelEvent } from "react";
 import Link from "next/link";
 import { ConsoleBrand } from "./console-chrome";
 import {
@@ -24,6 +24,9 @@ import { useServerHealth } from "./use-server-health";
 
 const LEGACY_ACTORS_KEY = "coral-console-actors";
 const ACTOR_COUNTS_VISIBILITY_KEY = "coral-console-counts";
+const ACTOR_CARD_WIDTHS_KEY = "coral-console-actor-card-widths";
+const ACTOR_CARD_WIDTH_LOWER_LIMIT = 240;
+const ACTOR_CARD_WIDTH_UPPER_LIMIT = 800;
 const SERVER_UNAVAILABLE_MESSAGE = "CoralConsole server unavailable.";
 const ACTOR_FILTERS = [
   "all",
@@ -192,6 +195,56 @@ const DEFAULT_SETTINGS: TopologySettings = {
   setupComplete: false,
 };
 
+type ActorCardWidths = {
+  minWidth: number;
+  maxWidth: number;
+};
+
+const DEFAULT_ACTOR_CARD_WIDTHS: ActorCardWidths = {
+  minWidth: 300,
+  maxWidth: 420,
+};
+
+function savedActorCardWidths(value: string | null): ActorCardWidths {
+  if (!value) return DEFAULT_ACTOR_CARD_WIDTHS;
+  try {
+    const parsed = JSON.parse(value) as Partial<ActorCardWidths>;
+    if (
+      typeof parsed.minWidth === "number"
+      && typeof parsed.maxWidth === "number"
+      && Number.isInteger(parsed.minWidth)
+      && Number.isInteger(parsed.maxWidth)
+      && parsed.minWidth >= ACTOR_CARD_WIDTH_LOWER_LIMIT
+      && parsed.minWidth <= ACTOR_CARD_WIDTH_UPPER_LIMIT
+      && parsed.maxWidth >= ACTOR_CARD_WIDTH_LOWER_LIMIT
+      && parsed.maxWidth <= ACTOR_CARD_WIDTH_UPPER_LIMIT
+      && parsed.minWidth <= parsed.maxWidth
+    ) {
+      return { minWidth: parsed.minWidth, maxWidth: parsed.maxWidth };
+    }
+  } catch {
+    // Ignore invalid browser-local preferences and restore the defaults.
+  }
+  return DEFAULT_ACTOR_CARD_WIDTHS;
+}
+
+function actorCardWidthsValidationError(widths: ActorCardWidths) {
+  if (!Number.isInteger(widths.minWidth) || widths.minWidth < ACTOR_CARD_WIDTH_LOWER_LIMIT || widths.minWidth > ACTOR_CARD_WIDTH_UPPER_LIMIT) {
+    return `Min Actor Card Width must be between ${ACTOR_CARD_WIDTH_LOWER_LIMIT}px and ${ACTOR_CARD_WIDTH_UPPER_LIMIT}px.`;
+  }
+  if (!Number.isInteger(widths.maxWidth) || widths.maxWidth < ACTOR_CARD_WIDTH_LOWER_LIMIT || widths.maxWidth > ACTOR_CARD_WIDTH_UPPER_LIMIT) {
+    return `Max Actor Card Width must be between ${ACTOR_CARD_WIDTH_LOWER_LIMIT}px and ${ACTOR_CARD_WIDTH_UPPER_LIMIT}px.`;
+  }
+  if (widths.minWidth > widths.maxWidth) {
+    return "Min Actor Card Width cannot exceed Max Actor Card Width.";
+  }
+  return "";
+}
+
+function blurNumberInputOnWheel(event: ReactWheelEvent<HTMLInputElement>) {
+  event.currentTarget.blur();
+}
+
 async function apiRequest<T>(url: string, init?: RequestInit): Promise<T> {
   let response: Response;
   try {
@@ -293,6 +346,8 @@ export default function Home() {
   const [orbitPaused, setOrbitPaused] = useState(false);
   const [introVisible, setIntroVisible] = useState(true);
   const [actorCountsVisible, setActorCountsVisible] = useState(true);
+  const [actorCardWidths, setActorCardWidths] = useState<ActorCardWidths>(DEFAULT_ACTOR_CARD_WIDTHS);
+  const [actorCardWidthsDraft, setActorCardWidthsDraft] = useState<ActorCardWidths>(DEFAULT_ACTOR_CARD_WIDTHS);
   const [filter, setFilter] = useState<ActorFilter>("all");
   const [categoryFilter, setCategoryFilter] = useState<ActorCategoryFilter>("all");
   const [addOpen, setAddOpen] = useState(false);
@@ -336,6 +391,9 @@ export default function Home() {
       try {
         if (window.localStorage.getItem("coral-console-intro") === "hidden") setIntroVisible(false);
         if (window.localStorage.getItem(ACTOR_COUNTS_VISIBILITY_KEY) === "hidden") setActorCountsVisible(false);
+        const savedWidths = savedActorCardWidths(window.localStorage.getItem(ACTOR_CARD_WIDTHS_KEY));
+        setActorCardWidths(savedWidths);
+        setActorCardWidthsDraft(savedWidths);
         const saved = window.localStorage.getItem(LEGACY_ACTORS_KEY);
         if (saved) setLegacyActors(normalizeSavedActors(JSON.parse(saved)).filter((actor) => !actor.demo));
       } catch {
@@ -432,6 +490,13 @@ export default function Home() {
     });
   }
 
+  function openSettings() {
+    setSettingsDraft(settings);
+    setActorCardWidthsDraft(actorCardWidths);
+    setSettingsError("");
+    setSettingsOpen(true);
+  }
+
   async function addActor(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setConnectError("");
@@ -461,6 +526,11 @@ export default function Home() {
   async function saveTopologySettings(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setSettingsError("");
+    const widthError = actorCardWidthsValidationError(actorCardWidthsDraft);
+    if (widthError) {
+      setSettingsError(widthError);
+      return;
+    }
     setSavingSettings(true);
     try {
       const payload = await apiRequest<{ settings: TopologySettings }>("/api/settings", {
@@ -468,8 +538,10 @@ export default function Home() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ ...settingsDraft, setupComplete: true }),
       });
+      window.localStorage.setItem(ACTOR_CARD_WIDTHS_KEY, JSON.stringify(actorCardWidthsDraft));
       setSettings(payload.settings);
       setSettingsDraft(payload.settings);
+      setActorCardWidths(actorCardWidthsDraft);
       setSettingsOpen(false);
     } catch (error) {
       setSettingsError(error instanceof Error ? error.message : "Could not save settings.");
@@ -505,6 +577,8 @@ export default function Home() {
 
   const themeStyle = {
     "--topology-color": settingsOpen ? settingsDraft.backgroundColor : settings.backgroundColor,
+    "--actor-card-min-width": `${actorCardWidths.minWidth}px`,
+    "--actor-card-max-width": `${actorCardWidths.maxWidth}px`,
   } as CSSProperties;
   const serverStatusLabel = serverConnected === false
     ? "CoralConsole server unavailable"
@@ -525,7 +599,7 @@ export default function Home() {
             <i aria-hidden="true" /> {settings.topologyName}
           </span>
           <Link className="intro-toggle nav-link" href="/audit" target="_blank" rel="noopener noreferrer">Audit</Link>
-          <button className="intro-toggle" type="button" onClick={() => { setSettingsDraft(settings); setSettingsOpen(true); }}>Settings</button>
+          <button className="intro-toggle" type="button" onClick={openSettings}>Settings</button>
           <button className="intro-toggle" type="button" onClick={toggleActorCounts} aria-expanded={actorCountsVisible} aria-controls="actor-counts">
             {actorCountsVisible ? "Hide counts" : "Show counts"}
           </button>
@@ -775,9 +849,17 @@ export default function Home() {
               <label htmlFor="topology-name">Topology name</label><input id="topology-name" value={settingsDraft.topologyName} onChange={(event) => setSettingsDraft((current) => ({ ...current, topologyName: event.target.value }))} autoFocus />
               <label htmlFor="background-color">Environment color</label><div className="color-input"><input id="background-color" type="color" value={settingsDraft.backgroundColor} onChange={(event) => setSettingsDraft((current) => ({ ...current, backgroundColor: event.target.value }))} /><code>{settingsDraft.backgroundColor}</code></div>
               <div className="settings-grid">
-                <div><label htmlFor="poll-interval">Actor polling interval (seconds)</label><input id="poll-interval" type="number" min="1" max="300" value={settingsDraft.pollIntervalSeconds} onChange={(event) => setSettingsDraft((current) => ({ ...current, pollIntervalSeconds: Number(event.target.value) }))} /></div>
-                <div><label htmlFor="audit-retention">Audit retention (days)</label><input id="audit-retention" type="number" min="1" max="3650" value={settingsDraft.auditRetentionDays} onChange={(event) => setSettingsDraft((current) => ({ ...current, auditRetentionDays: Number(event.target.value) }))} /></div>
+                <div><label htmlFor="poll-interval">Actor polling interval (seconds)</label><input id="poll-interval" type="number" min="1" max="300" value={settingsDraft.pollIntervalSeconds} onChange={(event) => setSettingsDraft((current) => ({ ...current, pollIntervalSeconds: Number(event.target.value) }))} onWheel={blurNumberInputOnWheel} /></div>
+                <div><label htmlFor="audit-retention">Audit retention (days)</label><input id="audit-retention" type="number" min="1" max="3650" value={settingsDraft.auditRetentionDays} onChange={(event) => setSettingsDraft((current) => ({ ...current, auditRetentionDays: Number(event.target.value) }))} onWheel={blurNumberInputOnWheel} /></div>
               </div>
+              <fieldset className="summary-settings actor-card-settings">
+                <legend>Actor Map cards</legend>
+                <p>Saved only in this browser. Cards add columns automatically as the Actor Map becomes wider. Allowed range: {ACTOR_CARD_WIDTH_LOWER_LIMIT}–{ACTOR_CARD_WIDTH_UPPER_LIMIT}px.</p>
+                <div className="settings-grid">
+                  <div><label htmlFor="actor-card-min-width">Min Actor Card Width (px)</label><input id="actor-card-min-width" type="number" min={ACTOR_CARD_WIDTH_LOWER_LIMIT} max={ACTOR_CARD_WIDTH_UPPER_LIMIT} value={actorCardWidthsDraft.minWidth} onChange={(event) => setActorCardWidthsDraft((current) => ({ ...current, minWidth: Number(event.target.value) }))} onWheel={blurNumberInputOnWheel} /></div>
+                  <div><label htmlFor="actor-card-max-width">Max Actor Card Width (px)</label><input id="actor-card-max-width" type="number" min={ACTOR_CARD_WIDTH_LOWER_LIMIT} max={ACTOR_CARD_WIDTH_UPPER_LIMIT} value={actorCardWidthsDraft.maxWidth} onChange={(event) => setActorCardWidthsDraft((current) => ({ ...current, maxWidth: Number(event.target.value) }))} onWheel={blurNumberInputOnWheel} /></div>
+                </div>
+              </fieldset>
               <fieldset className="polling-settings">
                 <legend>Polling without viewers</legend>
                 <label className="polling-option">
@@ -790,7 +872,7 @@ export default function Home() {
                 </label>
                 <div className="grace-period-setting">
                   <label htmlFor="viewer-grace-period">Stop polling after no viewers (seconds)</label>
-                  <input id="viewer-grace-period" type="number" min="5" max="3600" value={settingsDraft.viewerGracePeriodSeconds} disabled={settingsDraft.keepPollingWithoutViewers} onChange={(event) => setSettingsDraft((current) => ({ ...current, viewerGracePeriodSeconds: Number(event.target.value) }))} />
+                  <input id="viewer-grace-period" type="number" min="5" max="3600" value={settingsDraft.viewerGracePeriodSeconds} disabled={settingsDraft.keepPollingWithoutViewers} onChange={(event) => setSettingsDraft((current) => ({ ...current, viewerGracePeriodSeconds: Number(event.target.value) }))} onWheel={blurNumberInputOnWheel} />
                 </div>
               </fieldset>
               <fieldset className="summary-settings">

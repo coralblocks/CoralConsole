@@ -1012,6 +1012,18 @@ test("deployment and UI conventions stay explicit", async () => {
   assert.match(page, /<h2>Actor Map<\/h2>/);
   assert.match(page, /visibleSummaryKinds\.length === 8 \? 4 : Math\.min\(3, visibleSummaryKinds\.length\)/);
   assert.match(page, /ACTOR_COUNTS_VISIBILITY_KEY = "coral-console-counts"/);
+  assert.match(page, /ACTOR_CARD_WIDTHS_KEY = "coral-console-actor-card-widths"/);
+  assert.match(page, /ACTOR_CARD_WIDTH_LOWER_LIMIT = 240/);
+  assert.match(page, /ACTOR_CARD_WIDTH_UPPER_LIMIT = 800/);
+  assert.match(page, /minWidth: 300[\s\S]*maxWidth: 420/);
+  assert.match(page, /Min Actor Card Width \(px\)/);
+  assert.match(page, /Max Actor Card Width \(px\)/);
+  assert.match(page, /function blurNumberInputOnWheel/);
+  assert.match(page, /id="actor-card-min-width".*onWheel=\{blurNumberInputOnWheel\}/);
+  assert.match(page, /id="actor-card-max-width".*onWheel=\{blurNumberInputOnWheel\}/);
+  assert.match(page, /window\.localStorage\.setItem\(ACTOR_CARD_WIDTHS_KEY/);
+  assert.match(page, /"--actor-card-min-width": `\$\{actorCardWidths\.minWidth\}px`/);
+  assert.match(page, /"--actor-card-max-width": `\$\{actorCardWidths\.maxWidth\}px`/);
   assert.match(page, /\{actorCountsVisible \? "Hide counts" : "Show counts"\}/);
   assert.match(page, /showActorCounts && <div[\s\S]*id="actor-counts"/);
   assert.match(page, /settings\.summaryActorKinds\.includes\("dispatcher"\) && "Dispatcher"/);
@@ -1031,7 +1043,7 @@ test("deployment and UI conventions stay explicit", async () => {
   assert.match(actorUi, /return status === "offline" \? "unknown" : state/);
   assert.doesNotMatch(page, /className="actor-data|className="actor-foot/);
   assert.match(page, /ACTOR_KINDS\.filter\(\(kind\) => kind !== "link"\)\.map/);
-  assert.match(styles, /\.group-cards \{[^}]*grid-auto-flow: row[^}]*grid-template-columns: repeat\(2, minmax\(0, 1fr\)\)/);
+  assert.match(styles, /\.group-cards \{[^}]*grid-auto-flow: row[^}]*grid-template-columns: repeat\(auto-fill, minmax\(min\(100%, var\(--actor-card-min-width, 300px\)\), var\(--actor-card-max-width, 420px\)\)\)/);
   assert.match(styles, /\.actor-card\.actor-card-offline,\s*\.actor-detail-panel\.actor-detail-offline \.inspector-head,\s*\.actor-logs-panel\.actor-logs-offline \.section-heading/);
   assert.match(styles, /background-image: repeating-linear-gradient/);
   assert.match(styles, /\.actor-detail-panel\.actor-detail-offline \.inspector-head,\s*\.actor-logs-panel\.actor-logs-offline \.section-heading \{[^}]*background-color: var\(--panel\)/);
