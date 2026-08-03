@@ -4,6 +4,7 @@
 .vinext
 .wrangler
 .data
+.coralconsole
 dist
 node_modules
 npm-debug.log*

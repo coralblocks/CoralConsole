@@ -3,8 +3,14 @@ set -eu
 
 project_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 cd "$project_dir"
+if [ ! -f "$project_dir/scripts/docker-common.sh" ]; then
+  echo "This release is incomplete: scripts/docker-common.sh is missing. Extract a fresh CoralConsole release package." >&2
+  exit 1
+fi
+coral_project_dir=$project_dir
+. "$project_dir/scripts/docker-common.sh"
 
-PORT_PROBE_IMAGE="node:22-trixie-slim"
+PORT_PROBE_IMAGE=
 PORT_PROBE_SCRIPT='const net = require("node:net");
 const host = process.argv[1];
 const port = Number(process.argv[2]);
@@ -58,11 +64,12 @@ check_prerequisites() {
     fail "The selected Docker Engine must run Linux containers."
   fi
 
-  for required_file in Dockerfile Dockerfile.dev docker-compose.yml docker-compose.dev.yml package.json package-lock.json; do
+  for required_file in Dockerfile Dockerfile.dev docker-compose.yml docker-compose.dev.yml package.json package-lock.json scripts/docker-common.sh; do
     if [ ! -f "$required_file" ]; then
       fail "This release is incomplete: $required_file is missing. Extract a fresh CoralConsole release archive."
     fi
   done
+  coral_validate_release_bundle || exit 1
 }
 
 prompt_value() {
@@ -260,13 +267,9 @@ start_standard_mode() {
     fail "Docker Compose could not resolve the CoralConsole image name from .env."
   fi
 
-  if ! docker image inspect "$image_name" >/dev/null 2>&1; then
-    echo "Building the standard CoralConsole image from this folder..."
-    if ! docker compose build coralconsole; then
-      START_FAILURE_KIND=build
-      echo "The CoralConsole image build failed. Review Docker's build output above." >&2
-      return 1
-    fi
+  if ! coral_load_release_image "$image_name"; then
+    START_FAILURE_KIND=image
+    return 1
   fi
 
   if ! docker compose up -d --no-build --wait coralconsole coralconsole-ingress; then
@@ -293,12 +296,15 @@ if [ -f .env ]; then
   if ! docker compose config --quiet; then
     fail "The existing .env or Docker Compose configuration is invalid. Correct it before retrying."
   fi
+  PORT_PROBE_IMAGE=$(configured_image)
   start_standard_mode
   exit 0
 fi
 
 CORAL_PROJECT_NAME=$(generate_project_name)
-echo "Checking the default ports. Docker may download the Node base image used by the CoralConsole build."
+PORT_PROBE_IMAGE="$CORAL_PROJECT_NAME:local"
+coral_load_release_image "$PORT_PROBE_IMAGE" || fail "Docker could not load the prebuilt CoralConsole image from this package."
+echo "Checking the default ports with the bundled image. No external download or application build is required."
 choose_bind_address
 CORAL_CHOSEN_PUBLIC_PORT=$(choose_port "Public web port" "$CORAL_CHOSEN_BIND" "$CORAL_PUBLIC_SUGGESTION")
 internal_suggestion=$(find_available_port 127.0.0.1 39000 "$CORAL_CHOSEN_PUBLIC_PORT") ||
@@ -308,8 +314,8 @@ write_environment
 echo "Created this installation's private configuration in .env."
 
 while ! start_standard_mode; do
-  if [ "$START_FAILURE_KIND" = build ]; then
-    fail "Installation stopped because the standard image could not be built. The generated .env was preserved for another attempt."
+  if [ "$START_FAILURE_KIND" = image ]; then
+    fail "Installation stopped because Docker could not prepare the bundled image. The generated .env was preserved for another attempt."
   fi
   docker compose stop coralconsole-ingress coralconsole >/dev/null 2>&1 || true
   public_port_available=true

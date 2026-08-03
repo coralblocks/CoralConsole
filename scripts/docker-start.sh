@@ -13,10 +13,7 @@ if [ -z "$standard_image" ]; then
   echo "Docker Compose could not resolve this installation's standard image." >&2
   exit 1
 fi
-if ! docker image inspect "$standard_image" >/dev/null 2>&1; then
-  echo "Building the CoralConsole image for the first time..."
-  docker compose build coralconsole
-fi
+coral_load_release_image "$standard_image"
 
 if ! docker compose up -d --no-build --wait coralconsole coralconsole-ingress; then
   echo "CoralConsole's trusted ingress requires host networking." >&2

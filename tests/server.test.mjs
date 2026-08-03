@@ -1530,8 +1530,11 @@ test("deployment and UI conventions stay explicit", async () => {
   assert.match(guide, /Keep this file current/);
   assert.match(compose, /coralconsole-data:\/data/);
   assert.match(compose, /coralconsole-ingress:/);
-  assert.match(compose, /network_mode: host/);
-  assert.match(compose, /127\.0\.0\.1:\$\{CORAL_INTERNAL_PORT:-39000\}:3000/);
+  assert.equal((compose.match(/network_mode: host/g) || []).length, 2);
+  assert.equal((compose.match(/pull_policy: never/g) || []).length, 2);
+  assert.match(compose, /HOSTNAME: 127\.0\.0\.1/);
+  assert.match(compose, /PORT: \$\{CORAL_INTERNAL_PORT:-39000\}/);
+  assert.doesNotMatch(compose, /ports:/);
   assert.match(compose, /CORAL_TRUSTED_INGRESS: "true"/);
   assert.match(trustedIngress, /request\.socket\.remoteAddress/);
   assert.match(trustedIngress, /FORWARDED_HEADERS/);
@@ -1542,6 +1545,8 @@ test("deployment and UI conventions stay explicit", async () => {
   assert.match(dockerfile, /node:22-trixie-slim/);
   assert.match(dockerfile, /python3 make g\+\+/);
   assert.match(dockerfile, /node_modules\/drizzle-orm/);
+  assert.match(dockerStart, /coral_load_release_image/);
+  assert.doesNotMatch(dockerStart, /docker compose build/);
   assert.match(dockerStart, /docker compose up -d --no-build --wait coralconsole coralconsole-ingress/);
   assert.match(dockerStop, /docker compose stop/);
   assert.match(dockerStop, /coralconsole-ingress coralconsole/);

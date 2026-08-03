@@ -15,6 +15,7 @@
 /.vinext/
 /out/
 /dist/
+/.coralconsole/
 /outputs/
 /work/
 /.wrangler/

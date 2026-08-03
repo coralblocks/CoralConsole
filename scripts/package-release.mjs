@@ -18,6 +18,7 @@ import { basename, join, resolve } from "node:path";
 import { spawnSync } from "node:child_process";
 
 const projectRoot = resolve(import.meta.dirname, "..");
+const supportedArchitectures = new Set(["amd64", "arm64"]);
 
 function run(command, args, options = {}) {
   const result = spawnSync(command, args, {
@@ -30,7 +31,7 @@ function run(command, args, options = {}) {
     const detail = result.stderr?.trim() || result.stdout?.trim();
     throw new Error(detail || `${command} exited with status ${result.status}.`);
   }
-  return result.stdout.trim();
+  return result.stdout?.trim() || "";
 }
 
 function requireTool(command, args = ["--version"]) {
@@ -39,6 +40,12 @@ function requireTool(command, args = ["--version"]) {
     throw new Error(`Required release tool '${command}' is not installed or is not on PATH.`);
   }
   if (result.error) throw result.error;
+}
+
+function normalizeArchitecture(value) {
+  if (value === "x86_64") return "amd64";
+  if (value === "aarch64") return "arm64";
+  return value;
 }
 
 async function sha256(filePath) {
@@ -58,12 +65,15 @@ async function walk(directory, prefix = "") {
   return paths;
 }
 
-async function verifyArchive(archivePath, releaseDirectoryName) {
-  const extractionRoot = await mkdtemp(join(tmpdir(), "coralconsole-release-"));
+async function verifyArchive(archivePath, releaseDirectoryName, architecture, releaseImage) {
+  const extractionRoot = await mkdtemp(join(tmpdir(), "coralconsole-release-verify-"));
   try {
     run("tar", ["-xzf", archivePath, "-C", extractionRoot]);
     const releaseRoot = join(extractionRoot, releaseDirectoryName);
     const requiredPaths = [
+      ".coralconsole/release-image.tar",
+      ".coralconsole/image-name",
+      ".coralconsole/image-architecture",
       "install.sh",
       "Dockerfile",
       "Dockerfile.dev",
@@ -88,6 +98,15 @@ async function verifyArchive(archivePath, releaseDirectoryName) {
       await access(join(releaseRoot, relativePath), constants.R_OK).catch(() => {
         throw new Error(`Release archive is missing required path: ${relativePath}`);
       });
+    }
+
+    const imageMetadata = await stat(join(releaseRoot, ".coralconsole/release-image.tar"));
+    if (imageMetadata.size === 0) throw new Error("Release archive contains an empty Docker image.");
+    if ((await readFile(join(releaseRoot, ".coralconsole/image-name"), "utf8")).trim() !== releaseImage) {
+      throw new Error("Release archive contains incorrect Docker image metadata.");
+    }
+    if ((await readFile(join(releaseRoot, ".coralconsole/image-architecture"), "utf8")).trim() !== architecture) {
+      throw new Error("Release archive contains incorrect architecture metadata.");
     }
 
     const executablePaths = [
@@ -122,14 +141,28 @@ async function verifyArchive(archivePath, releaseDirectoryName) {
   }
 }
 
+function usage() {
+  process.stdout.write("Usage: npm run release:package -- [amd64|arm64]\n");
+  process.stdout.write("Omit the architecture to package for the Docker Engine's native architecture.\n");
+}
+
 let archivePath;
 let checksumPath;
+let stagingRoot;
 let removeArchiveOnFailure = false;
 let removeChecksumOnFailure = false;
 
 try {
+  const requestedArgument = process.argv[2];
+  if (requestedArgument === "--help" || requestedArgument === "-h") {
+    usage();
+    process.exit(0);
+  }
+  if (process.argv.length > 3) throw new Error("Pass at most one target architecture.");
+
   requireTool("git");
   requireTool("tar");
+  requireTool("docker", ["version"]);
 
   const packageMetadata = JSON.parse(await readFile(join(projectRoot, "package.json"), "utf8"));
   const packageLock = JSON.parse(await readFile(join(projectRoot, "package-lock.json"), "utf8"));
@@ -142,7 +175,7 @@ try {
   }
 
   const branch = run("git", ["branch", "--show-current"]);
-  if (branch !== "main") throw new Error(`Release packages must be created from main, not ${branch || "a detached HEAD"}.`);
+  if (branch && branch !== "main") throw new Error(`Release packages must be created from main, not ${branch}.`);
   if (run("git", ["status", "--porcelain", "--untracked-files=all"])) {
     throw new Error("Release packages require a clean Git worktree, including no untracked files.");
   }
@@ -157,9 +190,21 @@ try {
   }
   if (tagCommit !== headCommit) throw new Error(`Release tag ${tag} does not point to HEAD.`);
 
+  const enginePlatform = run("docker", ["info", "--format", "{{.OSType}}/{{.Architecture}}"]);
+  const [engineOs, engineArchitectureValue] = enginePlatform.split("/");
+  if (engineOs !== "linux") throw new Error("Release images must be built with a Docker Engine running Linux containers.");
+  const engineArchitecture = normalizeArchitecture(engineArchitectureValue);
+  const architecture = normalizeArchitecture(requestedArgument || engineArchitecture);
+  if (!supportedArchitectures.has(architecture)) {
+    throw new Error(`Unsupported release architecture '${architecture}'. Choose amd64 or arm64.`);
+  }
+  if (architecture !== engineArchitecture) {
+    throw new Error(`Cross-architecture release builds are not supported. Use a native Linux ${architecture} Docker Engine or the GitHub Release Packages workflow.`);
+  }
+
   const outputDirectory = join(projectRoot, "dist", "releases");
   const releaseDirectoryName = `coralconsole-${version}`;
-  const archiveName = `${releaseDirectoryName}.tar.gz`;
+  const archiveName = `${releaseDirectoryName}-linux-${architecture}.tar.gz`;
   archivePath = join(outputDirectory, archiveName);
   checksumPath = `${archivePath}.sha256`;
   await mkdir(outputDirectory, { recursive: true });
@@ -172,15 +217,44 @@ try {
     });
   }
 
-  removeArchiveOnFailure = true;
+  const releaseImage = `coralconsole-release:${version}-linux-${architecture}`;
+  process.stdout.write(`Building ${releaseImage} from the tagged source...\n`);
+  run("docker", [
+    "build",
+    "--network", "host",
+    "--platform", `linux/${architecture}`,
+    "--tag", releaseImage,
+    ".",
+  ], { stdio: "inherit" });
+  const builtPlatform = run("docker", ["image", "inspect", "--format", "{{.Os}}/{{.Architecture}}", releaseImage]);
+  if (builtPlatform !== `linux/${architecture}`) {
+    throw new Error(`Docker built ${builtPlatform || "an unknown platform"}, expected linux/${architecture}.`);
+  }
+
+  stagingRoot = await mkdtemp(join(tmpdir(), "coralconsole-release-build-"));
+  const sourceArchive = join(stagingRoot, "source.tar");
   run("git", [
     "archive",
-    "--format=tar.gz",
+    "--format=tar",
     `--prefix=${releaseDirectoryName}/`,
-    `--output=${archivePath}`,
+    `--output=${sourceArchive}`,
     tag,
   ]);
-  await verifyArchive(archivePath, releaseDirectoryName);
+  run("tar", ["-xf", sourceArchive, "-C", stagingRoot]);
+  await rm(sourceArchive, { force: true });
+
+  const bundleDirectory = join(stagingRoot, releaseDirectoryName, ".coralconsole");
+  await mkdir(bundleDirectory, { recursive: true });
+  await Promise.all([
+    writeFile(join(bundleDirectory, "image-name"), `${releaseImage}\n`, { mode: 0o644 }),
+    writeFile(join(bundleDirectory, "image-architecture"), `${architecture}\n`, { mode: 0o644 }),
+  ]);
+  process.stdout.write("Embedding the prebuilt image in the release package...\n");
+  run("docker", ["save", "--output", join(bundleDirectory, "release-image.tar"), releaseImage], { stdio: "inherit" });
+
+  removeArchiveOnFailure = true;
+  run("tar", ["-czf", archivePath, "-C", stagingRoot, releaseDirectoryName]);
+  await verifyArchive(archivePath, releaseDirectoryName, architecture, releaseImage);
 
   const checksum = await sha256(archivePath);
   removeChecksumOnFailure = true;
@@ -189,9 +263,12 @@ try {
 
   process.stdout.write(`Created ${archivePath}\n`);
   process.stdout.write(`Created ${checksumPath}\n`);
+  process.stdout.write("Upload both files to the matching GitHub Release. No Docker registry was used.\n");
 } catch (error) {
   if (removeArchiveOnFailure && archivePath) await rm(archivePath, { force: true });
   if (removeChecksumOnFailure && checksumPath) await rm(checksumPath, { force: true });
   process.stderr.write(`${error instanceof Error ? error.message : "Release packaging failed."}\n`);
   process.exitCode = 1;
+} finally {
+  if (stagingRoot) await rm(stagingRoot, { recursive: true, force: true });
 }

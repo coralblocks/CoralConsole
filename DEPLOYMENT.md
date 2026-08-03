@@ -19,19 +19,23 @@ CoralConsole does not send topology or admin action data to an external service.
 ## Install from a GitHub Release
 
 ```bash
-sha256sum --check coralconsole-A.B.C.tar.gz.sha256
-tar -xzf coralconsole-A.B.C.tar.gz
+sha256sum --check coralconsole-A.B.C-linux-amd64.tar.gz.sha256
+tar -xzf coralconsole-A.B.C-linux-amd64.tar.gz
 cd coralconsole-A.B.C
 ./install.sh
 ```
 
-The installer supports native Linux x86-64 and ARM64. The host needs Docker Engine and Docker Compose v2; build dependencies remain inside Docker. It checks the daemon, prepares a private Docker namespace for that folder, suggests and validates available ports, writes the ignored `.env`, builds the local standard image, starts both services, and waits for their health checks.
+Use the `linux-amd64` asset on x86-64 servers and the `linux-arm64` asset on ARM64 servers. Do not use GitHub's automatically generated **Source code** archives; they do not contain the prebuilt image.
 
-The generated `COMPOSE_PROJECT_NAME` in `.env` is internal Docker plumbing. It keeps the folder's containers, images, network, and volume independent even when another installation has the same final directory name. It is not an installation label in CoralConsole and normally should not be edited.
+The host needs only Docker Engine and Docker Compose v2. The installer checks the daemon, loads the package's prebuilt image, prepares a private Docker namespace for that folder, suggests and validates available ports, writes the ignored `.env`, starts both services, and waits for their health checks. It does not run `apt-get`, npm, an application build, or a Docker-registry pull.
+
+The generated `COMPOSE_PROJECT_NAME` in `.env` is internal Docker plumbing. It keeps the folder's containers, images, and volume independent even when another installation has the same final directory name. It is not an installation label in CoralConsole and normally should not be edited.
 
 The installer checks that both suggested and manually entered ports can actually bind. A port can still be claimed by another process in the small interval before Compose starts; Docker startup is authoritative and the installer reports a late collision without disturbing the existing listener.
 
-CoralConsole images are never pulled from or pushed to a Docker registry. The first build may download `node:22-trixie-slim` and npm dependencies unless they are already cached.
+CoralConsole images are never pulled from or pushed to a Docker registry. The release asset contains both the complete editable source and the standard runtime image.
+
+Maintainers do not cross-compile these images. A tag-triggered GitHub Actions workflow builds the AMD64 and ARM64 packages on matching native Linux runners and creates a draft GitHub Release for review and publication.
 
 ## Folder-local lifecycle
 
@@ -46,7 +50,7 @@ npm run docker:status
 npm run docker:logs
 ```
 
-`docker-start.sh` starts the existing standard image, building it only when absent. `docker-release.sh` deliberately rebuilds the current source and relaunches standard mode. Lifecycle scripts require the `.env` created by `install.sh`; they never discover or select another installation.
+`docker-start.sh` starts the existing standard image, reloading it from the release package if the private image was removed. `docker-release.sh` deliberately rebuilds the current source and relaunches standard mode. Lifecycle scripts require the `.env` created by `install.sh`; they never discover or select another installation.
 
 The health endpoint is `GET /api/health`. View both application and ingress logs with:
 
@@ -75,7 +79,7 @@ CORAL_PORT=3000
 CORAL_INTERNAL_PORT=39000
 ```
 
-`CORAL_PORT` belongs to the host-network ingress. `CORAL_INTERNAL_PORT` publishes the application only on host loopback and must not be made remotely reachable.
+`CORAL_PORT` belongs to the host-network ingress. The application also uses host networking but binds `CORAL_INTERNAL_PORT` only on `127.0.0.1`; that internal listener must not be made remotely reachable.
 
 Native Linux can bind the ingress to a specific host address as shown above. Docker Desktop host networking cannot bind a container process to a specific host interface; use `CORAL_BIND_ADDRESS=0.0.0.0` there and enforce the intended private-network scope with the host firewall.
 
@@ -83,7 +87,7 @@ After changing either port in `.env`, run `./scripts/docker-start.sh` to recreat
 
 ## Runtime modes
 
-Standard mode is installed and started by default. It uses the optimized standalone Next.js build and this installation's `<compose-project>:local` image. Source changes take effect only after `./scripts/docker-release.sh` rebuilds and relaunches it.
+Standard mode is installed and started by default. It uses the optimized standalone Next.js build loaded from the release asset and tagged as this installation's `<compose-project>:local` image. Source changes take effect only after `./scripts/docker-release.sh` rebuilds and relaunches it. Rebuilding is an explicit advanced operation that may download the Node base image and npm/build dependencies; ordinary installation and restart remain offline.
 
 Development mode is optional contributor tooling. `./scripts/docker-dev-start.sh` builds this installation's `<compose-project>:dev` image on first use, bind-mounts the source, and runs the Next.js development server with hot reload. Both modes use the same Compose services, ports, and SQLite volume, so switching recreates those services instead of running two application processes concurrently. Return to a deliberate standard build with `./scripts/docker-release.sh`.
 

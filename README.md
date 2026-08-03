@@ -81,17 +81,19 @@ CSV list of configured actors. Import requires an installation with no actors.
 
 ## Installation
 
-CoralConsole is distributed as source code in a GitHub Release archive. It does
-not publish or download a CoralConsole application image from a Docker
-registry. Each installation builds its own private local image.
+CoralConsole is distributed in architecture-specific GitHub Release packages.
+Each package contains the complete source and a prebuilt Docker image; no
+CoralConsole image is published to or downloaded from a Docker registry.
 
-1. Download `coralconsole-A.B.C.tar.gz` and
-   `coralconsole-A.B.C.tar.gz.sha256` from the matching GitHub Release.
+1. Download the package and checksum matching the server architecture from the
+   GitHub Release: `coralconsole-A.B.C-linux-amd64.tar.gz` for x86-64 or
+   `coralconsole-A.B.C-linux-arm64.tar.gz` for ARM64. Do not download GitHub's
+   automatic **Source code** archives.
 2. Verify and extract the archive on the Linux host:
 
    ```bash
-   sha256sum --check coralconsole-A.B.C.tar.gz.sha256
-   tar -xzf coralconsole-A.B.C.tar.gz
+   sha256sum --check coralconsole-A.B.C-linux-amd64.tar.gz.sha256
+   tar -xzf coralconsole-A.B.C-linux-amd64.tar.gz
    cd coralconsole-A.B.C
    ```
 
@@ -103,21 +105,23 @@ registry. Each installation builds its own private local image.
 
 The installer requires Docker Engine and Docker Compose v2. It checks Docker,
 suggests available ports, validates every accepted or custom port, creates a
-private configuration for that folder, builds CoralConsole, and starts its
+private configuration for that folder, loads the bundled image, and starts its
 standard runtime. Defaults are `127.0.0.1` for the bind address, `3000` for the
 web port, and `39000` for the loopback-only application port.
 
-The first build may download the official Node base image and npm dependencies.
-Node.js, npm, Python, and a compiler are not required on the host itself.
+The package contains the complete source and a prebuilt standard Docker image.
+Installation loads that image locally and performs no application build,
+`apt-get`, npm download, or Docker-registry pull. Node.js, npm, Python, and a
+compiler are not required on the host.
 
 To run multiple CoralConsoles on one machine, extract the release separately
 for each installation and choose different public and internal ports. Each
-folder receives its own containers, local images, network, SQLite volume, and
+folder receives its own containers, local images, SQLite volume, and
 configuration. Installations on different machines may use the same defaults.
 
 ### Runtime modes
 
-Installation builds and starts **standard mode**, the optimized standalone
+Installation loads and starts **standard mode**, the optimized standalone
 server intended for normal operation. After editing source, rebuild and
 relaunch that mode with:
 
@@ -165,16 +169,25 @@ both `main` and the tag to `origin`. It aborts before changing files if the
 branch is dirty, ahead of, behind, or diverged from `origin/main`, or if the tag
 already exists.
 
-After the version commit and tag are pushed, run:
+Pushing the version tag automatically starts the **Release Packages** GitHub
+Actions workflow. Native AMD64 and ARM64 Linux runners build both installation
+packages, and the workflow creates a draft GitHub Release containing both
+archives and checksums. Review its notes and publish the draft when ready.
+
+To build one package locally instead, use a Docker Engine whose native
+architecture matches the desired asset:
 
 ```bash
 npm run release:package
 ```
 
-This command only creates the source archive and SHA-256 checksum under
-`dist/releases/`. It never creates a GitHub Release, uploads files, pushes a
-tag, or publishes a Docker image. Upload both generated files manually to the
-matching GitHub Release.
+You may pass that native architecture explicitly, for example
+`npm run release:package -- amd64` on an AMD64 Docker Engine. The command
+refuses emulated cross-architecture release builds. It builds the standard
+image, embeds it with the complete source in an architecture-specific archive,
+and creates the SHA-256 checksum under `dist/releases/`. The local command
+never creates a GitHub Release, uploads files, pushes a tag, or publishes an
+image to a Docker registry.
 
 ## License
 

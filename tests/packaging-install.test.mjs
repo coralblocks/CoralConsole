@@ -65,8 +65,22 @@ case "\${1:-}" in
     exit 0
     ;;
   image)
-    if [ "\${2:-}" = "inspect" ]; then exit 1; fi
+    if [ "\${2:-}" = "inspect" ]; then
+      case "$*" in
+        *coralconsole-release:*)
+          [ -n "\${FAKE_DOCKER_IMAGE_STATE:-}" ] && [ -f "$FAKE_DOCKER_IMAGE_STATE" ]
+          exit $?
+          ;;
+        *) exit 1 ;;
+      esac
+    fi
     ;;
+  load)
+    if [ -n "\${FAKE_DOCKER_IMAGE_STATE:-}" ]; then : > "$FAKE_DOCKER_IMAGE_STATE"; fi
+    echo "Loaded image: coralconsole-release:9.8.7-linux-amd64"
+    exit 0
+    ;;
+  tag) exit 0 ;;
   run)
     previous=
     last=
@@ -119,6 +133,14 @@ async function createInstallFolder(path) {
   await mkdir(path, { recursive: true });
   await cp(join(projectRoot, "install.sh"), join(path, "install.sh"));
   await chmod(join(path, "install.sh"), 0o755);
+  await mkdir(join(path, "scripts"), { recursive: true });
+  await cp(join(projectRoot, "scripts/docker-common.sh"), join(path, "scripts/docker-common.sh"));
+  await mkdir(join(path, ".coralconsole"), { recursive: true });
+  await Promise.all([
+    writeFile(join(path, ".coralconsole", "release-image.tar"), "fake image\n"),
+    writeFile(join(path, ".coralconsole", "image-name"), "coralconsole-release:9.8.7-linux-amd64\n"),
+    writeFile(join(path, ".coralconsole", "image-architecture"), "amd64\n"),
+  ]);
   for (const name of [
     "Dockerfile",
     "Dockerfile.dev",
@@ -142,6 +164,7 @@ function runInstaller(installDirectory, binDirectory, input, extraEnvironment = 
       ...extraEnvironment,
       PATH: `${binDirectory}:${process.env.PATH}`,
       FAKE_DOCKER_LOG: logPath,
+      FAKE_DOCKER_IMAGE_STATE: join(dirname(binDirectory), "fake-image-state"),
     },
   });
   return { ...result, logPath };
@@ -158,21 +181,33 @@ function parseEnvironment(source) {
 }
 
 test("Compose keeps standard and development images private to the generated project", async () => {
-  const [compose, developmentCompose, installer, common, packageMetadata] = await Promise.all([
+  const [compose, developmentCompose, installer, common, packageMetadata, releaseWorkflow] = await Promise.all([
     readFile(join(projectRoot, "docker-compose.yml"), "utf8"),
     readFile(join(projectRoot, "docker-compose.dev.yml"), "utf8"),
     readFile(join(projectRoot, "install.sh"), "utf8"),
     readFile(join(projectRoot, "scripts/docker-common.sh"), "utf8"),
     readFile(join(projectRoot, "package.json"), "utf8"),
+    readFile(join(projectRoot, ".github/workflows/release-packages.yml"), "utf8"),
   ]);
   assert.match(compose, /image: \$\{COMPOSE_PROJECT_NAME:-coralconsole\}:local/g);
   assert.match(developmentCompose, /image: \$\{COMPOSE_PROJECT_NAME:-coralconsole\}:dev/g);
   assert.match(compose, /org\.coralconsole\.installation/);
+  assert.equal((compose.match(/network_mode: host/g) || []).length, 2);
+  assert.match(compose, /HOSTNAME: 127\.0\.0\.1/);
+  assert.match(compose, /PORT: \$\{CORAL_INTERNAL_PORT:-39000\}/);
+  assert.doesNotMatch(compose, /ports:/);
   assert.match(installer, /COMPOSE_PROJECT_NAME=\$CORAL_PROJECT_NAME/);
-  assert.match(installer, /docker compose build coralconsole/);
+  assert.match(installer, /coral_load_release_image/);
+  assert.doesNotMatch(installer, /docker compose build/);
   assert.doesNotMatch(installer, /docker compose[^\n]*docker-compose\.dev\.yml[^\n]*build/);
+  assert.match(common, /docker load --input/);
   assert.match(common, /Run \.\/install\.sh first/);
   assert.equal(JSON.parse(packageMetadata).scripts["release:package"], "node scripts/package-release.mjs");
+  assert.match(releaseWorkflow, /runner: ubuntu-24\.04\n/);
+  assert.match(releaseWorkflow, /runner: ubuntu-24\.04-arm/);
+  assert.match(releaseWorkflow, /gh release create/);
+  assert.match(releaseWorkflow, /--draft/);
+  assert.doesNotMatch(releaseWorkflow, /docker (?:push|login)/);
 });
 
 test("fresh installation folders receive independent Docker namespaces and available port defaults", async () => {
@@ -202,10 +237,12 @@ test("fresh installation folders receive independent Docker namespaces and avail
     assert.equal((await stat(join(firstDirectory, ".env"))).mode & 0o777, 0o600);
 
     const calls = await readFile(first.logPath, "utf8");
-    assert.match(calls, /run --rm --network host node:22-trixie-slim/);
+    assert.match(calls, /load --input .*\.coralconsole\/release-image\.tar/);
+    assert.match(calls, /tag coralconsole-release:9\.8\.7-linux-amd64 coralconsole-[0-9a-f]{12}:local/);
+    assert.match(calls, /run --rm --network host coralconsole-[0-9a-f]{12}:local/);
     assert.match(calls, /127\.0\.0\.1 3000/);
     assert.match(calls, /127\.0\.0\.1 3001/);
-    assert.match(calls, /compose build coralconsole/);
+    assert.doesNotMatch(calls, /compose build/);
     assert.match(calls, /compose up -d --no-build --wait coralconsole coralconsole-ingress/);
     assert.match(first.stdout, /standard mode is available/i);
   } finally {
@@ -293,6 +330,22 @@ test("release installer rejects unsupported host operating systems before writin
   }
 });
 
+test("release installer rejects a package built for another CPU architecture", async () => {
+  const root = await mkdtemp(join(tmpdir(), "coralconsole-install-architecture-"));
+  try {
+    const binDirectory = await createFakeDockerBin(root);
+    const installDirectory = join(root, "coralconsole");
+    await createInstallFolder(installDirectory);
+    await writeFile(join(installDirectory, ".coralconsole", "image-architecture"), "arm64\n");
+    const result = runInstaller(installDirectory, binDirectory, "");
+    assert.notEqual(result.status, 0);
+    assert.match(result.stderr, /package is for Linux arm64, but this host is Linux amd64/);
+    await assert.rejects(readFile(join(installDirectory, ".env"), "utf8"), /ENOENT/);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
 async function createReleaseRepository(root) {
   const files = new Map([
     ["package.json", `${JSON.stringify({ name: "coral-console", version: "9.8.7", scripts: {} }, null, 2)}\n`],
@@ -305,7 +358,7 @@ async function createReleaseRepository(root) {
     ["DEPLOYMENT.md", "# Deployment\n"],
     ["AGENTS.md", "# Guide\n"],
     ["LICENSE", "Apache-2.0\n"],
-    [".gitignore", "/dist/\n"],
+    [".gitignore", "/dist/\n/fake-bin/\n"],
     ["drizzle/meta/_journal.json", "{}\n"],
     ["scripts/migrate.mjs", "\n"],
     ["scripts/docker-common.sh", "\n"],
@@ -334,25 +387,66 @@ async function createReleaseRepository(root) {
   }
   await cp(join(projectRoot, "scripts/package-release.mjs"), join(root, "scripts/package-release.mjs"));
 
+  const fakeBin = join(root, "fake-bin");
+  await mkdir(fakeBin, { recursive: true });
+  await writeFile(join(fakeBin, "docker"), `#!/bin/sh
+if [ -n "\${FAKE_RELEASE_DOCKER_LOG:-}" ]; then
+  printf '%s\\n' "$*" >> "$FAKE_RELEASE_DOCKER_LOG"
+fi
+case "\${1:-}" in
+  version) exit 0 ;;
+  info)
+    echo "\${FAKE_RELEASE_PLATFORM:-linux/amd64}"
+    exit 0
+    ;;
+  build) exit 0 ;;
+  image)
+    if [ "\${2:-}" = "inspect" ]; then
+      echo "\${FAKE_RELEASE_PLATFORM:-linux/amd64}"
+      exit 0
+    fi
+    ;;
+  save)
+    output=
+    previous=
+    for argument in "$@"; do
+      if [ "$previous" = "--output" ]; then output=$argument; fi
+      previous=$argument
+    done
+    [ -n "$output" ] || exit 1
+    printf 'fake docker image\\n' > "$output"
+    exit 0
+    ;;
+esac
+echo "Unexpected fake docker invocation: $*" >&2
+exit 1
+`, { mode: 0o755 });
+
   execFileSync("git", ["init", "-b", "main"], { cwd: root, stdio: "ignore" });
   execFileSync("git", ["config", "user.name", "CoralConsole Test"], { cwd: root });
   execFileSync("git", ["config", "user.email", "test@example.invalid"], { cwd: root });
   execFileSync("git", ["add", "."], { cwd: root });
   execFileSync("git", ["commit", "-m", "release fixture"], { cwd: root, stdio: "ignore" });
   execFileSync("git", ["tag", "v9.8.7"], { cwd: root });
+  return { fakeBin, logPath: join(fakeBin, "docker-calls.log") };
 }
 
-test("release packaging creates a verified source archive and checksum from a clean tag", async () => {
+test("release packaging embeds a prebuilt architecture-specific image and checksum", async () => {
   const root = await mkdtemp(join(tmpdir(), "coralconsole-package-test-"));
   try {
-    await createReleaseRepository(root);
+    const { fakeBin, logPath } = await createReleaseRepository(root);
     const result = spawnSync(process.execPath, ["scripts/package-release.mjs"], {
       cwd: root,
       encoding: "utf8",
+      env: {
+        ...process.env,
+        PATH: `${fakeBin}:${process.env.PATH}`,
+        FAKE_RELEASE_DOCKER_LOG: logPath,
+      },
     });
     assert.equal(result.status, 0, result.stderr);
 
-    const archivePath = join(root, "dist", "releases", "coralconsole-9.8.7.tar.gz");
+    const archivePath = join(root, "dist", "releases", "coralconsole-9.8.7-linux-amd64.tar.gz");
     const checksumPath = `${archivePath}.sha256`;
     const archive = await readFile(archivePath);
     const checksum = createHash("sha256").update(archive).digest("hex");
@@ -361,13 +455,39 @@ test("release packaging creates a verified source archive and checksum from a cl
     const listing = execFileSync("tar", ["-tzf", archivePath], { encoding: "utf8" });
     assert.match(listing, /^coralconsole-9\.8\.7\//m);
     assert.match(listing, /coralconsole-9\.8\.7\/install\.sh/);
+    assert.match(listing, /coralconsole-9\.8\.7\/\.coralconsole\/release-image\.tar/);
+    assert.match(listing, /coralconsole-9\.8\.7\/\.coralconsole\/image-name/);
     assert.doesNotMatch(listing, /(?:^|\/)\.env$/m);
     assert.doesNotMatch(listing, /node_modules|\.git\//);
+    const dockerCalls = await readFile(logPath, "utf8");
+    assert.match(dockerCalls, /build --network host --platform linux\/amd64 --tag coralconsole-release:9\.8\.7-linux-amd64 \./);
+    assert.match(dockerCalls, /save --output .*release-image\.tar coralconsole-release:9\.8\.7-linux-amd64/);
+
+    const crossArchitectureResult = spawnSync(process.execPath, ["scripts/package-release.mjs", "arm64"], {
+      cwd: root,
+      encoding: "utf8",
+      env: {
+        ...process.env,
+        PATH: `${fakeBin}:${process.env.PATH}`,
+        FAKE_RELEASE_DOCKER_LOG: logPath,
+      },
+    });
+    assert.notEqual(crossArchitectureResult.status, 0);
+    assert.match(crossArchitectureResult.stderr, /Cross-architecture release builds are not supported/);
+    await assert.rejects(
+      readFile(join(root, "dist", "releases", "coralconsole-9.8.7-linux-arm64.tar.gz")),
+      /ENOENT/,
+    );
 
     const archiveBeforeRefusal = await readFile(archivePath);
     const existingResult = spawnSync(process.execPath, ["scripts/package-release.mjs"], {
       cwd: root,
       encoding: "utf8",
+      env: {
+        ...process.env,
+        PATH: `${fakeBin}:${process.env.PATH}`,
+        FAKE_RELEASE_DOCKER_LOG: logPath,
+      },
     });
     assert.notEqual(existingResult.status, 0);
     assert.match(existingResult.stderr, /Refusing to overwrite/);
@@ -377,9 +497,38 @@ test("release packaging creates a verified source archive and checksum from a cl
     const dirtyResult = spawnSync(process.execPath, ["scripts/package-release.mjs"], {
       cwd: root,
       encoding: "utf8",
+      env: {
+        ...process.env,
+        PATH: `${fakeBin}:${process.env.PATH}`,
+        FAKE_RELEASE_DOCKER_LOG: logPath,
+      },
     });
     assert.notEqual(dirtyResult.status, 0);
     assert.match(dirtyResult.stderr, /clean Git worktree/);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("release packaging accepts the detached tagged checkout used by GitHub Actions", async () => {
+  const root = await mkdtemp(join(tmpdir(), "coralconsole-package-detached-"));
+  try {
+    const { fakeBin, logPath } = await createReleaseRepository(root);
+    execFileSync("git", ["switch", "--detach", "v9.8.7"], { cwd: root, stdio: "ignore" });
+    const result = spawnSync(process.execPath, ["scripts/package-release.mjs", "amd64"], {
+      cwd: root,
+      encoding: "utf8",
+      env: {
+        ...process.env,
+        PATH: `${fakeBin}:${process.env.PATH}`,
+        FAKE_RELEASE_DOCKER_LOG: logPath,
+      },
+    });
+    assert.equal(result.status, 0, result.stderr);
+    assert.equal(
+      (await stat(join(root, "dist", "releases", "coralconsole-9.8.7-linux-amd64.tar.gz"))).isFile(),
+      true,
+    );
   } finally {
     await rm(root, { recursive: true, force: true });
   }

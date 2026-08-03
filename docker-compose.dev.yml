@@ -9,7 +9,7 @@ services:
       NODE_ENV: development
       WATCHPACK_POLLING: "true"
       CORAL_DEV_ALLOWED_ORIGINS: ${CORAL_DEV_ALLOWED_ORIGINS:-}
-    command: npm run dev -- --webpack
+    command: npm run dev -- --webpack --hostname 127.0.0.1 --port ${CORAL_INTERNAL_PORT:-39000}
     volumes:
       - .:/app
       - coralconsole-dev-node-modules:/app/node_modules

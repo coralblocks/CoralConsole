@@ -1,0 +1,63 @@
+name: Release Packages
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+permissions:
+  contents: write
+
+jobs:
+  build-package:
+    name: Build Linux ${{ matrix.architecture }} package
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - architecture: amd64
+            runner: ubuntu-24.04
+          - architecture: arm64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - name: Check out tagged source
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Use Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Build package with native Docker Engine
+        run: npm run release:package -- ${{ matrix.architecture }}
+      - name: Preserve release assets
+        uses: actions/upload-artifact@v4
+        with:
+          name: coralconsole-linux-${{ matrix.architecture }}
+          path: dist/releases/*
+          if-no-files-found: error
+
+  create-draft-release:
+    name: Create draft GitHub Release
+    needs: build-package
+    runs-on: ubuntu-24.04
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Check out tagged source
+        uses: actions/checkout@v4
+      - name: Download both architecture packages
+        uses: actions/download-artifact@v4
+        with:
+          pattern: coralconsole-linux-*
+          path: release-assets
+          merge-multiple: true
+      - name: Create draft release with packages
+        run: >-
+          gh release create "${GITHUB_REF_NAME}"
+          release-assets/*
+          --draft
+          --verify-tag
+          --title "CoralConsole ${GITHUB_REF_NAME}"
+          --generate-notes
