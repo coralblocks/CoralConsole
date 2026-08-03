@@ -431,3 +431,89 @@ test("version selection suggests semantic increments and still supports explicit
     await rm(root, { recursive: true, force: true });
   }
 });
+
+async function createVersionWorkflowRepository(root) {
+  const repository = join(root, "repository");
+  const origin = join(root, "origin.git");
+  await mkdir(join(repository, "scripts"), { recursive: true });
+  await Promise.all([
+    cp(join(projectRoot, "scripts/set-version.mjs"), join(repository, "scripts/set-version.mjs")),
+    cp(join(projectRoot, "scripts/set-version.sh"), join(repository, "scripts/set-version.sh")),
+    writeFile(join(repository, "package.json"), `${JSON.stringify({ name: "coral-console", version: "1.3.4" }, null, 2)}\n`),
+    writeFile(join(repository, "package-lock.json"), `${JSON.stringify({
+      name: "coral-console",
+      version: "1.3.4",
+      lockfileVersion: 3,
+      packages: { "": { name: "coral-console", version: "1.3.4" } },
+    }, null, 2)}\n`),
+  ]);
+  await chmod(join(repository, "scripts/set-version.sh"), 0o755);
+
+  execFileSync("git", ["init", "-b", "main"], { cwd: repository, stdio: "ignore" });
+  execFileSync("git", ["config", "user.name", "CoralConsole Test"], { cwd: repository });
+  execFileSync("git", ["config", "user.email", "test@example.invalid"], { cwd: repository });
+  execFileSync("git", ["add", "."], { cwd: repository });
+  execFileSync("git", ["commit", "-m", "initial fixture"], { cwd: repository, stdio: "ignore" });
+  execFileSync("git", ["init", "--bare", origin], { stdio: "ignore" });
+  execFileSync("git", ["remote", "add", "origin", origin], { cwd: repository });
+  execFileSync("git", ["push", "-u", "origin", "main"], { cwd: repository, stdio: "ignore" });
+  return { origin, repository };
+}
+
+test("set-version workflow commits, tags, and atomically pushes a clean synchronized main", async () => {
+  const root = await mkdtemp(join(tmpdir(), "coralconsole-version-workflow-"));
+  try {
+    const { origin, repository } = await createVersionWorkflowRepository(root);
+    const result = spawnSync("/bin/sh", ["scripts/set-version.sh", "1.4.0"], {
+      cwd: repository,
+      encoding: "utf8",
+    });
+    assert.equal(result.status, 0, result.stderr);
+    assert.match(result.stdout, /committed, tagged as v1\.4\.0, and pushed to origin/);
+    assert.equal(execFileSync("git", ["status", "--porcelain"], { cwd: repository, encoding: "utf8" }), "");
+    assert.equal(JSON.parse(await readFile(join(repository, "package.json"), "utf8")).version, "1.4.0");
+    assert.equal(JSON.parse(await readFile(join(repository, "package-lock.json"), "utf8")).packages[""].version, "1.4.0");
+    assert.equal(execFileSync("git", ["log", "-1", "--pretty=%s"], { cwd: repository, encoding: "utf8" }).trim(), "Set version 1.4.0");
+    assert.equal(execFileSync("git", ["cat-file", "-t", "v1.4.0"], { cwd: repository, encoding: "utf8" }).trim(), "tag");
+
+    const localCommit = execFileSync("git", ["rev-parse", "HEAD"], { cwd: repository, encoding: "utf8" }).trim();
+    const remoteCommit = execFileSync("git", ["--git-dir", origin, "rev-parse", "refs/heads/main"], { encoding: "utf8" }).trim();
+    const remoteTaggedCommit = execFileSync("git", ["--git-dir", origin, "rev-parse", "refs/tags/v1.4.0^{}"], { encoding: "utf8" }).trim();
+    assert.equal(remoteCommit, localCommit);
+    assert.equal(remoteTaggedCommit, localCommit);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("set-version workflow refuses dirty or unpublished main commits before changing versions", async () => {
+  const root = await mkdtemp(join(tmpdir(), "coralconsole-version-preflight-"));
+  try {
+    const { repository } = await createVersionWorkflowRepository(root);
+    await writeFile(join(repository, "untracked.txt"), "pending\n");
+    const dirtyResult = spawnSync("/bin/sh", ["scripts/set-version.sh", "1.4.0"], {
+      cwd: repository,
+      encoding: "utf8",
+    });
+    assert.notEqual(dirtyResult.status, 0);
+    assert.match(dirtyResult.stderr, /pending modifications/);
+    assert.equal(JSON.parse(await readFile(join(repository, "package.json"), "utf8")).version, "1.3.4");
+    await rm(join(repository, "untracked.txt"));
+
+    await writeFile(join(repository, "README.md"), "local commit\n");
+    execFileSync("git", ["add", "README.md"], { cwd: repository });
+    execFileSync("git", ["commit", "-m", "unpublished work"], { cwd: repository, stdio: "ignore" });
+    const aheadResult = spawnSync("/bin/sh", ["scripts/set-version.sh", "1.4.0"], {
+      cwd: repository,
+      encoding: "utf8",
+    });
+    assert.notEqual(aheadResult.status, 0);
+    assert.match(aheadResult.stderr, /must exactly match origin\/main/);
+    assert.equal(JSON.parse(await readFile(join(repository, "package.json"), "utf8")).version, "1.3.4");
+    assert.throws(
+      () => execFileSync("git", ["show-ref", "--verify", "refs/tags/v1.4.0"], { cwd: repository, stdio: "ignore" }),
+    );
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});

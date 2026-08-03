@@ -100,7 +100,7 @@ The optional `shouldLog` boolean defaults to `true` at the actor. Omit it for di
 - `npm run build` — produce the standalone Node.js build.
 - `npm test` — build, start the standalone server with a temporary SQLite database, exercise APIs, restart, and verify persistence.
 - `npm run lint` — run ESLint.
-- `./scripts/set-version.sh [A.B.C]` / `npm run version:set -- [A.B.C]` — show the current version and interactively suggest patch, minor, major, or custom next versions when omitted; validate and set the shared version in `package.json` and `package-lock.json`.
+- `./scripts/set-version.sh [A.B.C]` — from a clean `main` exactly synchronized with `origin/main`, interactively suggest patch, minor, major, or custom next versions when omitted, update `package.json` and `package-lock.json`, commit, create the annotated `vA.B.C` tag, and atomically push `main` plus the tag. `npm run version:set -- [A.B.C]` remains the local manifest-only primitive used by that workflow.
 - `npm run release:package` — from a clean tagged `main`, create the source release archive and SHA-256 checksum under `dist/releases/` for manual GitHub Release upload.
 - `npm run actors:export -- [output.csv]` — export the running Compose installation's actor identities and per-kind order to a new CSV file.
 - `npm run actors:import -- <input.csv>` — import a validated actor CSV into a running Compose installation only when its actors table is empty.

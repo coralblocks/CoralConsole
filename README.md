@@ -150,16 +150,22 @@ For maintainers, choose the next application version interactively:
 ./scripts/set-version.sh
 ```
 
-The command shows the current version, recommends the next patch, offers minor
-and major increments, and accepts a custom `A.B.C` version. For automation or a
+The command requires a clean `main` branch that exactly matches `origin/main`.
+It then shows the current version, recommends the next patch, offers minor and
+major increments, and accepts a custom `A.B.C` version. For automation or a
 version already decided in advance, pass it directly:
 
 ```bash
 ./scripts/set-version.sh 1.4.0
 ```
 
-After reviewing and testing the version change, commit it on `main` and create
-the matching `vA.B.C` tag. Then run:
+After selection, the script updates `package.json` and `package-lock.json`,
+commits them, creates the matching annotated `vA.B.C` tag, and atomically pushes
+both `main` and the tag to `origin`. It aborts before changing files if the
+branch is dirty, ahead of, behind, or diverged from `origin/main`, or if the tag
+already exists.
+
+After the version commit and tag are pushed, run:
 
 ```bash
 npm run release:package

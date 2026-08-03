@@ -56,7 +56,7 @@ async function readPipedAnswers() {
   return source.split(/\r?\n/);
 }
 
-async function chooseVersion() {
+async function chooseVersion({ selectionOnly = false } = {}) {
   const suggestions = nextVersions(currentVersion);
   const menu = [
     `Current CoralConsole version: ${currentVersion}`,
@@ -66,12 +66,13 @@ async function chooseVersion() {
     `  3) ${suggestions.major}  major`,
     "  4) Enter a custom A.B.C version",
   ].join("\n");
-  process.stdout.write(`${menu}\n`);
+  const promptOutput = selectionOnly ? process.stderr : process.stdout;
+  promptOutput.write(`${menu}\n`);
 
   let selection;
   let customVersion;
   if (process.stdin.isTTY) {
-    const terminal = createInterface({ input: process.stdin, output: process.stdout });
+    const terminal = createInterface({ input: process.stdin, output: promptOutput });
     try {
       selection = (await terminal.question("Selection [1]: ")).trim();
       if (selection === "4" || selection.toLowerCase() === "custom") {
@@ -81,14 +82,14 @@ async function chooseVersion() {
       terminal.close();
     }
   } else {
-    process.stdout.write("Selection [1]: ");
+    promptOutput.write("Selection [1]: ");
     const answers = await readPipedAnswers();
     selection = (answers.shift() || "").trim();
     if (selection === "4" || selection.toLowerCase() === "custom") {
       customVersion = (answers.shift() || "").trim();
-      process.stdout.write("Custom version: \n");
+      promptOutput.write("Custom version: \n");
     } else {
-      process.stdout.write("\n");
+      promptOutput.write("\n");
     }
   }
 
@@ -102,13 +103,18 @@ async function chooseVersion() {
 
 let version;
 try {
-  const requestedVersion = process.argv[2]?.trim();
+  const selectionOnly = process.argv[2] === "--select-only";
+  const requestedVersion = process.argv[selectionOnly ? 3 : 2]?.trim();
   if (requestedVersion === "--help" || requestedVersion === "-h") {
     console.log("Usage: npm run version:set -- [A.B.C]");
     console.log("Omit A.B.C to choose an interactive patch, minor, major, or custom version.");
     process.exit(0);
   }
-  version = requestedVersion ? validateNextVersion(requestedVersion) : await chooseVersion();
+  version = requestedVersion ? validateNextVersion(requestedVersion) : await chooseVersion({ selectionOnly });
+  if (selectionOnly) {
+    process.stdout.write(`${version}\n`);
+    process.exit(0);
+  }
 } catch (error) {
   console.error(error instanceof Error ? error.message : "Version selection failed.");
   process.exit(1);
