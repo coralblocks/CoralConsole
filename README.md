@@ -16,7 +16,7 @@ state, and available REST admin actions.
 
 [CoralSequencer](https://www.coralblocks.com/coralsequencer) systems are composed of a
 central Sequencer and surrounding actors such as Backup Sequencers, Replayers,
-Archivers, Loggers, Bridges, Dispatchers, Nodes and Applications.
+Archivers, Loggers, Bridges, Dispatchers and Nodes.
 CoralConsole discovers those processes, organizes them by role, monitors them,
 and provides a single place for operators to inspect and administer the
 deployment.
