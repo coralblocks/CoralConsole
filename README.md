@@ -106,10 +106,6 @@ CoralConsole available at `http://<server-address>:3000` on the local network.
 To run multiple CoralConsoles on one machine, extract the release separately
 for each installation and choose different ports.
 
-CoralConsole has no application authentication. Read
-[DEPLOYMENT.md](./DEPLOYMENT.md) before making it reachable from another
-machine.
-
 ## License
 
 Licensed under the [Apache License 2.0](./LICENSE).
