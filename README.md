@@ -142,6 +142,34 @@ CoralConsole has no application authentication. Read
 [DEPLOYMENT.md](./DEPLOYMENT.md) before making it reachable from another
 machine.
 
+## Creating a release
+
+For maintainers, choose the next application version interactively:
+
+```bash
+./scripts/set-version.sh
+```
+
+The command shows the current version, recommends the next patch, offers minor
+and major increments, and accepts a custom `A.B.C` version. For automation or a
+version already decided in advance, pass it directly:
+
+```bash
+./scripts/set-version.sh 1.4.0
+```
+
+After reviewing and testing the version change, commit it on `main` and create
+the matching `vA.B.C` tag. Then run:
+
+```bash
+npm run release:package
+```
+
+This command only creates the source archive and SHA-256 checksum under
+`dist/releases/`. It never creates a GitHub Release, uploads files, pushes a
+tag, or publishes a Docker image. Upload both generated files manually to the
+matching GitHub Release.
+
 ## License
 
 Licensed under the [Apache License 2.0](./LICENSE).

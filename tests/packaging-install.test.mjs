@@ -384,3 +384,50 @@ test("release packaging creates a verified source archive and checksum from a cl
     await rm(root, { recursive: true, force: true });
   }
 });
+
+test("version selection suggests semantic increments and still supports explicit versions", async () => {
+  const root = await mkdtemp(join(tmpdir(), "coralconsole-version-test-"));
+  try {
+    await mkdir(join(root, "scripts"), { recursive: true });
+    await cp(join(projectRoot, "scripts/set-version.mjs"), join(root, "scripts/set-version.mjs"));
+    const packageMetadata = { name: "coral-console", version: "1.3.4" };
+    const packageLock = {
+      name: "coral-console",
+      version: "1.3.4",
+      lockfileVersion: 3,
+      packages: { "": { name: "coral-console", version: "1.3.4" } },
+    };
+    await Promise.all([
+      writeFile(join(root, "package.json"), `${JSON.stringify(packageMetadata, null, 2)}\n`),
+      writeFile(join(root, "package-lock.json"), `${JSON.stringify(packageLock, null, 2)}\n`),
+    ]);
+
+    const interactive = spawnSync(process.execPath, ["scripts/set-version.mjs"], {
+      cwd: root,
+      input: "2\n",
+      encoding: "utf8",
+    });
+    assert.equal(interactive.status, 0, interactive.stderr);
+    assert.match(interactive.stdout, /1\.3\.5\s+patch \(recommended\)/);
+    assert.match(interactive.stdout, /CoralConsole version set to 1\.4\.0/);
+    assert.equal(JSON.parse(await readFile(join(root, "package.json"), "utf8")).version, "1.4.0");
+    assert.equal(JSON.parse(await readFile(join(root, "package-lock.json"), "utf8")).packages[""].version, "1.4.0");
+
+    const explicit = spawnSync(process.execPath, ["scripts/set-version.mjs", "2.0.0"], {
+      cwd: root,
+      encoding: "utf8",
+    });
+    assert.equal(explicit.status, 0, explicit.stderr);
+    assert.match(explicit.stdout, /CoralConsole version set to 2\.0\.0/);
+
+    const downgrade = spawnSync(process.execPath, ["scripts/set-version.mjs", "1.9.0"], {
+      cwd: root,
+      encoding: "utf8",
+    });
+    assert.notEqual(downgrade.status, 0);
+    assert.match(downgrade.stderr, /must be greater than the current version 2\.0\.0/);
+    assert.equal(JSON.parse(await readFile(join(root, "package.json"), "utf8")).version, "2.0.0");
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});

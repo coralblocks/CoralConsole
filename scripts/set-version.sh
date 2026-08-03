@@ -1,4 +1,7 @@
-#!/bin/bash
+#!/bin/sh
+set -eu
 
-npm run version:set -- $1
+project_dir=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+cd "$project_dir"
 
+exec npm run version:set -- "$@"
