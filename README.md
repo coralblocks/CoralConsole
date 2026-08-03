@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="public/og-v2.png" alt="CoralConsole topology overview" width="520">
+</p>
+
 # CoralConsole
 
 CoralConsole is a colorful operations console for discovering, organizing, and
@@ -6,9 +10,7 @@ administering actors in a
 It gives operators one live view of every actor, its connectivity, operational
 state, and available REST admin actions.
 
-![CoralConsole topology overview](public/og-v2.png)
-
-![CoralConsole application screenshot](docs/images/coralconsole-dashboard.png)
+![CoralConsole application screenshot](docs/images/coralconsole-full.png)
 
 ## Purpose
 
