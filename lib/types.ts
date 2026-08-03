@@ -52,7 +52,6 @@ export type Actor = {
   lastSeen: string;
   actions: string[];
   vmActions: string[];
-  demo?: boolean;
 };
 
 export type ActorDiscoveryResult = {

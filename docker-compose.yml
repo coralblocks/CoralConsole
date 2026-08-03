@@ -6,7 +6,6 @@ services:
     restart: unless-stopped
     environment:
       DATABASE_PATH: /data/coralconsole.db
-      CORAL_DEMO_MODE: ${CORAL_DEMO_MODE:-false}
       CORAL_TRUST_PROXY: ${CORAL_TRUST_PROXY:-false}
       CORAL_TRUSTED_INGRESS: "true"
     ports:

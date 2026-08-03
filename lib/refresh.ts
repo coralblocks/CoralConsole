@@ -66,7 +66,7 @@ async function runScheduledActorOperation(actorId: string, operation: () => Prom
 function disconnectHandler(actorId: string) {
   return (message: string) => {
     const current = getActor(actorId);
-    if (current && !current.demo) {
+    if (current) {
       invalidateActorActionLists(actorId);
       resetActorLogCursor(actorId);
       markActorOffline(current, message);
@@ -76,7 +76,7 @@ function disconnectHandler(actorId: string) {
 
 async function refreshOneActor(actorId: string, options: ActorRefreshOptions = {}) {
   const actor = getActor(actorId);
-  if (!actor || actor.demo) return;
+  if (!actor) return;
   try {
     const refreshed = updateActor(await refreshActorStatus(actor, disconnectHandler(actorId), options));
     if (!refreshed) return;
@@ -137,7 +137,7 @@ async function refreshWithLimit(options: ActorRefreshOptions = {}) {
   const workers = Array.from({ length: Math.min(4, actors.length) }, async () => {
     while (cursor < actors.length) {
       const actor = actors[cursor++];
-      if (!actor || actor.demo) continue;
+      if (!actor) continue;
       await runScheduledActorOperation(actor.id, () => refreshOneActor(actor.id, options));
     }
   });
@@ -165,7 +165,7 @@ export function refreshActors(options: RefreshActorsOptions = {}): Promise<Retur
 
 export async function refreshActorNow(actorId: string, options: ActorRefreshOptions = {}) {
   const actor = getActor(actorId);
-  if (!actor || actor.demo) return actor;
+  if (!actor) return actor;
   const state = operationState(actorId);
   await enqueueActorOperation(actorId, state, () => refreshOneActor(actorId, options));
   return getActor(actorId);

@@ -328,7 +328,7 @@ export default function ActorDetail({ actorId }: { actorId: string }) {
   }
 
   async function removeActor() {
-    if (!actor || actor.demo || !window.confirm(`Remove ${actor.name} from the shared topology?`)) return;
+    if (!actor || !window.confirm(`Remove ${actor.name} from the shared topology?`)) return;
     try {
       await apiRequest<{ removed: boolean }>(`/api/actors/${encodeURIComponent(actor.id)}`, { method: "DELETE" });
       setActor(null);
@@ -470,7 +470,7 @@ export default function ActorDetail({ actorId }: { actorId: string }) {
                 {reply && <div className={`action-result ${reply.result ? "success" : "failure"}`} role="status"><div><strong>{reply.result ? "Action complete" : "Action failed"}</strong><span>{actionReplyLabel(reply, adminAccount, action)}</span></div><pre>{reply.error || reply.results || "No output returned."}</pre></div>}
               </div>
               {error && <p className="page-alert embedded" role="alert">{error}</p>}
-              {actor.demo ? <p className="demo-note"><i /> Sample actor — actions are safely simulated.</p> : <button className="remove-button" type="button" onClick={() => void removeActor()}>Remove actor from shared topology</button>}
+              <button className="remove-button" type="button" onClick={() => void removeActor()}>Remove actor from shared topology</button>
             </section>
 
             <section className="actor-audit-panel" aria-labelledby="actor-audit-title">

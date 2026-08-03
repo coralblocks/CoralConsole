@@ -1,7 +1,6 @@
 import { and, asc, desc, eq, like, or, type SQL } from "drizzle-orm";
 import { getDb, getSqlite } from "@/db";
 import { actors, adminActionAudit, topologySettings, type ActorRow } from "@/db/schema";
-import { DEMO_ACTORS } from "./demo-actors";
 import {
   BASELINE_ADMIN_ACTIONS,
   BASELINE_VM_ADMIN_ACTIONS,
@@ -24,35 +23,6 @@ const ACTOR_KINDS: ActorKind[] = [
 ];
 const ACTOR_STATUSES: ActorStatus[] = ["online", "offline"];
 const ACTOR_OPERATIONAL_STATES: ActorOperationalState[] = ["closed", "disconnected", "rewinding", "active", "inactive"];
-let demoModeSynced = false;
-
-function syncDemoMode() {
-  if (demoModeSynced) return;
-  demoModeSynced = true;
-  const db = getDb();
-  if (process.env.CORAL_DEMO_MODE !== "true") {
-    db.delete(actors).where(eq(actors.demo, true)).run();
-    return;
-  }
-  const now = new Date().toISOString();
-  const nextSortOrderByKind = new Map<ActorKind, number>();
-  for (const actor of DEMO_ACTORS) {
-    const sortOrder = nextSortOrderByKind.get(actor.kind) || 0;
-    nextSortOrderByKind.set(actor.kind, sortOrder + 1);
-    db.insert(actors).values({
-      ...actor,
-      sortOrder,
-      cluster: actor.cluster || null,
-      sequencerRole: actor.sequencerRole || null,
-      sessionStarted: actor.sessionStarted || null,
-      lastSeenAt: now,
-      lastError: null,
-      demo: true,
-      createdAt: now,
-      updatedAt: now,
-    }).onConflictDoNothing().run();
-  }
-}
 
 function validKind(value: string): ActorKind {
   return ACTOR_KINDS.includes(value as ActorKind) ? value as ActorKind : "node";
@@ -122,7 +92,6 @@ export function rowToActor(row: ActorRow): Actor {
     lastSeen: row.lastSeen,
     actions: validActions(row.actions, BASELINE_ADMIN_ACTIONS),
     vmActions: validActions(row.vmActions, BASELINE_VM_ADMIN_ACTIONS),
-    demo: row.demo || undefined,
   };
 }
 
@@ -150,18 +119,15 @@ export function saveSettings(settings: TopologySettings) {
 }
 
 export function listActors() {
-  syncDemoMode();
   return getDb().select().from(actors).orderBy(asc(actors.sortOrder), asc(actors.createdAt), asc(actors.id)).all().map(rowToActor);
 }
 
 export function getActor(id: string) {
-  syncDemoMode();
   const row = getDb().select().from(actors).where(eq(actors.id, id)).get();
   return row ? rowToActor(row) : null;
 }
 
 export function getActorByIdentity(host: string, port: number, account: string) {
-  syncDemoMode();
   const row = getDb().select().from(actors)
     .where(and(eq(actors.host, host), eq(actors.port, port), eq(actors.account, account)))
     .get();
@@ -182,14 +148,12 @@ function insertActor(actor: Actor) {
     actorStatusRespondedAt: actor.actorStatusRespondedAt || null,
     lastSeenAt: now,
     lastError: null,
-    demo: Boolean(actor.demo),
     createdAt: now,
     updatedAt: now,
   }).run();
 }
 
 export function createActors(discoveredActors: Actor[]) {
-  syncDemoMode();
   getSqlite().transaction((pendingActors: Actor[]) => {
     pendingActors.forEach(insertActor);
   })(discoveredActors);
@@ -228,7 +192,6 @@ export function updateActor(actor: Actor, lastError: string | null = null) {
     lastError,
     actions: actor.actions,
     vmActions: actor.vmActions,
-    demo: Boolean(actor.demo),
     sortOrder,
     updatedAt: now,
   }).where(eq(actors.id, actor.id)).run();

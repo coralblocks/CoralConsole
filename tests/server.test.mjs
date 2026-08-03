@@ -243,7 +243,6 @@ async function startServer(databasePath, port) {
     env: {
       ...process.env,
       DATABASE_PATH: databasePath,
-      CORAL_DEMO_MODE: "true",
       CORAL_TRUSTED_INGRESS: "true",
       HOSTNAME: "127.0.0.1",
       PORT: String(upstreamPort),
@@ -378,8 +377,7 @@ test("standalone server persists settings, actors, and admin action audit in SQL
     assert.deepEqual(saved.settings.summaryActorKinds, ["sequencer", "replayer", "application"]);
 
     const actorPayload = await json(server.baseUrl, "/api/actors");
-    assert.equal(actorPayload.actors.length, 12);
-    assert.equal(actorPayload.actors[0].demo, true);
+    assert.equal(actorPayload.actors.length, 0);
 
     const discovered = await json(server.baseUrl, "/api/actors", {
       method: "POST",
@@ -455,16 +453,12 @@ test("standalone server persists settings, actors, and admin action audit in SQL
     const reorderedSequencers = reordered.actors.filter((actor) => actor.kind === "sequencer");
     assert.deepEqual(reorderedSequencers.map((actor) => actor.id), reorderedIds);
     assert.deepEqual(reorderedSequencers.map((actor) => actor.sortOrder), reorderedIds.map((_, index) => index));
-    assert.deepEqual(
-      reordered.actors.filter((actor) => actor.kind === "replayer").map((actor) => actor.sortOrder),
-      [0, 1, 2],
-    );
     const invalidOrder = await fetch(`${server.baseUrl}/api/actors/order`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         kind: "sequencer",
-        actorIds: [discoveredActor.id, orderBefore.actors.find((actor) => actor.kind === "replayer").id],
+        actorIds: [discoveredActor.id, "not-a-sequencer"],
       }),
     });
     assert.equal(invalidOrder.status, 400);
@@ -859,18 +853,11 @@ test("standalone server persists settings, actors, and admin action audit in SQL
     assert.equal(resetLogs.logs.messagesSaved, 1);
     assert.deepEqual(resetLogs.logs.messages, ["LOGMSG_AFTER_RESTART"]);
 
-    const action = await json(server.baseUrl, "/api/actors/demo-seq-01/actions", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "status", params: "" }),
-    });
-    assert.equal(action.result, true);
-
-    const firstAudit = await json(server.baseUrl, "/api/audit?actorId=demo-seq-01&limit=20");
+    const firstAudit = await json(server.baseUrl, `/api/audit?actorId=${discoveredActor.id}&query=%22SEQ%20status%22&limit=20`);
     assert.equal(firstAudit.entries.length, 1);
-    assert.equal(firstAudit.entries[0].action, "SEQ-NYC-01 status");
+    assert.equal(firstAudit.entries[0].action, "SEQ status");
     assert.equal("command" in firstAudit.entries[0], false);
-    assert.match(firstAudit.entries[0].output, /simulated successfully/);
+    assert.equal(firstAudit.entries[0].output, "");
     const auditDelete = await fetch(`${server.baseUrl}/api/audit`, { method: "DELETE" });
     assert.equal(auditDelete.status, 405);
 
@@ -1022,7 +1009,7 @@ test("standalone server persists settings, actors, and admin action audit in SQL
     await stopServer(server);
     server = await startServer(databasePath, port);
     const persistedSettings = await json(server.baseUrl, "/api/settings");
-    const persistedAudit = await json(server.baseUrl, "/api/audit?actorId=demo-seq-01&limit=20");
+    const persistedAudit = await json(server.baseUrl, `/api/audit?actorId=${discoveredActor.id}&query=%22SEQ%20status%22&limit=20`);
     await json(server.baseUrl, "/api/actors");
     const processRestartRefresh = await json(server.baseUrl, "/api/actors/refresh", {
       method: "POST",
@@ -1095,6 +1082,7 @@ test("actor migrations preserve audit references and initialize status metadata"
       "0014_chilly_cammi",
       "0015_tough_zaladane",
       "0016_safe_network",
+      "0017_white_nitro",
     ];
     for (const [index, name] of migrationNames.entries()) {
       if (index === 5) {
@@ -1120,6 +1108,12 @@ test("actor migrations preserve audit references and initialize status metadata"
           VALUES (1, 'Migrated Topology', '#f4eee7', 30, 7, 90, 1)
         `).run();
       }
+      if (name === "0017_white_nitro") {
+        database.prepare(`
+          INSERT INTO actors (id, name, kind, host, port, account, class_name, demo)
+          VALUES ('obsolete-sample', 'Obsolete Sample', 'node', 'sample-host', 30001, 'SAMPLE', 'Node', 1)
+        `).run();
+      }
       const sql = await readFile(join(projectRoot, "drizzle", `${name}.sql`), "utf8");
       const statements = sql.split("--> statement-breakpoint").map((statement) => statement.trim()).filter(Boolean);
       database.transaction(() => statements.forEach((statement) => database.exec(statement)))();
@@ -1130,6 +1124,7 @@ test("actor migrations preserve audit references and initialize status metadata"
       { id: "c", status: "offline" },
       { id: "d", status: "offline" },
     ]);
+    assert.equal(database.prepare("PRAGMA table_info(actors)").all().some((column) => column.name === "demo"), false);
     assert.deepEqual(database.prepare("SELECT name, account FROM actors WHERE id = 'a'").get(), { name: "a", account: "a" });
     assert.deepEqual(database.prepare("SELECT actor_id AS actorId FROM command_audit").get(), { actorId: "a" });
     assert.deepEqual(
@@ -1395,7 +1390,7 @@ test("deployment and UI conventions stay explicit", async () => {
   assert.match(actorList, /CoralConsole is checking the new address\.`, "notice", 7000\)/);
   assert.match(actorList, /was removed from CoralConsole\.`, "notice", 7000\)/);
   assert.match(actorList, /added to CoralConsole\.\$\{duplicateNote\}/);
-  assert.match(actorList, /disabled=\{Boolean\(editingId\) \|\| Boolean\(removingId\) \|\| actor\.demo\}/);
+  assert.match(actorList, /disabled=\{Boolean\(editingId\) \|\| Boolean\(removingId\)\}/);
   assert.match(actorList, /\/api\/actors\/order/);
   assert.match(actorList, /method: "PATCH"/);
   assert.match(actorList, /window\.confirm/);

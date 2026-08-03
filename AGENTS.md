@@ -33,7 +33,6 @@ One process-level scheduler owns actor polling independently of browser tabs. Ea
 - `better-sqlite3` may compile from source on Linux ARM64. Keep Python 3, `make`, and `g++` in the Docker dependency-build stage only; do not add compilers to the final runtime stage. Keep all Docker stages on Debian Trixie so the runtime provides the glibc and libstdc++ versions required by the packaged ARM64 native module.
 - The persistent database is `/data/coralconsole.db` in Docker and `.data/coralconsole.db` in local development unless `DATABASE_PATH` overrides it.
 - Migrations run both through `scripts/migrate.mjs` at container startup and defensively when the application opens the database.
-- Demo data is off by default and enabled only by `CORAL_DEMO_MODE=true`.
 
 ## Data ownership and persistence
 
@@ -43,6 +42,7 @@ One process-level scheduler owns actor polling independently of browser tabs. Ea
 - The legacy-named `command_audit` table stores the actor snapshot, selected actor-account or VM-account admin action, parameters, plain-text output, four-state outcome, error, duration, timestamp, requester IP, and truncation state. In the reference Compose deployment, new manual actions record the TCP peer address observed by the trusted host-network ingress; client-supplied forwarding headers cannot override it. Legacy or unavailable addresses are persisted as `N/A`. Actor deletion retains audit rows with a null actor reference.
 - Audit parameters are capped at 8 KiB and output at 256 KiB. Older rows are purged according to the shared retention setting.
 - `localStorage` is device-specific only: `coral-console-intro` stores intro visibility, `coral-console-counts` stores Actor Counts panel visibility, and `coral-console-actor-card-widths` stores the browser's Actor Map card-width preference. Actor topology is never stored in the browser.
+- The portable actor CSV contains only `account`, `host`, `port`, `kind`, and per-kind `sort_order`. Its exact header is the format contract. Import requires an entirely empty `actors` table, validates the whole file before one transaction, assigns fresh actor IDs and offline defaults, and never contacts actor endpoints; normal polling refreshes imported actors afterward. Settings, audit history, runtime metadata, and browser preferences are intentionally excluded.
 - Never send topology, actor, admin action, or audit data to an external service.
 
 ## API and REST admin contract
@@ -78,7 +78,7 @@ The optional `shouldLog` boolean defaults to `true` at the actor. Omit it for di
 
 ## Code structure
 
-- `app/page.tsx` owns the shared topology UI, first-run settings, refresh polling, add-actor flow, and one-time browser migration.
+- `app/page.tsx` owns the shared topology UI, first-run settings, refresh polling, and add-actor flow.
 - `app/add-actor-dialog.tsx` owns the shared Add Actor dialog, REST endpoint validation, and multi-account discovery request used by both the topology and actor registry.
 - `app/actor-ui.tsx` owns shared actor labels, icons, and UI metadata.
 - `app/actors/` renders the dedicated actor registry tab for endpoint editing, persisted drag ordering, and confirmed deletion.
@@ -98,6 +98,8 @@ The optional `shouldLog` boolean defaults to `true` at the actor. Omit it for di
 - `npm test` — build, start the standalone server with a temporary SQLite database, exercise APIs, restart, and verify persistence.
 - `npm run lint` — run ESLint.
 - `npm run version:set -- A.B.C` — validate and set the shared CoralConsole application version in `package.json` and `package-lock.json`.
+- `npm run actors:export -- [output.csv]` — export the running Compose installation's actor identities and per-kind order to a new CSV file.
+- `npm run actors:import -- <input.csv>` — import a validated actor CSV into a running Compose installation only when its actors table is empty.
 - `npm run db:generate` — generate a migration after an intentional schema change.
 - `npm run db:migrate` — migrate the configured local database.
 - `npm run docker:start` / `npm run docker:stop` — start or stop the reference container while preserving its named volume.

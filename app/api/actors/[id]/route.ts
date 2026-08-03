@@ -23,7 +23,6 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     const { id } = await params;
     const actor = getActor(id);
     if (!actor) throw new ApiError("Actor not found.", 404);
-    if (actor.demo) throw new ApiError("Sample actors cannot be edited.", 400);
     const input = await readJson<{ host?: unknown; port?: unknown }>(request);
     if (input.host === undefined && input.port === undefined) throw new ApiError("Provide a REST host, port, or both.");
     if (input.host !== undefined && typeof input.host !== "string") throw new ApiError("REST host must be text.");
@@ -63,7 +62,6 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
     const { id } = await params;
     const actor = getActor(id);
     if (!actor) throw new ApiError("Actor not found.", 404);
-    if (actor.demo) throw new ApiError("Sample actors cannot be removed.", 400);
     await runExclusiveActorMutation(id, () => {
       closeActorMonitoringConnection(id);
       clearActorLogs(id);

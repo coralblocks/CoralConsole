@@ -43,12 +43,8 @@ export async function POST(request: Request, { params: routeParams }: { params: 
     accountAction = action === "list" ? "list" : `${adminAccount} ${action}`;
     requestParams = action === "list" ? adminAccount : submittedParams;
     const actionActor = actor;
-    const reply = await runCoordinatedAdminAction<AdminActionReply>(actionActor.id, async () => {
-      if (actionActor.demo) {
-        return { result: true, adminCommand: accountAction, params: requestParams, results: `${action} simulated successfully on ${adminAccount} for ${actionActor.name}` };
-      }
-      return callActorEndpoint(actionActor.host, actionActor.port, accountAction, requestParams);
-    });
+    const reply = await runCoordinatedAdminAction<AdminActionReply>(actionActor.id, () =>
+      callActorEndpoint(actionActor.host, actionActor.port, accountAction, requestParams));
     const output = bounded(reply.results || "");
     recordAudit({
       actorId: actor.id,

@@ -41,7 +41,7 @@ deployment.
 - Clear stale-interface warnings when the browser loses contact with the
   CoralConsole server.
 - SQLite persistence, a verified backup script that runs without stopping
-  CoralConsole, and Docker deployment.
+  CoralConsole, portable actor-only CSV transfer, and Docker deployment.
 
 ## How it works
 

@@ -12,7 +12,7 @@
 ## Architecture and deployment
 
 - Move from the Cloudflare Worker runtime to a conventional Next.js Node 22 standalone server while preserving the existing React application.
-- Add a multi-stage Dockerfile and Docker Compose example with a configurable host port, persistent `/data` volume, SQLite database at `/data/coralconsole.db`, `/api/health` health check, and demo mode disabled by default.
+- Add a multi-stage Dockerfile and Docker Compose example with a configurable host port, persistent `/data` volume, SQLite database at `/data/coralconsole.db`, and `/api/health` health check.
 - Default port binding to localhost for reverse-proxy deployments; document binding directly to a private LAN address when required.
 - Use SQLite WAL mode, foreign keys, migrations at container startup, and one application process. Document volume backup and restore.
 - Remove unused Cloudflare/D1 deployment plumbing after the Node build and Docker smoke test pass.
@@ -25,7 +25,6 @@
 - Replace browser actor persistence and detail snapshots with database-backed loading. Keep `localStorage` only for device-specific preferences such as intro visibility.
 - Offer a one-time import for existing browser actors. Re-discover endpoints, deduplicate them, and clear only successfully imported entries.
 - Poll actors only while a dashboard is visible, with manual refresh, paused background tabs, bounded concurrency, and server-side refresh deduplication.
-- Keep sample actors available only through an explicit demo-mode deployment option.
 
 ## APIs, admin actions, and audit
 

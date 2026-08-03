@@ -12,6 +12,8 @@
     "test": "npm run build && node --test tests/*.test.mjs",
     "lint": "eslint . --ignore-pattern dist --ignore-pattern .next",
     "version:set": "node scripts/set-version.mjs",
+    "actors:export": "node scripts/export-actors.mjs",
+    "actors:import": "node scripts/import-actors.mjs",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "node scripts/migrate.mjs",
     "docker:build": "docker compose build",

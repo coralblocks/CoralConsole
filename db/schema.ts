@@ -48,7 +48,6 @@ export const actors = sqliteTable("actors", {
   lastError: text("last_error"),
   actions: text("commands", { mode: "json" }).$type<string[]>().notNull().default([]),
   vmActions: text("vm_actions", { mode: "json" }).$type<string[]>().notNull().default(["list"]),
-  demo: integer("demo", { mode: "boolean" }).notNull().default(false),
   createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
   updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
 }, (table) => [

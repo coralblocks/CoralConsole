@@ -107,12 +107,32 @@ Store backups according to the customer's retention and security policy. Audit r
 
 To restore, stop CoralConsole, replace the database file in `/data`, preserve ownership for the container user (`uid 1001`), and restart. Always retain a copy of the current volume before restoration.
 
+### Transfer actors to a fresh installation
+
+For a new CoralConsole installation that uses a new empty database, export the actor routing and ordering configuration from the running old installation:
+
+```bash
+npm run actors:export -- coralconsole-actors.csv
+```
+
+The CSV contains only actor account, host, REST port, kind, and per-kind order. It does not contain settings, audit history, actor status, discovered metadata, or browser preferences. The export command refuses to overwrite an existing file.
+
+Build and start the new installation once so its current database migrations run, copy the CSV to the new checkout, and import it while CoralConsole remains running:
+
+```bash
+npm run actors:import -- coralconsole-actors.csv
+```
+
+Import is intentionally allowed only when the destination `actors` table is empty. The entire CSV is validated before a single transaction; duplicate actor identities, duplicate order values within one kind, invalid endpoints, or malformed rows reject the file without importing anything. Imported actors receive new internal IDs and begin Offline until normal polling refreshes their current identity, actions, and status. Re-enter installation Settings manually after a fresh-folder transfer.
+
 ## Upgrade
 
 1. Create a database backup.
 2. Pull the desired tagged release.
 3. Run `docker compose build`, followed by `./scripts/docker-start.sh`.
 4. Confirm `docker compose ps coralconsole coralconsole-ingress` reports both services healthy and open `/api/health`.
+
+This in-place procedure preserves the existing Compose volume. When intentionally installing into a different folder and a new empty volume, use the actor CSV transfer above after backing up the old database.
 
 Migrations run automatically on container startup. Do not run multiple CoralConsole containers against the same SQLite file.
 

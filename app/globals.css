@@ -294,8 +294,6 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .action-result strong { font-size: 8px; text-transform: uppercase; }
 .action-result span { color: var(--muted); font-family: var(--font-plex-mono), monospace; font-size: 7px; }
 .action-result pre { border-top: 1px solid #dfe3da; color: #40504c; font-family: var(--font-plex-mono), monospace; font-size: 8px; line-height: 1.6; margin: 0; max-height: 150px; overflow: auto; padding: 10px 11px; white-space: pre-wrap; }
-.demo-note { align-items: center; border-top: 1px solid var(--line); color: var(--muted); display: flex; font-size: 9px; gap: 7px; margin: 0; padding: 14px 20px; }
-.demo-note i { background: var(--amber); border-radius: 50%; height: 6px; width: 6px; }
 .remove-button { background: transparent; border: 0; border-top: 1px solid var(--line); color: #a0473f; cursor: pointer; font-size: 13.5px; padding: 15px 20px; text-align: left; width: 100%; }
 
 .actor-detail-main { min-height: calc(100vh - 82px); padding: 64px clamp(24px, 7vw, 112px) 80px; }
@@ -761,7 +759,6 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   .action-result strong,
   .action-result span,
   .action-result pre { font-size: 14px; }
-  .demo-note { font-size: 15px; }
   .remove-button { font-size: 22.5px; }
 
   .actor-detail-panel .inspector-head h1 { font-size: 40px; }

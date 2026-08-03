@@ -211,7 +211,7 @@ export default function ActorList() {
   }
 
   async function removeActor(actor: Actor) {
-    if (actor.demo || !window.confirm(`Remove ${actor.name} from CoralConsole? This cannot be undone.`)) return;
+    if (!window.confirm(`Remove ${actor.name} from CoralConsole? This cannot be undone.`)) return;
     setRemovingId(actor.id);
     setPageError("");
     showFeedback(actor.kind, "");
@@ -397,8 +397,8 @@ export default function ActorList() {
                                   <td data-label="Edit">{editing ? <span className="actor-list-edit-actions">
                                     <button type="button" onClick={() => void saveEndpoint(actor)} disabled={saving}>{saving ? "Saving…" : "Save"}</button>
                                     <button type="button" onClick={cancelEditing} disabled={saving}>Cancel</button>
-                                  </span> : <button className="actor-list-edit-button" type="button" onClick={() => startEditing(actor)} disabled={Boolean(editingId) || actor.demo}>{actor.demo ? "Sample" : "Edit"}</button>}</td>
-                                  <td data-label="Remove"><button className="actor-list-remove-button" type="button" onClick={() => void removeActor(actor)} disabled={Boolean(editingId) || Boolean(removingId) || actor.demo}>{removingId === actor.id ? "Removing…" : actor.demo ? "Sample" : "Remove"}</button></td>
+                                  </span> : <button className="actor-list-edit-button" type="button" onClick={() => startEditing(actor)} disabled={Boolean(editingId)}>Edit</button>}</td>
+                                  <td data-label="Remove"><button className="actor-list-remove-button" type="button" onClick={() => void removeActor(actor)} disabled={Boolean(editingId) || Boolean(removingId)}>{removingId === actor.id ? "Removing…" : "Remove"}</button></td>
                                 </tr>
                               );
                             })}
