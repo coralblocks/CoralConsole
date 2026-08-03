@@ -27,6 +27,15 @@ coral_require_docker() {
   fi
 }
 
+coral_require_npm() {
+  if ! command -v npm >/dev/null 2>&1; then
+    echo "npm is required for this source-development command but is not installed." >&2
+    echo "Install Node.js 22 with npm, then run the command again." >&2
+    echo "The standard CoralConsole installation does not require npm on the host." >&2
+    exit 1
+  fi
+}
+
 coral_host_architecture() {
   case "$(uname -m)" in
     x86_64|amd64) printf '%s\n' amd64 ;;
