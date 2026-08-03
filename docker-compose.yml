@@ -1,9 +1,11 @@
 services:
   coralconsole:
     build: .
-    image: coralconsole:local
+    image: ${COMPOSE_PROJECT_NAME:-coralconsole}:local
     init: true
     restart: unless-stopped
+    labels:
+      org.coralconsole.installation: ${COMPOSE_PROJECT_NAME:-coralconsole}
     environment:
       DATABASE_PATH: /data/coralconsole.db
       CORAL_TRUST_PROXY: ${CORAL_TRUST_PROXY:-false}
@@ -14,10 +16,12 @@ services:
       - coralconsole-data:/data
 
   coralconsole-ingress:
-    image: coralconsole:local
+    image: ${COMPOSE_PROJECT_NAME:-coralconsole}:local
     init: true
     restart: unless-stopped
     network_mode: host
+    labels:
+      org.coralconsole.installation: ${COMPOSE_PROJECT_NAME:-coralconsole}
     environment:
       CORAL_INGRESS_BIND_ADDRESS: ${CORAL_BIND_ADDRESS:-127.0.0.1}
       CORAL_INGRESS_PORT: ${CORAL_PORT:-3000}
@@ -36,3 +40,5 @@ services:
 
 volumes:
   coralconsole-data:
+    labels:
+      org.coralconsole.installation: ${COMPOSE_PROJECT_NAME:-coralconsole}

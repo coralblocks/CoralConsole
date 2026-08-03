@@ -4,16 +4,10 @@ umask 077
 
 project_dir=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 cd "$project_dir"
+. "$project_dir/scripts/docker-common.sh"
 
-if ! command -v docker >/dev/null 2>&1; then
-  echo "Docker is not installed." >&2
-  exit 1
-fi
-
-if ! docker info >/dev/null 2>&1; then
-  echo "Docker is installed but is not running. Start Docker and try again." >&2
-  exit 1
-fi
+coral_require_environment
+coral_require_docker
 
 container_id=$(docker compose ps --status running -q coralconsole)
 if [ -z "$container_id" ]; then

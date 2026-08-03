@@ -3,25 +3,19 @@ set -eu
 
 project_dir=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 cd "$project_dir"
+. "$project_dir/scripts/docker-common.sh"
 
-if ! command -v docker >/dev/null 2>&1; then
-  echo "Docker is not installed. Install Docker Desktop or Docker Engine first." >&2
+coral_require_environment
+coral_require_docker
+
+standard_image=$(coral_standard_image)
+if [ -z "$standard_image" ]; then
+  echo "Docker Compose could not resolve this installation's standard image." >&2
   exit 1
 fi
-
-if ! docker info >/dev/null 2>&1; then
-  echo "Docker is installed but is not running. Start Docker and try again." >&2
-  exit 1
-fi
-
-if [ ! -f .env ]; then
-  cp .env.example .env
-  echo "Created .env from .env.example."
-fi
-
-if ! docker image inspect coralconsole:local >/dev/null 2>&1; then
+if ! docker image inspect "$standard_image" >/dev/null 2>&1; then
   echo "Building the CoralConsole image for the first time..."
-  docker compose build
+  docker compose build coralconsole
 fi
 
 if ! docker compose up -d --no-build --wait coralconsole coralconsole-ingress; then
@@ -38,4 +32,4 @@ public_endpoint=$(docker compose exec -T coralconsole-ingress node -e '
 ')
 echo "CoralConsole is available at http://$public_endpoint"
 
-echo "Database storage: Docker volume coralconsole-data (mounted at /data)."
+echo "Database storage: this installation's private Docker volume (mounted at /data)."

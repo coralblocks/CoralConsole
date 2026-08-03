@@ -1,6 +1,6 @@
-# Internal deployment
+# Installation and deployment
 
-CoralConsole is designed as one Node.js process, one SQLite database, and one topology per installation. Deploy a second installation with a different port and volume when a customer needs a second topology.
+CoralConsole is designed as one Node.js process, one SQLite database, and one topology per installation. Each freshly extracted GitHub Release folder is a separate installation. On the same host, additional installations use different public and loopback-internal ports; on different hosts they may reuse the defaults.
 
 ## Security boundary
 
@@ -16,14 +16,37 @@ CoralConsole intentionally has no login or role system in this version. Any pers
 
 CoralConsole does not send topology or admin action data to an external service.
 
-## Docker Compose
+## Install from a GitHub Release
+
+```bash
+sha256sum --check coralconsole-A.B.C.tar.gz.sha256
+tar -xzf coralconsole-A.B.C.tar.gz
+cd coralconsole-A.B.C
+./install.sh
+```
+
+The installer supports native Linux x86-64 and ARM64. The host needs Docker Engine and Docker Compose v2; build dependencies remain inside Docker. It checks the daemon, prepares a private Docker namespace for that folder, suggests and validates available ports, writes the ignored `.env`, builds the local standard image, starts both services, and waits for their health checks.
+
+The generated `COMPOSE_PROJECT_NAME` in `.env` is internal Docker plumbing. It keeps the folder's containers, images, network, and volume independent even when another installation has the same final directory name. It is not an installation label in CoralConsole and normally should not be edited.
+
+The installer checks that both suggested and manually entered ports can actually bind. A port can still be claimed by another process in the small interval before Compose starts; Docker startup is authoritative and the installer reports a late collision without disturbing the existing listener.
+
+CoralConsole images are never pulled from or pushed to a Docker registry. The first build may download `node:22-trixie-slim` and npm dependencies unless they are already cached.
+
+## Folder-local lifecycle
+
+Every command below operates only on the installation folder containing it:
 
 ```bash
 ./scripts/docker-start.sh
-docker compose ps coralconsole coralconsole-ingress
+./scripts/docker-stop.sh
+./scripts/docker-release.sh
+./scripts/docker-backup.sh
+npm run docker:status
+npm run docker:logs
 ```
 
-On the first run, the start script copies `.env.example` to the ignored `.env` file and builds `coralconsole:local`. Subsequent starts use that local image without rebuilding, which supports disconnected/offline testing. Run `npm run docker:build` intentionally after pulling or editing application code, followed by `npm run docker:start`.
+`docker-start.sh` starts the existing standard image, building it only when absent. `docker-release.sh` deliberately rebuilds the current source and relaunches standard mode. Lifecycle scripts require the `.env` created by `install.sh`; they never discover or select another installation.
 
 The health endpoint is `GET /api/health`. View both application and ingress logs with:
 
@@ -31,7 +54,7 @@ The health endpoint is `GET /api/health`. View both application and ingress logs
 docker compose logs -f coralconsole coralconsole-ingress
 ```
 
-The project also provides:
+The npm aliases additionally require host-side Node.js and provide:
 
 ```bash
 npm run docker:stop
@@ -41,11 +64,12 @@ npm run docker:status
 npm run docker:logs
 ```
 
-`./scripts/docker-stop.sh` and `docker:stop` use `docker compose stop`, which leaves both the container and named volume intact. The shell scripts require only Docker Compose; the `npm run` aliases additionally require Node.js.
+`./scripts/docker-stop.sh` and `docker:stop` use `docker compose stop`, which leaves both the containers and named volume intact. The shell lifecycle scripts require only Docker Compose.
 
 For direct private-LAN access, use the server's private address in `.env`:
 
 ```dotenv
+COMPOSE_PROJECT_NAME=coralconsole-a1b2c3d4e5f6
 CORAL_BIND_ADDRESS=10.20.30.40
 CORAL_PORT=3000
 CORAL_INTERNAL_PORT=39000
@@ -54,6 +78,14 @@ CORAL_INTERNAL_PORT=39000
 `CORAL_PORT` belongs to the host-network ingress. `CORAL_INTERNAL_PORT` publishes the application only on host loopback and must not be made remotely reachable.
 
 Native Linux can bind the ingress to a specific host address as shown above. Docker Desktop host networking cannot bind a container process to a specific host interface; use `CORAL_BIND_ADDRESS=0.0.0.0` there and enforce the intended private-network scope with the host firewall.
+
+After changing either port in `.env`, run `./scripts/docker-start.sh` to recreate the affected services with the new values. The public and internal ports must remain different.
+
+## Runtime modes
+
+Standard mode is installed and started by default. It uses the optimized standalone Next.js build and this installation's `<compose-project>:local` image. Source changes take effect only after `./scripts/docker-release.sh` rebuilds and relaunches it.
+
+Development mode is optional contributor tooling. `./scripts/docker-dev-start.sh` builds this installation's `<compose-project>:dev` image on first use, bind-mounts the source, and runs the Next.js development server with hot reload. Both modes use the same Compose services, ports, and SQLite volume, so switching recreates those services instead of running two application processes concurrently. Return to a deliberate standard build with `./scripts/docker-release.sh`.
 
 ### Audit source IP
 
@@ -65,14 +97,14 @@ For a reverse proxy on the same host, retain `127.0.0.1`; the built-in ingress w
 
 ## Persistence and backup
 
-The Compose volume `coralconsole-data` mounts at `/data`; SQLite uses WAL mode and stores its main file at `/data/coralconsole.db`.
+The logical Compose volume `coralconsole-data` mounts at `/data`; its physical Docker name is automatically prefixed with this folder's generated Compose project. SQLite uses WAL mode and stores its main file at `/data/coralconsole.db`.
 
 Docker images and volumes are independent. These operations preserve the database:
 
 - quitting and restarting Docker Desktop or the Docker service;
 - `./scripts/docker-stop.sh` followed by `./scripts/docker-start.sh`;
 - `docker compose down` followed by `npm run docker:start`;
-- removing/rebuilding the `coralconsole:local` image;
+- removing or rebuilding this installation's local image;
 - removing and recreating the CoralConsole container.
 
 These operations delete or can delete the database and must not be used unless data loss is intentional:
@@ -82,7 +114,7 @@ These operations delete or can delete the database and must not be used unless d
 - `docker system prune --volumes` when the volume is considered unused;
 - Docker Desktop **Reset to factory defaults** or equivalent storage reset.
 
-Compose normally prefixes the physical volume with the project/directory name. If the checkout directory or `COMPOSE_PROJECT_NAME` changes, Docker may create a new empty volume; the original database normally still exists in the old volume.
+Compose prefixes the physical volume with the generated project name stored in `.env`. Changing `COMPOSE_PROJECT_NAME` creates a different Docker project and therefore a different empty volume; leave it unchanged for an established installation.
 
 To confirm the active database and volume:
 
@@ -125,14 +157,9 @@ npm run actors:import -- coralconsole-actors.csv
 
 Import is intentionally allowed only when the destination `actors` table is empty. The entire CSV is validated before a single transaction; duplicate actor identities, invalid endpoints, or malformed rows reject the file without importing anything. Each kind's relative CSV row order becomes its actor order. Imported actors receive new internal IDs and begin Offline until normal polling refreshes their current identity, actions, and status. Re-enter installation Settings manually after a fresh-folder transfer.
 
-## Upgrade
+## Release upgrades
 
-1. Create a database backup.
-2. Pull the desired tagged release.
-3. Run `docker compose build`, followed by `./scripts/docker-start.sh`.
-4. Confirm `docker compose ps coralconsole coralconsole-ingress` reports both services healthy and open `/api/health`.
-
-This in-place procedure preserves the existing Compose volume. When intentionally installing into a different folder and a new empty volume, use the actor CSV transfer above after backing up the old database.
+`install.sh` installs or resumes the release in its own folder; it is not a release-to-release upgrader. Automated source and database upgrade handling is outside the current packaging workflow. Always create a verified database backup and follow the target release's notes before changing an established installation.
 
 Migrations run automatically on container startup. Do not run multiple CoralConsole containers against the same SQLite file.
 
