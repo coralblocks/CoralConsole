@@ -81,18 +81,15 @@ CSV list of configured actors. Import requires an installation with no actors.
 
 ## Installation
 
-CoralConsole is distributed in architecture-specific GitHub Release packages.
-Each package contains the complete source and a prebuilt Docker image; no
-CoralConsole image is published to or downloaded from a Docker registry.
+Docker Engine and Docker Compose v2 are required.
 
-1. Download the package and checksum matching the server architecture from the
-   GitHub Release: `coralconsole-A.B.C-linux-amd64.tar.gz` for x86-64 or
-   `coralconsole-A.B.C-linux-arm64.tar.gz` for ARM64. Do not download GitHub's
+1. Download the package matching the Linux server architecture from the GitHub
+   Release: `coralconsole-A.B.C-linux-amd64.tar.gz` for x86-64 or
+   `coralconsole-A.B.C-linux-arm64.tar.gz` for ARM64. Do not use GitHub's
    automatic **Source code** archives.
-2. Verify and extract the archive on the Linux host:
+2. Extract it and enter the installation folder:
 
    ```bash
-   sha256sum --check coralconsole-A.B.C-linux-amd64.tar.gz.sha256
    tar -xzf coralconsole-A.B.C-linux-amd64.tar.gz
    cd coralconsole-A.B.C
    ```
@@ -103,83 +100,15 @@ CoralConsole image is published to or downloaded from a Docker registry.
    ./install.sh
    ```
 
-The installer requires Docker Engine and Docker Compose v2. It checks Docker,
-suggests available ports, validates every accepted or custom port, creates a
-private configuration for that folder, loads the bundled image, and starts its
-standard runtime. Defaults are `0.0.0.0` for the bind address, `3000` for the
-web port, and `39000` for the loopback-only application port.
-The default bind makes CoralConsole reachable through every IPv4 interface on
-the host and assumes the host is inside a trusted private network. Choose
-`127.0.0.1` during installation when access should be limited to the host, an
-SSH tunnel, or a local reverse proxy. With the default bind, open
-`http://<server-address>:3000` from another machine on the private network.
-
-The package contains the complete source and a prebuilt standard Docker image.
-Installation loads that image locally and performs no application build,
-`apt-get`, npm download, or Docker-registry pull. Node.js, npm, Python, and a
-compiler are not required on the host.
-Every command documented for an installed server uses shell and Docker; any
-Node.js or npm work runs inside a CoralConsole container or Docker build.
+Follow the prompts to choose the bind address and ports. The defaults make
+CoralConsole available at `http://<server-address>:3000` on the local network.
 
 To run multiple CoralConsoles on one machine, extract the release separately
-for each installation and choose different public and internal ports. Each
-folder receives its own containers, local images, SQLite volume, and
-configuration. Installations on different machines may use the same defaults.
-
-### Runtime modes
-
-Installation loads and starts **standard mode**, the optimized standalone
-server intended for normal operation. After editing source, rebuild and
-relaunch that mode with:
-
-```bash
-./scripts/docker-release.sh
-```
-
-The package also retains an optional **development mode** with source mounts
-and hot reload:
-
-```bash
-./scripts/docker-dev-start.sh
-```
-
-Its development image is built only on first use. Standard and development
-modes are alternatives within one installation: they use the same ports and
-database and are never run simultaneously. Use `./scripts/docker-dev-stop.sh` to
-stop development mode, or `./scripts/docker-release.sh` to build the current
-source and return to standard mode.
+for each installation and choose different ports.
 
 CoralConsole has no application authentication. Read
 [DEPLOYMENT.md](./DEPLOYMENT.md) before making it reachable from another
 machine.
-
-## Creating a release
-
-For maintainers, choose the next application version interactively:
-
-```bash
-./scripts/set-version.sh
-```
-
-The command requires a clean `main` branch that exactly matches `origin/main`.
-It then shows the current version, recommends the next patch, offers minor and
-major increments, and accepts a custom `A.B.C` version. For automation or a
-version already decided in advance, pass it directly:
-
-```bash
-./scripts/set-version.sh 1.4.0
-```
-
-After selection, the script updates `package.json` and `package-lock.json`,
-commits them, creates the matching annotated `vA.B.C` tag, and atomically pushes
-both `main` and the tag to `origin`. It aborts before changing files if the
-branch is dirty, ahead of, behind, or diverged from `origin/main`, or if the tag
-already exists.
-
-Pushing the version tag automatically starts the **Release Packages** GitHub
-Actions workflow. Native AMD64 and ARM64 Linux runners build both installation
-packages, and the workflow creates a draft GitHub Release containing both
-archives and checksums. Review its notes and publish the draft when ready.
 
 ## License
 
