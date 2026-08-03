@@ -382,7 +382,6 @@ async function createReleaseRepository(root) {
     "scripts/docker-dev-rebuild.sh",
     "scripts/docker-backup.sh",
     "scripts/build-site.sh",
-    "scripts/restart-with-build.sh",
     "scripts/docker-restart.sh",
     "scripts/docker-status.sh",
     "scripts/docker-logs.sh",

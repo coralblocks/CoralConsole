@@ -129,7 +129,6 @@ test("documented server scripts do not launch host Node or npm", async () => {
     "actors-import.sh",
     "build-site.sh",
     "colima-start.sh",
-    "restart-with-build.sh",
   ];
   for (const name of names) {
     const source = await readFile(join(projectRoot, "scripts", name), "utf8");
