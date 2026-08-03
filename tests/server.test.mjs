@@ -1546,6 +1546,7 @@ test("deployment and UI conventions stay explicit", async () => {
   assert.match(dockerfile, /python3 make g\+\+/);
   assert.match(dockerfile, /node_modules\/drizzle-orm/);
   assert.match(dockerStart, /coral_load_release_image/);
+  assert.match(dockerStart, /coral_ensure_data_volume/);
   assert.doesNotMatch(dockerStart, /docker compose build/);
   assert.match(dockerStart, /docker compose up -d --no-build --wait coralconsole coralconsole-ingress/);
   assert.match(dockerStop, /docker compose stop/);
@@ -1562,8 +1563,10 @@ test("deployment and UI conventions stay explicit", async () => {
   assert.match(devDockerfile, /npm ci/);
   assert.match(devDockerfile, /USER coral/);
   assert.match(devStart, /up -d --no-build --wait coralconsole coralconsole-ingress/);
+  assert.match(devStart, /coral_ensure_data_volume/);
   assert.doesNotMatch(devStart, /down\s+-v|volume\s+rm|prune/);
   assert.match(dockerRelease, /docker compose build coralconsole/);
+  assert.match(dockerRelease, /coral_ensure_data_volume/);
   assert.match(dockerRelease, /docker compose up -d --no-build --wait coralconsole coralconsole-ingress/);
   assert.doesNotMatch(dockerRelease, /down\s+-v|volume\s+rm|prune/);
   assert.match(nextConfig, /process\.env\.NODE_ENV === "development"/);

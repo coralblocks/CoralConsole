@@ -7,6 +7,7 @@ cd "$project_dir"
 
 coral_require_environment
 coral_require_docker
+coral_ensure_data_volume
 
 development_image=$(coral_development_image)
 if [ -z "$development_image" ]; then

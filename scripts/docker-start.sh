@@ -14,6 +14,7 @@ if [ -z "$standard_image" ]; then
   exit 1
 fi
 coral_load_release_image "$standard_image"
+coral_ensure_data_volume
 
 if ! docker compose up -d --no-build --wait coralconsole coralconsole-ingress; then
   echo "CoralConsole's trusted ingress requires host networking." >&2

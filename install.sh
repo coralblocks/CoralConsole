@@ -272,6 +272,11 @@ start_standard_mode() {
     return 1
   fi
 
+  if ! coral_ensure_data_volume; then
+    START_FAILURE_KIND=volume
+    return 1
+  fi
+
   if ! docker compose up -d --no-build --wait coralconsole coralconsole-ingress; then
     START_FAILURE_KIND=startup
     echo "CoralConsole did not start successfully." >&2
@@ -317,6 +322,9 @@ echo "Created this installation's private configuration in .env."
 while ! start_standard_mode; do
   if [ "$START_FAILURE_KIND" = image ]; then
     fail "Installation stopped because Docker could not prepare the bundled image. The generated .env was preserved for another attempt."
+  fi
+  if [ "$START_FAILURE_KIND" = volume ]; then
+    fail "Installation stopped because Docker could not prepare its private database volume. The generated .env was preserved for another attempt."
   fi
   docker compose stop coralconsole-ingress coralconsole >/dev/null 2>&1 || true
   public_port_available=true

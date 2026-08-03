@@ -49,7 +49,24 @@ case "\${1:-}" in
     esac
     exit 0
     ;;
-  volume) exit 0 ;;
+  volume)
+    case "\${2:-}" in
+      ls) exit 0 ;;
+      inspect)
+        [ -n "\${FAKE_VOLUME_STATE:-}" ] && [ -f "$FAKE_VOLUME_STATE" ] && grep -Fxq "\${3:-}" "$FAKE_VOLUME_STATE"
+        exit $?
+        ;;
+      create)
+        volume_name=
+        for argument in "$@"; do volume_name=$argument; done
+        if [ -n "\${FAKE_VOLUME_STATE:-}" ]; then
+          printf '%s\n' "$volume_name" >> "$FAKE_VOLUME_STATE"
+        fi
+        echo "$volume_name"
+        exit 0
+        ;;
+    esac
+    ;;
   inspect)
     case "$*" in
       *com.docker.compose.project*) echo "another-coralconsole" ;;
@@ -106,6 +123,11 @@ case "\${1:-}" in
         case "\${3:-}" in
           --images) echo "fake-coralconsole:local" ;;
           --quiet) ;;
+          --environment) sed -n '/^COMPOSE_PROJECT_NAME=/p' .env ;;
+          *)
+            project_name=$(sed -n 's/^COMPOSE_PROJECT_NAME=//p' .env)
+            printf 'volumes:\n  coralconsole-data:\n    name: %s_coralconsole-data\n    external: true\n' "$project_name"
+            ;;
         esac
         exit 0
         ;;
@@ -165,6 +187,7 @@ function runInstaller(installDirectory, binDirectory, input, extraEnvironment = 
       PATH: `${binDirectory}:${process.env.PATH}`,
       FAKE_DOCKER_LOG: logPath,
       FAKE_DOCKER_IMAGE_STATE: join(dirname(binDirectory), "fake-image-state"),
+      FAKE_VOLUME_STATE: join(dirname(binDirectory), "fake-volume-state"),
     },
   });
   return { ...result, logPath };
@@ -192,6 +215,10 @@ test("Compose keeps standard and development images private to the generated pro
   assert.match(compose, /image: \$\{COMPOSE_PROJECT_NAME:-coralconsole\}:local/g);
   assert.match(developmentCompose, /image: \$\{COMPOSE_PROJECT_NAME:-coralconsole\}:dev/g);
   assert.match(compose, /org\.coralconsole\.installation/);
+  const volumeConfiguration = compose.slice(compose.lastIndexOf("\nvolumes:"));
+  assert.doesNotMatch(volumeConfiguration, /org\.coralconsole\.installation/);
+  assert.match(volumeConfiguration, /name: \$\{COMPOSE_PROJECT_NAME:-coralconsole\}_coralconsole-data/);
+  assert.match(volumeConfiguration, /external: true/);
   assert.equal((compose.match(/network_mode: host/g) || []).length, 2);
   assert.match(compose, /HOSTNAME: 127\.0\.0\.1/);
   assert.match(compose, /PORT: \$\{CORAL_INTERNAL_PORT:-39000\}/);
@@ -250,6 +277,7 @@ test("fresh installation folders receive independent Docker namespaces and avail
     assert.match(calls, /run --rm --network host coralconsole-[0-9a-f]{12}:local/);
     assert.match(calls, /0\.0\.0\.0 3000/);
     assert.match(calls, /0\.0\.0\.0 3001/);
+    assert.match(calls, /volume create --label com\.docker\.compose\.project=coralconsole-[0-9a-f]{12}/);
     assert.doesNotMatch(calls, /compose build/);
     assert.match(calls, /compose up -d --no-build --wait coralconsole coralconsole-ingress/);
     assert.match(first.stdout, /standard mode is available/i);

@@ -45,5 +45,5 @@ services:
 
 volumes:
   coralconsole-data:
-    labels:
-      org.coralconsole.installation: ${COMPOSE_PROJECT_NAME:-coralconsole}
+    name: ${COMPOSE_PROJECT_NAME:-coralconsole}_coralconsole-data
+    external: true

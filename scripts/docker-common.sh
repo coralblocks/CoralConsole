@@ -101,3 +101,28 @@ coral_standard_image() {
 coral_development_image() {
   docker compose -f docker-compose.yml -f docker-compose.dev.yml config --images | sed -n '1p'
 }
+
+coral_ensure_data_volume() {
+  coral_volume_name=$(docker compose config | sed -n '/^volumes:/,$ s/^    name: //p' | sed -n '1p')
+  case "$coral_volume_name" in
+    *_coralconsole-data) coral_volume_project=${coral_volume_name%_coralconsole-data} ;;
+    *)
+      echo "Docker Compose could not resolve this installation's database volume." >&2
+      return 1
+      ;;
+  esac
+  if [ -z "$coral_volume_project" ]; then
+    echo "Docker Compose resolved an invalid database volume name." >&2
+    return 1
+  fi
+  if docker volume inspect "$coral_volume_name" >/dev/null 2>&1; then
+    return 0
+  fi
+
+  echo "Creating this installation's private database volume..."
+  docker volume create \
+    --label "com.docker.compose.project=$coral_volume_project" \
+    --label "com.docker.compose.volume=coralconsole-data" \
+    --label "org.coralconsole.installation=$coral_volume_project" \
+    "$coral_volume_name" >/dev/null
+}

@@ -92,24 +92,24 @@ For a reverse proxy on the same host, retain `127.0.0.1`; the built-in ingress w
 
 ## Persistence and backup
 
-The logical Compose volume `coralconsole-data` mounts at `/data`; its physical Docker name is automatically prefixed with this folder's generated Compose project. SQLite uses WAL mode and stores its main file at `/data/coralconsole.db`.
+The logical volume `coralconsole-data` mounts at `/data`; its physical Docker name is `<compose-project>_coralconsole-data`. CoralConsole creates it when absent and declares it external to the Compose lifecycle so configuration metadata changes cannot trigger a destructive volume-recreation prompt. SQLite uses WAL mode and stores its main file at `/data/coralconsole.db`.
 
 Docker images and volumes are independent. These operations preserve the database:
 
 - quitting and restarting Docker Desktop or the Docker service;
 - `./scripts/docker-stop.sh` followed by `./scripts/docker-start.sh`;
 - `docker compose down` followed by `./scripts/docker-start.sh`;
+- `docker compose down -v` followed by `./scripts/docker-start.sh`, because the database volume is external;
 - removing or rebuilding this installation's local image;
 - removing and recreating the CoralConsole container.
 
 These operations delete or can delete the database and must not be used unless data loss is intentional:
 
-- `docker compose down -v`;
 - `docker volume rm` targeting this project's `coralconsole-data` volume;
 - `docker system prune --volumes` when the volume is considered unused;
 - Docker Desktop **Reset to factory defaults** or equivalent storage reset.
 
-Compose prefixes the physical volume with the generated project name stored in `.env`. Changing `COMPOSE_PROJECT_NAME` creates a different Docker project and therefore a different empty volume; leave it unchanged for an established installation.
+The physical volume name uses the generated project name stored in `.env`. Changing `COMPOSE_PROJECT_NAME` creates a different Docker project and therefore a different empty volume; leave it unchanged for an established installation.
 
 To confirm the active database and volume:
 

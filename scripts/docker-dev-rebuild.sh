@@ -7,6 +7,7 @@ cd "$project_dir"
 
 coral_require_environment
 coral_require_docker
+coral_ensure_data_volume
 
 docker compose -f docker-compose.yml -f docker-compose.dev.yml stop coralconsole-ingress coralconsole
 docker compose -f docker-compose.yml -f docker-compose.dev.yml build coralconsole
