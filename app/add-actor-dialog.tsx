@@ -79,14 +79,14 @@ export function AddActorDialog({ open, onClose, onDiscovered, preferredKind = nu
         <button className="modal-close" type="button" onClick={closeDialog} disabled={connecting} aria-label="Close add actor dialog">×</button>
         <p className="eyebrow">{preferredKind ? `Add to ${groupLabel(preferredKind)}` : "Auto-discovery"}</p>
         <h2 id="add-actor-title">Connect actors</h2>
-        <p>Enter a REST admin server address. CoralConsole will discover and add every actor account exposed by that server.</p>
+        <p>Enter a REST admin server address. The CoralConsole server will discover and add every actor account exposed by that REST admin server.</p>
         <div className="actor-type-list" aria-label="Supported actor types">
           {ACTOR_KINDS.filter((kind) => kind !== "link").map((kind) => (
             <span className={kind === preferredKind ? "selected" : ""} key={kind}>{ACTOR_META[kind].label}</span>
           ))}
         </div>
         <form onSubmit={submit}>
-          <label htmlFor="add-actor-host">IP address or host</label>
+          <label htmlFor="add-actor-host">IP address or host (used by the CoralConsole server, not this browser)</label>
           <input id="add-actor-host" value={host} onChange={(event) => setHost(event.target.value)} placeholder="10.42.0.10" autoFocus />
           <label htmlFor="add-actor-port">REST admin port</label>
           <input id="add-actor-port" value={port} onChange={(event) => setPort(event.target.value)} inputMode="numeric" placeholder="30001" />
@@ -96,7 +96,7 @@ export function AddActorDialog({ open, onClose, onDiscovered, preferredKind = nu
             <button className="button button-primary" type="submit" disabled={connecting}>{connecting ? "Discovering…" : "Discover actors"}</button>
           </div>
         </form>
-        <div className="privacy-note"><span aria-hidden="true">⌂</span><p><strong>Shared internal configuration</strong>The REST admin server is contacted by this CoralConsole installation, and discovered actors are stored in its SQLite database.</p></div>
+        <div className="privacy-note"><span aria-hidden="true">⌂</span><p><strong>Shared internal configuration</strong>The CoralConsole server contacts the REST admin server and stores discovered actors in CoralConsole&apos;s SQLite database.</p></div>
       </section>
     </div>
   );
