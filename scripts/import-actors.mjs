@@ -1,9 +1,6 @@
 #!/usr/bin/env node
 
-import { spawnSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
-import { readFile } from "node:fs/promises";
-import { resolve } from "node:path";
 
 const INTERNAL_DATABASE_MODE = "--internal-database-mode";
 const CSV_HEADER = ["account", "host", "port", "kind"];
@@ -33,7 +30,6 @@ const CLASS_NAMES = {
   link: "Link",
   multimqapp: "MultiMqApp",
 };
-const projectRoot = resolve(import.meta.dirname, "..");
 
 function parseCsv(source) {
   const input = source.startsWith("\uFEFF") ? source.slice(1) : source;
@@ -229,40 +225,11 @@ async function importIntoDatabase() {
   }
 }
 
-async function importThroughDocker() {
-  const args = process.argv.slice(2);
-  if (args.length !== 1) throw new Error("Usage: npm run actors:import -- <input.csv>");
-  const inputPath = resolve(args[0]);
-  const csv = await readFile(inputPath, "utf8");
-  const result = spawnSync("docker", [
-    "compose",
-    "exec",
-    "-T",
-    "coralconsole",
-    "node",
-    "scripts/import-actors.mjs",
-    INTERNAL_DATABASE_MODE,
-  ], {
-    cwd: projectRoot,
-    encoding: "utf8",
-    input: csv,
-    maxBuffer: 50 * 1024 * 1024,
-  });
-
-  if (result.error) {
-    if (result.error.code === "ENOENT") throw new Error("Docker is not installed or is not available on PATH.");
-    throw result.error;
-  }
-  if (result.stdout) process.stdout.write(result.stdout);
-  if (result.stderr) process.stderr.write(result.stderr);
-  if (result.status !== 0) {
-    throw new Error("Actor import failed. Make sure the current CoralConsole Compose service is running and uses the latest image.");
-  }
-}
-
 try {
-  if (process.argv[2] === INTERNAL_DATABASE_MODE) await importIntoDatabase();
-  else await importThroughDocker();
+  if (process.argv[2] !== INTERNAL_DATABASE_MODE || process.argv.length !== 3) {
+    throw new Error("This database helper must be run inside CoralConsole by ./scripts/actors-import.sh.");
+  }
+  await importIntoDatabase();
 } catch (error) {
   process.stderr.write(`${error instanceof Error ? error.message : "Actor import failed."}\n`);
   process.exitCode = 1;

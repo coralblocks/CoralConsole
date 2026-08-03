@@ -204,7 +204,11 @@ test("Compose keeps standard and development images private to the generated pro
   assert.doesNotMatch(installer, /docker compose[^\n]*docker-compose\.dev\.yml[^\n]*build/);
   assert.match(common, /docker load --input/);
   assert.match(common, /Run \.\/install\.sh first/);
-  assert.equal(JSON.parse(packageMetadata).scripts["release:package"], "node scripts/package-release.mjs");
+  const packageScripts = JSON.parse(packageMetadata).scripts;
+  assert.equal(packageScripts["release:package"], "node scripts/package-release.mjs");
+  assert.equal(packageScripts["actors:export"], undefined);
+  assert.equal(packageScripts["actors:import"], undefined);
+  assert.equal(Object.keys(packageScripts).some((name) => name.startsWith("docker:")), false);
   assert.match(releaseWorkflow, /runner: ubuntu-24\.04\n/);
   assert.match(releaseWorkflow, /runner: ubuntu-24\.04-arm/);
   assert.match(releaseWorkflow, /gh release create/);
@@ -377,6 +381,14 @@ async function createReleaseRepository(root) {
     "scripts/docker-dev-stop.sh",
     "scripts/docker-dev-rebuild.sh",
     "scripts/docker-backup.sh",
+    "scripts/build-site.sh",
+    "scripts/restart-with-build.sh",
+    "scripts/docker-restart.sh",
+    "scripts/docker-status.sh",
+    "scripts/docker-logs.sh",
+    "scripts/docker-dev-logs.sh",
+    "scripts/actors-export.sh",
+    "scripts/actors-import.sh",
   ];
 
   for (const [relativePath, contents] of files) {

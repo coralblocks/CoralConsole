@@ -72,8 +72,8 @@ connected to that installation sees the same actors and settings.
 Export actors from one CoralConsole installation and import them into another:
 
 ```bash
-npm run actors:export -- coralconsole-actors.csv
-npm run actors:import -- coralconsole-actors.csv
+./scripts/actors-export.sh coralconsole-actors.csv
+./scripts/actors-import.sh coralconsole-actors.csv
 ```
 
 This is useful when installing a fresh CoralConsole version or keeping a handy
@@ -118,6 +118,8 @@ The package contains the complete source and a prebuilt standard Docker image.
 Installation loads that image locally and performs no application build,
 `apt-get`, npm download, or Docker-registry pull. Node.js, npm, Python, and a
 compiler are not required on the host.
+Every command documented for an installed server uses shell and Docker; any
+Node.js or npm work runs inside a CoralConsole container or Docker build.
 
 To run multiple CoralConsoles on one machine, extract the release separately
 for each installation and choose different public and internal ports. Each
@@ -178,21 +180,6 @@ Pushing the version tag automatically starts the **Release Packages** GitHub
 Actions workflow. Native AMD64 and ARM64 Linux runners build both installation
 packages, and the workflow creates a draft GitHub Release containing both
 archives and checksums. Review its notes and publish the draft when ready.
-
-To build one package locally instead, use a Docker Engine whose native
-architecture matches the desired asset:
-
-```bash
-npm run release:package
-```
-
-You may pass that native architecture explicitly, for example
-`npm run release:package -- amd64` on an AMD64 Docker Engine. The command
-refuses emulated cross-architecture release builds. It builds the standard
-image, embeds it with the complete source in an architecture-specific archive,
-and creates the SHA-256 checksum under `dist/releases/`. The local command
-never creates a GitHub Release, uploads files, pushes a tag, or publishes an
-image to a Docker registry.
 
 ## License
 

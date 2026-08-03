@@ -1,21 +1,11 @@
 #!/usr/bin/env node
 
-import { spawnSync } from "node:child_process";
-import { writeFile } from "node:fs/promises";
-import { resolve } from "node:path";
-
 const INTERNAL_DATABASE_MODE = "--internal-database-mode";
 const CSV_HEADER = ["account", "host", "port", "kind"];
-const projectRoot = resolve(import.meta.dirname, "..");
 
 function csvField(value) {
   const text = String(value);
   return /[",\r\n]/.test(text) ? `"${text.replaceAll('"', '""')}"` : text;
-}
-
-function defaultOutputName() {
-  const timestamp = new Date().toISOString().replaceAll(/[-:]/g, "").replace(/\.\d{3}Z$/, "Z").replace("T", "-");
-  return `coralconsole-actors-${timestamp}.csv`;
 }
 
 async function exportFromDatabase() {
@@ -61,48 +51,11 @@ async function exportFromDatabase() {
   }
 }
 
-async function exportThroughDocker() {
-  const args = process.argv.slice(2);
-  if (args.length > 1) throw new Error("Usage: npm run actors:export -- [output.csv]");
-  const outputPath = resolve(args[0] || defaultOutputName());
-  const result = spawnSync("docker", [
-    "compose",
-    "exec",
-    "-T",
-    "coralconsole",
-    "node",
-    "scripts/export-actors.mjs",
-    INTERNAL_DATABASE_MODE,
-  ], {
-    cwd: projectRoot,
-    encoding: "utf8",
-    maxBuffer: 50 * 1024 * 1024,
-  });
-
-  if (result.error) {
-    if (result.error.code === "ENOENT") throw new Error("Docker is not installed or is not available on PATH.");
-    throw result.error;
-  }
-  if (result.status !== 0) {
-    if (result.stderr) process.stderr.write(result.stderr);
-    throw new Error("Actor export failed. Make sure the current CoralConsole Compose service is running and uses the latest image.");
-  }
-
-  try {
-    await writeFile(outputPath, result.stdout, { encoding: "utf8", flag: "wx", mode: 0o600 });
-  } catch (error) {
-    if (error instanceof Error && "code" in error && error.code === "EEXIST") {
-      throw new Error(`Refusing to overwrite the existing file ${outputPath}`);
-    }
-    throw error;
-  }
-  if (result.stderr) process.stderr.write(result.stderr);
-  process.stdout.write(`Saved actor export to ${outputPath}\n`);
-}
-
 try {
-  if (process.argv[2] === INTERNAL_DATABASE_MODE) await exportFromDatabase();
-  else await exportThroughDocker();
+  if (process.argv[2] !== INTERNAL_DATABASE_MODE || process.argv.length !== 3) {
+    throw new Error("This database helper must be run inside CoralConsole by ./scripts/actors-export.sh.");
+  }
+  await exportFromDatabase();
 } catch (error) {
   process.stderr.write(`${error instanceof Error ? error.message : "Actor export failed."}\n`);
   process.exitCode = 1;

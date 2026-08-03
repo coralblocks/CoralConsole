@@ -10,4 +10,4 @@ coral_require_docker
 
 docker compose stop coralconsole-ingress coralconsole
 echo "CoralConsole is stopped. Its SQLite database remains in the Docker volume."
-echo "Restart it later with: npm run docker:start"
+echo "Restart it later with: ./scripts/docker-start.sh"

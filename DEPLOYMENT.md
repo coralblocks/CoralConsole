@@ -8,7 +8,7 @@ CoralConsole intentionally has no login or role system in this version. Any pers
 
 - Keep the service on a private LAN, VPN, or zero-trust network.
 - Do not publish port 3000 directly to the public internet.
-- Prefer the default localhost binding behind an authenticated internal reverse proxy.
+- Choose the localhost binding when placing CoralConsole behind an authenticated internal reverse proxy.
 - If binding to a private interface, restrict the port with the host and network firewalls.
 - Terminate HTTPS at the reverse proxy if traffic crosses an untrusted segment.
 - The host/container must be able to reach every configured actor's REST admin port.
@@ -27,7 +27,7 @@ cd coralconsole-A.B.C
 
 Use the `linux-amd64` asset on x86-64 servers and the `linux-arm64` asset on ARM64 servers. Do not use GitHub's automatically generated **Source code** archives; they do not contain the prebuilt image.
 
-The host needs only Docker Engine and Docker Compose v2. The installer checks the daemon, loads the package's prebuilt image, prepares a private Docker namespace for that folder, suggests and validates available ports, writes the ignored `.env`, starts both services, and waits for their health checks. It does not run `apt-get`, npm, an application build, or a Docker-registry pull.
+The host needs only Docker Engine and Docker Compose v2. The installer checks the daemon, loads the package's prebuilt image, prepares a private Docker namespace for that folder, suggests and validates available ports, writes the ignored `.env`, starts both services, and waits for their health checks. It does not run `apt-get`, npm, an application build, or a Docker-registry pull. Every installed-server command uses shell and Docker; Node.js and npm always run inside a CoralConsole container or Docker build, never as host prerequisites.
 
 The generated `COMPOSE_PROJECT_NAME` in `.env` is internal Docker plumbing. It keeps the folder's containers, images, and volume independent even when another installation has the same final directory name. It is not an installation label in CoralConsole and normally should not be edited.
 
@@ -46,8 +46,9 @@ Every command below operates only on the installation folder containing it:
 ./scripts/docker-stop.sh
 ./scripts/docker-release.sh
 ./scripts/docker-backup.sh
-npm run docker:status
-npm run docker:logs
+./scripts/docker-restart.sh
+./scripts/docker-status.sh
+./scripts/docker-logs.sh
 ```
 
 `docker-start.sh` starts the existing standard image, reloading it from the release package if the private image was removed. `docker-release.sh` deliberately rebuilds the current source and relaunches standard mode. Lifecycle scripts require the `.env` created by `install.sh`; they never discover or select another installation.
@@ -58,17 +59,7 @@ The health endpoint is `GET /api/health`. View both application and ingress logs
 docker compose logs -f coralconsole coralconsole-ingress
 ```
 
-The npm aliases additionally require host-side Node.js and provide:
-
-```bash
-npm run docker:stop
-npm run docker:backup
-npm run docker:restart
-npm run docker:status
-npm run docker:logs
-```
-
-`./scripts/docker-stop.sh` and `docker:stop` use `docker compose stop`, which leaves both the containers and named volume intact. The shell lifecycle scripts require only Docker Compose.
+`./scripts/docker-stop.sh` uses `docker compose stop`, which leaves both the containers and named volume intact. The lifecycle scripts require only Docker Compose.
 
 For direct private-LAN access, use the server's private address in `.env`:
 
@@ -107,7 +98,7 @@ Docker images and volumes are independent. These operations preserve the databas
 
 - quitting and restarting Docker Desktop or the Docker service;
 - `./scripts/docker-stop.sh` followed by `./scripts/docker-start.sh`;
-- `docker compose down` followed by `npm run docker:start`;
+- `docker compose down` followed by `./scripts/docker-start.sh`;
 - removing or rebuilding this installation's local image;
 - removing and recreating the CoralConsole container.
 
@@ -148,7 +139,7 @@ To restore, stop CoralConsole, replace the database file in `/data`, preserve ow
 For a new CoralConsole installation that uses a new empty database, export the actor routing and ordering configuration from the running old installation:
 
 ```bash
-npm run actors:export -- coralconsole-actors.csv
+./scripts/actors-export.sh coralconsole-actors.csv
 ```
 
 The CSV contains only actor account, host, REST port, and kind. Rows are exported in the current per-kind actor order. It does not contain settings, audit history, actor status, discovered metadata, or browser preferences. The export command refuses to overwrite an existing file.
@@ -156,7 +147,7 @@ The CSV contains only actor account, host, REST port, and kind. Rows are exporte
 Build and start the new installation once so its current database migrations run, copy the CSV to the new checkout, and import it while CoralConsole remains running:
 
 ```bash
-npm run actors:import -- coralconsole-actors.csv
+./scripts/actors-import.sh coralconsole-actors.csv
 ```
 
 Import is intentionally allowed only when the destination `actors` table is empty. The entire CSV is validated before a single transaction; duplicate actor identities, invalid endpoints, or malformed rows reject the file without importing anything. Each kind's relative CSV row order becomes its actor order. Imported actors receive new internal IDs and begin Offline until normal polling refreshes their current identity, actions, and status. Re-enter installation Settings manually after a fresh-folder transfer.
