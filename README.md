@@ -68,18 +68,6 @@ one-shot connections and are recorded in the audit history.
 One CoralConsole installation owns one topology and one database. Every browser
 connected to that installation sees the same actors and settings.
 
-## Export and Import Actors
-
-Export actors from one CoralConsole installation and import them into another:
-
-```bash
-./scripts/actors-export.sh coralconsole-actors.csv
-./scripts/actors-import.sh coralconsole-actors.csv
-```
-
-This is useful when installing a fresh CoralConsole version or keeping a handy
-CSV list of configured actors. Import requires an installation with no actors.
-
 ## Installation
 
 Docker Engine and Docker Compose v2 are required.
@@ -106,6 +94,30 @@ CoralConsole available at `http://<server-address>:3000` on the local network.
 
 To run multiple CoralConsoles on one machine, extract the release separately
 for each installation and choose different ports.
+
+## Operational Scripts
+
+- `./scripts/docker-stop.sh` stops CoralConsole while preserving its database.
+- `./scripts/docker-start.sh` starts CoralConsole from the existing local image
+  without rebuilding it.
+- `./scripts/build-site.sh` builds the current source into the local image
+  without starting, stopping, or replacing the running containers.
+- `./scripts/docker-release.sh` builds the current source and deploys the new
+  local image while preserving the database.
+- `./scripts/docker-backup.sh` creates and verifies an online database backup
+  in `backups/` without stopping CoralConsole. CoralConsole must be running.
+
+## Export and Import Actors
+
+Export actors from one CoralConsole installation and import them into another:
+
+```bash
+./scripts/actors-export.sh coralconsole-actors.csv
+./scripts/actors-import.sh coralconsole-actors.csv
+```
+
+This is useful when installing a fresh CoralConsole version or keeping a handy
+CSV list of configured actors. Import requires an installation with no actors.
 
 ## License
 
