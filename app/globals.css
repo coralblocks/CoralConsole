@@ -427,12 +427,6 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .summary-kind-options label:has(input:checked) { background: color-mix(in srgb, var(--coral-soft) 36%, white); border-color: color-mix(in srgb, var(--coral) 34%, var(--line)); }
 .summary-kind-options input { accent-color: var(--coral); appearance: auto; flex: 0 0 15px; height: 15px; margin: 0; padding: 0; width: 15px; }
 .summary-kind-options span { font-family: var(--font-plex-mono), monospace; font-size: 9px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.import-banner { align-items: center; background: color-mix(in srgb, var(--cyan-soft) 72%, white); border: 1px solid color-mix(in srgb, var(--cyan) 35%, var(--line)); border-radius: 14px; display: flex; gap: 20px; justify-content: space-between; margin: -4px auto 24px; max-width: calc(var(--shell-content-max) - var(--shell-gutter) - var(--shell-gutter)); padding: 14px 18px; }
-.hero[hidden] ~ .import-banner { margin-top: 24px; }
-.import-banner > div { display: grid; }
-.import-banner strong { font-size: 12px; }
-.import-banner span { color: var(--muted); font-size: 10px; margin-top: 3px; }
-.button.compact { min-height: 37px; white-space: nowrap; width: auto; }
 .page-alert { background: var(--coral-soft); border: 1px solid color-mix(in srgb, var(--coral) 28%, var(--line)); border-radius: 10px; color: #8d3a33; font-size: 11px; margin: 0 auto 18px; max-width: calc(var(--shell-content-max) - var(--shell-gutter) - var(--shell-gutter)); padding: 11px 14px; }
 .page-alert.embedded { border-radius: 0; margin: 0; max-width: none; }
 .workspace-loading { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; color: var(--muted); margin: 0 0 14px; padding: 14px; text-align: center; }
@@ -639,7 +633,6 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   .actor-groups { grid-template-columns: 1fr; }
   .console-footer { align-items: start; flex-direction: column; gap: 12px; margin: 0 20px; }
   .add-modal { border-radius: 18px; padding: 28px 22px; }
-  .import-banner { align-items: stretch; flex-direction: column; margin-inline: 14px; }
   .settings-grid { grid-template-columns: 1fr; }
   .grace-period-setting { max-width: none; }
   .summary-kind-options { grid-template-columns: 1fr; }
@@ -799,8 +792,6 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   .polling-option small,
   .summary-settings > p { font-size: 15px; }
   .summary-kind-options span { font-size: 15px; }
-  .import-banner strong { font-size: 20px; }
-  .import-banner span { font-size: 16px; }
   .page-alert,
   .workspace-loading { font-size: 18px; }
 

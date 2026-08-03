@@ -1296,6 +1296,8 @@ test("deployment and UI conventions stay explicit", async () => {
   assert.match(page, /visibleSummaryKinds\.length === 8 \? 4 : Math\.min\(3, visibleSummaryKinds\.length\)/);
   assert.match(page, /ACTOR_COUNTS_VISIBILITY_KEY = "coral-console-counts"/);
   assert.match(page, /ACTOR_CARD_WIDTHS_KEY = "coral-console-actor-card-widths"/);
+  assert.doesNotMatch(page, /coral-console-actors|Import local actors|normalizeSavedActors/);
+  assert.doesNotMatch(styles, /\.import-banner/);
   assert.match(page, /ACTOR_CARD_WIDTH_LOWER_LIMIT = 240/);
   assert.match(page, /ACTOR_CARD_WIDTH_UPPER_LIMIT = 800/);
   assert.match(page, /minWidth: 300[\s\S]*maxWidth: 420/);

@@ -5,7 +5,6 @@ import Link from "next/link";
 import { AddActorDialog } from "./add-actor-dialog";
 import { ConsoleBrand } from "./console-chrome";
 import {
-  ACTOR_KINDS,
   ACTOR_META,
   operationalStateForDisplay,
   operationalStateLabel,
@@ -14,7 +13,6 @@ import {
   type ActorKind,
   type ActorOperationalState,
 } from "./actor-ui";
-import { sessionStartFromId } from "@/lib/session";
 import {
   DEFAULT_SUMMARY_ACTOR_KINDS,
   SUMMARY_ACTOR_KINDS,
@@ -24,7 +22,6 @@ import {
 } from "@/lib/types";
 import { useServerHealth } from "./use-server-health";
 
-const LEGACY_ACTORS_KEY = "coral-console-actors";
 const ACTOR_COUNTS_VISIBILITY_KEY = "coral-console-counts";
 const ACTOR_CARD_WIDTHS_KEY = "coral-console-actor-card-widths";
 const ACTOR_CARD_WIDTH_LOWER_LIMIT = 240;
@@ -266,50 +263,6 @@ async function apiRequest<T>(url: string, init?: RequestInit): Promise<T> {
   return payload;
 }
 
-function normalizeSavedActors(value: unknown): Actor[] {
-  if (!Array.isArray(value)) return [];
-  return value.flatMap((entry) => {
-    if (!entry || typeof entry !== "object") return [];
-    const legacy = entry as Omit<Actor, "kind" | "status" | "actions" | "vmActions"> & {
-      actions?: string[];
-      commands?: string[];
-      vmActions?: string[];
-      kind: string;
-      status: string;
-      statusRespondedAt?: string;
-    };
-    if (typeof legacy.name !== "string" || typeof legacy.host !== "string" || !Number.isInteger(Number(legacy.port))) return [];
-    const wasBackup = legacy.kind === "backup"
-      || legacy.kind === "backup-sequencer"
-      || (legacy.kind === "sequencer" && (legacy.sequencerRole === "Backup" || legacy.status === "standby"));
-    const kind = wasBackup
-      ? "backup-sequencer"
-      : ACTOR_KINDS.includes(legacy.kind as ActorKind) ? legacy.kind as ActorKind : "node";
-    return [{
-      ...legacy,
-      actions: Array.isArray(legacy.actions) ? legacy.actions : Array.isArray(legacy.commands) ? legacy.commands : [],
-      vmActions: Array.isArray(legacy.vmActions) ? legacy.vmActions : ["list"],
-      commands: undefined,
-      kind,
-      port: Number(legacy.port),
-      status: legacy.status === "online" || legacy.status === "standby" || legacy.status === "healthy"
-        ? "online"
-        : "offline",
-      operationalState: (["closed", "disconnected", "rewinding", "active", "inactive"] as ActorOperationalState[])
-        .includes(legacy.operationalState)
-        ? legacy.operationalState
-        : "inactive",
-      outboundSequence: legacy.outboundSequence || "Not reported",
-      accounts: legacy.accounts || "Not reported",
-      clockTickInterval: legacy.clockTickInterval || "Not reported",
-      actorStatusFields: Array.isArray(legacy.actorStatusFields) ? legacy.actorStatusFields : [],
-      actorStatusRespondedAt: legacy.actorStatusRespondedAt || legacy.statusRespondedAt,
-      sequencerRole: kind === "sequencer" ? "Primary" : kind === "backup-sequencer" ? "Backup" : undefined,
-      sessionStarted: legacy.sessionStarted || sessionStartFromId(legacy.session),
-    }];
-  });
-}
-
 function ActorCard({ actor }: { actor: Actor }) {
   const meta = ACTOR_META[actor.kind];
   const Icon = meta.icon;
@@ -359,9 +312,6 @@ export default function Home() {
   const [refreshing, setRefreshing] = useState(false);
   const [savingSettings, setSavingSettings] = useState(false);
   const [settingsError, setSettingsError] = useState("");
-  const [legacyActors, setLegacyActors] = useState<Actor[]>([]);
-  const [importing, setImporting] = useState(false);
-  const [importMessage, setImportMessage] = useState("");
 
   useEffect(() => {
     window.history.scrollRestoration = "manual";
@@ -394,10 +344,8 @@ export default function Home() {
         const savedWidths = savedActorCardWidths(window.localStorage.getItem(ACTOR_CARD_WIDTHS_KEY));
         setActorCardWidths(savedWidths);
         setActorCardWidthsDraft(savedWidths);
-        const saved = window.localStorage.getItem(LEGACY_ACTORS_KEY);
-        if (saved) setLegacyActors(normalizeSavedActors(JSON.parse(saved)).filter((actor) => !actor.demo));
       } catch {
-        window.localStorage.removeItem(LEGACY_ACTORS_KEY);
+        // Browser-local preferences may be unavailable; keep their defaults.
       }
     }, 0);
     return () => { active = false; window.clearTimeout(hydration); };
@@ -528,31 +476,6 @@ export default function Home() {
     }
   }
 
-  async function importLocalActors() {
-    setImporting(true);
-    let imported = 0;
-    const remaining: Actor[] = [];
-    for (const legacy of legacyActors) {
-      try {
-        await apiRequest<ActorDiscoveryResult>("/api/actors", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ host: legacy.host, port: legacy.port }),
-        });
-        imported += 1;
-      } catch (error) {
-        if (error instanceof Error && /already exists/i.test(error.message)) imported += 1;
-        else remaining.push(legacy);
-      }
-    }
-    if (remaining.length) window.localStorage.setItem(LEGACY_ACTORS_KEY, JSON.stringify(remaining));
-    else window.localStorage.removeItem(LEGACY_ACTORS_KEY);
-    setLegacyActors(remaining);
-    setImportMessage(`${imported} actor${imported === 1 ? "" : "s"} moved to the shared topology${remaining.length ? `; ${remaining.length} could not be reached` : ""}.`);
-    await loadWorkspace().catch(() => undefined);
-    setImporting(false);
-  }
-
   const themeStyle = {
     "--topology-color": settingsOpen ? settingsDraft.backgroundColor : settings.backgroundColor,
     "--actor-card-min-width": `${actorCardWidths.minWidth}px`,
@@ -595,13 +518,6 @@ export default function Home() {
           <p className="hero-copy">See the sequencer at the center of your system, follow every connection, and run admin actions without leaving the map.</p>
         </div>
       </section>
-
-      {(legacyActors.length > 0 || importMessage) && (
-        <section className="import-banner" aria-live="polite">
-          <div><strong>{importMessage || `${legacyActors.length} actor${legacyActors.length === 1 ? " was" : "s were"} saved in this browser.`}</strong><span>{importMessage ? "" : "Move them into the shared SQLite topology so everyone sees the same configuration."}</span></div>
-          {legacyActors.length > 0 && <button className="button button-dark compact" type="button" onClick={() => void importLocalActors()} disabled={importing}>{importing ? "Importing…" : "Import local actors"}</button>}
-        </section>
-      )}
 
       {pageError && <p className="page-alert" role="alert">{pageError}</p>}
 
