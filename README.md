@@ -40,9 +40,9 @@ deployment.
 - Clear stale-interface warnings when the browser loses contact with the
   CoralConsole server.
 - SQLite persistence, a verified backup script that runs without stopping
-  CoralConsole, portable actor-only CSV transfer, and Docker deployment.
+  CoralConsole, portable actor-only CSV import/export, and Docker deployment.
 
-## How it works
+## How It Works
 
 The browser communicates only with the CoralConsole server. At each UI refresh
 interval, the home page makes one HTTP request for the complete topology. It
@@ -66,7 +66,7 @@ one-shot connections and are recorded in the audit history.
 One CoralConsole installation owns one topology and one database. Every browser
 connected to that installation sees the same actors and settings.
 
-## Export and import actors
+## Export and Import Actors
 
 Export actors from one CoralConsole installation and import them into another:
 
