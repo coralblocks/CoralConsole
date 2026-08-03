@@ -47,8 +47,12 @@ export function statusLabel(status: ActorStatus) {
   return status === "online" ? "Online" : "Offline";
 }
 
-export function operationalStateForDisplay(status: ActorStatus, state: ActorOperationalState): ActorOperationalState | "unknown" {
-  return status === "offline" ? "unknown" : state;
+export function operationalStateForDisplay(
+  status: ActorStatus,
+  state: ActorOperationalState,
+  stateIsFresh: boolean,
+): ActorOperationalState | "unknown" {
+  return status === "offline" || !stateIsFresh ? "unknown" : state;
 }
 
 export function operationalStateLabel(state: ActorOperationalState | "unknown") {

@@ -34,6 +34,7 @@ export type Actor = {
   kind: ActorKind;
   status: ActorStatus;
   operationalState: ActorOperationalState;
+  operationalStateFresh: boolean;
   host: string;
   port: number;
   account: string;

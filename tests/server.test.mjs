@@ -393,6 +393,7 @@ test("standalone server persists settings, actors, and admin action audit in SQL
     assert.equal(discoveredActor.account, "SEQ");
     assert.equal(discoveredActor.status, "online");
     assert.equal(discoveredActor.operationalState, "active");
+    assert.equal(discoveredActor.operationalStateFresh, true);
     assert.equal(discoveredActor.session, "2607232154");
     assert.equal(discoveredActor.outboundSequence, "41");
     assert.equal(discoveredActor.accounts, "3");
@@ -561,6 +562,7 @@ test("standalone server persists settings, actors, and admin action audit in SQL
       });
       assert.equal(targetedRefresh.actor.id, discoveredActor.id);
       assert.equal(targetedRefresh.actor.operationalState, expectedState);
+      assert.equal(targetedRefresh.actor.operationalStateFresh, true);
       assert.equal(Number.isNaN(Date.parse(targetedRefresh.actor.actorStatusRespondedAt)), false);
       const targetedPollRequests = actorServer.requests.slice(targetedRefreshStart)
         .filter((request) => request.adminCommand === "SEQ actorStatus" || request.adminCommand === "list");
@@ -607,6 +609,7 @@ test("standalone server persists settings, actors, and admin action audit in SQL
     });
     const emptyActorStatusActor = emptyActorStatus.actors.find((actor) => actor.id === discoveredActor.id);
     assert.equal(emptyActorStatusActor?.status, "online");
+    assert.equal(emptyActorStatusActor?.operationalStateFresh, true);
     assert.deepEqual(emptyActorStatusActor?.actorStatusFields, unparseableSessionRefresh?.actorStatusFields);
     actorServer.setActorStatusHasFields(true);
 
@@ -616,7 +619,9 @@ test("standalone server persists settings, actors, and admin action audit in SQL
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ force: true }),
     });
-    assert.equal(failedActorStatus.actors.find((actor) => actor.id === discoveredActor.id)?.status, "offline");
+    const failedActor = failedActorStatus.actors.find((actor) => actor.id === discoveredActor.id);
+    assert.equal(failedActor?.status, "offline");
+    assert.equal(failedActor?.operationalStateFresh, false);
     assert.deepEqual(actorServer.requests.at(-1), { adminCommand: "SEQ actorStatus", params: "", shouldLog: false });
 
     actorServer.setActorStatusResult("invalid");
@@ -625,17 +630,42 @@ test("standalone server persists settings, actors, and admin action audit in SQL
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ force: true }),
     });
-    assert.equal(invalidActorStatus.actors.find((actor) => actor.id === discoveredActor.id)?.status, "offline");
+    const invalidActor = invalidActorStatus.actors.find((actor) => actor.id === discoveredActor.id);
+    assert.equal(invalidActor?.status, "offline");
+    assert.equal(invalidActor?.operationalStateFresh, false);
     assert.deepEqual(actorServer.requests.at(-1), { adminCommand: "SEQ actorStatus", params: "", shouldLog: false });
 
     actorServer.setActorStatusResult(true);
+    actorServer.setActorStatusHasFields(false);
+    const recoveredActorStatusStart = actorServer.requests.length;
     const recoveredActorStatus = await json(server.baseUrl, "/api/actors/refresh", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ force: true }),
     });
-    assert.equal(recoveredActorStatus.actors.find((actor) => actor.id === discoveredActor.id)?.status, "online");
-    assert.deepEqual(actorServer.requests.slice(-4), [
+    const recoveredActor = recoveredActorStatus.actors.find((actor) => actor.id === discoveredActor.id);
+    assert.equal(recoveredActor?.status, "online");
+    assert.equal(recoveredActor?.operationalState, "active");
+    assert.equal(recoveredActor?.operationalStateFresh, false);
+    assert.deepEqual(actorServer.requests.slice(recoveredActorStatusStart, recoveredActorStatusStart + 4), [
+      { adminCommand: "SEQ actorStatus", params: "", shouldLog: false },
+      { adminCommand: "list", params: "SEQ", shouldLog: false },
+      { adminCommand: "list", params: "VM", shouldLog: false },
+      { adminCommand: "VM lastLogs", params: "SEQ 0", shouldLog: false },
+    ]);
+
+    actorServer.setActorStatusHasFields(true);
+    const confirmedActorStatusStart = actorServer.requests.length;
+    const confirmedActorStatus = await json(server.baseUrl, "/api/actors/refresh", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ force: true }),
+    });
+    const confirmedActor = confirmedActorStatus.actors.find((actor) => actor.id === discoveredActor.id);
+    assert.equal(confirmedActor?.status, "online");
+    assert.equal(confirmedActor?.operationalState, "active");
+    assert.equal(confirmedActor?.operationalStateFresh, true);
+    assert.deepEqual(actorServer.requests.slice(confirmedActorStatusStart, confirmedActorStatusStart + 4), [
       { adminCommand: "SEQ actorStatus", params: "", shouldLog: false },
       { adminCommand: "list", params: "SEQ", shouldLog: false },
       { adminCommand: "list", params: "VM", shouldLog: false },
@@ -1234,7 +1264,7 @@ test("deployment and UI conventions stay explicit", async () => {
   assert.match(page, /disabled=\{settingsDraft\.keepPollingWithoutViewers\}/);
   assert.match(page, /\[\s*"all",\s*"online",\s*"offline",\s*"closed",\s*"rewinding",\s*"active",\s*"inactive",\s*"disconnected",?\s*\]/);
   assert.match(page, /\[\s*"all",\s*"sequencers",\s*"replayers",\s*"persistence",\s*"transport",\s*"application",?\s*\]/);
-  assert.match(page, /operationalStateForDisplay\(actor\.status, actor\.operationalState\) === filter/);
+  assert.match(page, /operationalStateForDisplay\([\s\S]*actor\.status,[\s\S]*actor\.operationalState,[\s\S]*actor\.operationalStateFresh,[\s\S]*\) === filter/);
   assert.match(page, /function AnimatedFilterBar<T extends string>/);
   assert.match(page, /ariaLabel="Filter actors"/);
   assert.match(page, /ariaLabel="Filter actor panels"/);
@@ -1257,7 +1287,7 @@ test("deployment and UI conventions stay explicit", async () => {
   assert.match(page, /JSON\.stringify\(\{ force, refreshActions: force \}\)/);
   assert.match(page, /online in the console/);
   assert.match(page, /connected to the sequencer/);
-  assert.match(page, /onlineCount - disconnectedCount - operationalStateCounts\.closed/);
+  assert.match(page, /onlineCount - unknownOnlineCount - disconnectedCount - operationalStateCounts\.closed/);
   assert.match(page, /count === 1 \? "Actor" : "Actors"/);
   assert.match(page, /<small>ONLINE<\/small>/);
   assert.match(page, /<small>OFFLINE<\/small>/);
@@ -1318,9 +1348,9 @@ test("deployment and UI conventions stay explicit", async () => {
   assert.match(page, /Sequence \$\{displayedSequence\}/);
   assert.match(page, /details, \$\{statusLabel\(actor\.status\)\} \(opens in a new tab\)/);
   assert.doesNotMatch(page, /status-dot/);
-  assert.match(page, /operationalStateForDisplay\(actor\.status, actor\.operationalState\)/);
+  assert.match(page, /operationalStateForDisplay\([\s\S]*actor\.status,[\s\S]*actor\.operationalState,[\s\S]*actor\.operationalStateFresh/);
   assert.match(page, /state-\$\{displayedState\}/);
-  assert.match(actorUi, /return status === "offline" \? "unknown" : state/);
+  assert.match(actorUi, /return status === "offline" \|\| !stateIsFresh \? "unknown" : state/);
   assert.doesNotMatch(page, /className="actor-data|className="actor-foot/);
   assert.match(addActorDialog, /ACTOR_KINDS\.filter\(\(kind\) => kind !== "link"\)\.map/);
   assert.match(styles, /\.group-cards \{[^}]*grid-auto-flow: row[^}]*grid-template-columns: repeat\(auto-fill, minmax\(min\(100%, var\(--actor-card-min-width, 300px\)\), var\(--actor-card-max-width, 420px\)\)\)/);
@@ -1434,7 +1464,7 @@ test("deployment and UI conventions stay explicit", async () => {
   assert.match(actorDetail, /<ConsoleBrand href="\/" ariaLabel="CoralConsole topology" subtitle="Actor detail" \/>/);
   assert.match(actorDetail, /Refresh actor status/);
   assert.match(actorDetail, /actor\.status === "offline" \? " actor-detail-offline" : ""/);
-  assert.match(actorDetail, /operationalStateForDisplay\(actor\.status, actor\.operationalState\)/);
+  assert.match(actorDetail, /operationalStateForDisplay\(actor\.status, actor\.operationalState, actor\.operationalStateFresh\)/);
   assert.match(actorDetail, /state-\$\{displayedState\}/);
   assert.match(actorDetail, /operationalStateLabel\(displayedState\)/);
   assert.match(actorDetail, /\/api\/actors\/\$\{encodeURIComponent\(actor\.id\)\}\/refresh/);

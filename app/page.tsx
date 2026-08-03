@@ -266,7 +266,11 @@ async function apiRequest<T>(url: string, init?: RequestInit): Promise<T> {
 function ActorCard({ actor }: { actor: Actor }) {
   const meta = ACTOR_META[actor.kind];
   const Icon = meta.icon;
-  const displayedState = operationalStateForDisplay(actor.status, actor.operationalState);
+  const displayedState = operationalStateForDisplay(
+    actor.status,
+    actor.operationalState,
+    actor.operationalStateFresh,
+  );
   const displayedSequence = actor.status === "offline" ? "?" : actor.outboundSequence;
   return (
     <a
@@ -390,17 +394,29 @@ export default function Home() {
     if (filter === "online" || filter === "offline") {
       return actors.filter((actor) => actor.status === filter);
     }
-    return actors.filter((actor) => operationalStateForDisplay(actor.status, actor.operationalState) === filter);
+    return actors.filter((actor) => operationalStateForDisplay(
+      actor.status,
+      actor.operationalState,
+      actor.operationalStateFresh,
+    ) === filter);
   }, [actors, filter]);
   const onlineCount = actors.filter((actor) => actor.status === "online").length;
   const offlineCount = actors.filter((actor) => actor.status === "offline").length;
   const pulseConnectivityFilter: ActorFilter = !actors.length ? "all" : offlineCount ? "offline" : "online";
   const operationalStateCounts = Object.fromEntries(PULSE_OPERATIONAL_STATES.map((state) => [
     state,
-    actors.filter((actor) => operationalStateForDisplay(actor.status, actor.operationalState) === state).length,
+    actors.filter((actor) => operationalStateForDisplay(
+      actor.status,
+      actor.operationalState,
+      actor.operationalStateFresh,
+    ) === state).length,
   ])) as Record<ActorOperationalState, number>;
   const disconnectedCount = operationalStateCounts.disconnected;
-  const connectedCount = onlineCount - disconnectedCount - operationalStateCounts.closed;
+  const unknownOnlineCount = actors.filter((actor) => (
+    actor.status === "online"
+    && operationalStateForDisplay(actor.status, actor.operationalState, actor.operationalStateFresh) === "unknown"
+  )).length;
+  const connectedCount = onlineCount - unknownOnlineCount - disconnectedCount - operationalStateCounts.closed;
   const primarySequencers = actorsInPanelOrder(visibleActors, ["sequencer"]);
   const backupSequencers = actorsInPanelOrder(visibleActors, ["backup-sequencer"]);
   const sessionSequencer = actors.find((actor) => actor.kind === "sequencer" && actor.status === "online")

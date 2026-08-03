@@ -1,8 +1,13 @@
 import { Agent as HttpAgent, request as requestHttp } from "node:http";
 import { Agent as HttpsAgent, request as requestHttps } from "node:https";
 import type { Socket } from "node:net";
+import {
+  actorOperationalStateIsFresh,
+  invalidateActorOperationalState,
+  markActorOperationalStateFresh,
+} from "./actor-operational-state";
 import { sessionStartFromId } from "./session";
-import { BASELINE_ADMIN_ACTIONS, BASELINE_VM_ADMIN_ACTIONS, type Actor, type ActorKind, type ActorOperationalState, type ActorStatusField, type AdminActionReply, type AuditOutcome } from "./types";
+import { BASELINE_ADMIN_ACTIONS, BASELINE_VM_ADMIN_ACTIONS, type Actor, type ActorKind, type ActorStatusField, type AdminActionReply, type AuditOutcome } from "./types";
 
 const ACTOR_TIMEOUT_MS = 6500;
 const MONITORING_CONNECTION_LOST = "The persistent actor monitoring connection was lost.";
@@ -370,23 +375,23 @@ function actorStatusBoolean(fields: ActorStatusField[], label: string) {
   return value === "true" ? true : value === "false" ? false : undefined;
 }
 
-function operationalStateFromActorStatus(fields: ActorStatusField[], fallback: ActorOperationalState) {
+function operationalStateFromActorStatus(fields: ActorStatusField[]) {
   const open = actorStatusBoolean(fields, "open");
   if (open === false) return "closed";
-  if (open !== true) return fallback;
+  if (open !== true) return undefined;
 
   const disconnected = actorStatusBoolean(fields, "disconnected");
   if (disconnected === true) return "disconnected";
-  if (disconnected !== false) return fallback;
+  if (disconnected !== false) return undefined;
 
   const rewinding = actorStatusBoolean(fields, "rewinding");
   if (rewinding === true) return "rewinding";
-  if (rewinding !== false) return fallback;
+  if (rewinding !== false) return undefined;
 
   const active = actorStatusBoolean(fields, "active");
   if (active === true) return "active";
   if (active === false) return "inactive";
-  return fallback;
+  return undefined;
 }
 
 function kindFromActorStatus(fields: ActorStatusField[]) {
@@ -401,6 +406,7 @@ function sessionStartFromActorStatus(fields: ActorStatusField[], session: string
 
 function actorFromActorStatus(actor: Actor, actorStatusDetails: string): Actor {
   const fields = parseActorStatusFields(actorStatusDetails);
+  const reportedOperationalState = operationalStateFromActorStatus(fields);
   const reportedKind = kindFromActorStatus(fields);
   const kind = reportedKind || actor.kind;
   const isSequencer = kind === "sequencer" || kind === "backup-sequencer";
@@ -411,12 +417,19 @@ function actorFromActorStatus(actor: Actor, actorStatusDetails: string): Actor {
   const discoveredKind: ActorKind = isBackup ? "backup-sequencer" : kind;
   const name = actorStatusValue(fields, "name") || actor.name;
   const session = actorStatusValue(fields, "session") || actor.session;
+  if (actor.status === "offline" || actor.session !== session) {
+    invalidateActorOperationalState(actor.id);
+  }
+  if (reportedOperationalState) {
+    markActorOperationalStateFresh(actor.id);
+  }
   return {
     ...actor,
     name,
     kind: discoveredKind,
     status: "online",
-    operationalState: operationalStateFromActorStatus(fields, actor.operationalState),
+    operationalState: reportedOperationalState || actor.operationalState,
+    operationalStateFresh: actorOperationalStateIsFresh(actor.id),
     account: actor.account,
     className: actorStatusValue(fields, "class") || actor.className,
     sequencerRole: isSequencer ? (isBackup ? "Backup" : "Primary") : undefined,
@@ -511,6 +524,7 @@ async function discoverActorAccount(host: string, port: number, account: string,
     kind: discoveredKind,
     status: "offline",
     operationalState: "inactive",
+    operationalStateFresh: false,
     host,
     port,
     account,

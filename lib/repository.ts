@@ -2,6 +2,11 @@ import { and, asc, desc, eq, like, or, type SQL } from "drizzle-orm";
 import { getDb, getSqlite } from "@/db";
 import { actors, adminActionAudit, topologySettings, type ActorRow } from "@/db/schema";
 import {
+  actorOperationalStateIsFresh,
+  forgetActorOperationalState,
+  invalidateActorOperationalState,
+} from "./actor-operational-state";
+import {
   BASELINE_ADMIN_ACTIONS,
   BASELINE_VM_ADMIN_ACTIONS,
   DEFAULT_SUMMARY_ACTOR_KINDS,
@@ -74,6 +79,7 @@ export function rowToActor(row: ActorRow): Actor {
     kind: validKind(row.kind),
     status: validStatus(row.status),
     operationalState: validOperationalState(row.operationalState),
+    operationalStateFresh: actorOperationalStateIsFresh(row.id),
     host: row.host,
     port: row.port,
     account: row.account,
@@ -135,12 +141,14 @@ export function getActorByIdentity(host: string, port: number, account: string) 
 }
 
 function insertActor(actor: Actor) {
+  const { operationalStateFresh, ...persistedActor } = actor;
+  void operationalStateFresh;
   const now = new Date().toISOString();
   const nextSortOrder = getSqlite()
     .prepare("SELECT COALESCE(MAX(sort_order), -1) + 1 AS nextSortOrder FROM actors WHERE kind = ?")
     .get(actor.kind) as { nextSortOrder: number };
   getDb().insert(actors).values({
-    ...actor,
+    ...persistedActor,
     sortOrder: nextSortOrder.nextSortOrder,
     cluster: actor.cluster || null,
     sequencerRole: actor.sequencerRole || null,
@@ -199,6 +207,7 @@ export function updateActor(actor: Actor, lastError: string | null = null) {
 }
 
 export function markActorOffline(actor: Actor, error: string) {
+  invalidateActorOperationalState(actor.id);
   getDb().update(actors).set({
     status: "offline",
     lastSeen: actor.lastSeen === "just now" ? "unreachable" : actor.lastSeen,
@@ -208,6 +217,7 @@ export function markActorOffline(actor: Actor, error: string) {
 }
 
 export function updateActorEndpoint(id: string, host: string, port: number) {
+  invalidateActorOperationalState(id);
   getDb().update(actors).set({
     host,
     port,
@@ -229,7 +239,9 @@ export function reorderActors(kind: ActorKind, actorIds: string[]) {
 }
 
 export function deleteActor(id: string) {
-  return getDb().delete(actors).where(eq(actors.id, id)).run().changes > 0;
+  const removed = getDb().delete(actors).where(eq(actors.id, id)).run().changes > 0;
+  if (removed) forgetActorOperationalState(id);
+  return removed;
 }
 
 export function recordAudit(entry: Omit<AuditEntry, "id" | "createdAt">) {

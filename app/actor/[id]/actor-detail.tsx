@@ -339,7 +339,9 @@ export default function ActorDetail({ actorId }: { actorId: string }) {
   }
 
   const Icon = actor ? ACTOR_META[actor.kind].icon : null;
-  const displayedState = actor ? operationalStateForDisplay(actor.status, actor.operationalState) : "unknown";
+  const displayedState = actor
+    ? operationalStateForDisplay(actor.status, actor.operationalState, actor.operationalStateFresh)
+    : "unknown";
   const availableActions = actor ? actionsForAdminAccount(actor, adminAccount) : [];
 
   return (
