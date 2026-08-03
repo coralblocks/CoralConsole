@@ -115,7 +115,7 @@ For a new CoralConsole installation that uses a new empty database, export the a
 npm run actors:export -- coralconsole-actors.csv
 ```
 
-The CSV contains only actor account, host, REST port, kind, and per-kind order. It does not contain settings, audit history, actor status, discovered metadata, or browser preferences. The export command refuses to overwrite an existing file.
+The CSV contains only actor account, host, REST port, and kind. Rows are exported in the current per-kind actor order. It does not contain settings, audit history, actor status, discovered metadata, or browser preferences. The export command refuses to overwrite an existing file.
 
 Build and start the new installation once so its current database migrations run, copy the CSV to the new checkout, and import it while CoralConsole remains running:
 
@@ -123,7 +123,7 @@ Build and start the new installation once so its current database migrations run
 npm run actors:import -- coralconsole-actors.csv
 ```
 
-Import is intentionally allowed only when the destination `actors` table is empty. The entire CSV is validated before a single transaction; duplicate actor identities, duplicate order values within one kind, invalid endpoints, or malformed rows reject the file without importing anything. Imported actors receive new internal IDs and begin Offline until normal polling refreshes their current identity, actions, and status. Re-enter installation Settings manually after a fresh-folder transfer.
+Import is intentionally allowed only when the destination `actors` table is empty. The entire CSV is validated before a single transaction; duplicate actor identities, invalid endpoints, or malformed rows reject the file without importing anything. Each kind's relative CSV row order becomes its actor order. Imported actors receive new internal IDs and begin Offline until normal polling refreshes their current identity, actions, and status. Re-enter installation Settings manually after a fresh-folder transfer.
 
 ## Upgrade
 

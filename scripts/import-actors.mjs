@@ -6,7 +6,7 @@ import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 
 const INTERNAL_DATABASE_MODE = "--internal-database-mode";
-const CSV_HEADER = ["account", "host", "port", "kind", "sort_order"];
+const CSV_HEADER = ["account", "host", "port", "kind"];
 const ACTOR_KINDS = new Set([
   "sequencer",
   "backup-sequencer",
@@ -130,19 +130,17 @@ function validateCsv(source) {
   const actors = [];
   const errors = [];
   const identities = new Map();
-  const orders = new Map();
   for (const record of records.slice(1)) {
     if (record.fields.length !== CSV_HEADER.length) {
       errors.push(`CSV line ${record.line}: expected ${CSV_HEADER.length} columns.`);
       continue;
     }
 
-    const [rawAccount, rawHost, rawPort, rawKind, rawSortOrder] = record.fields;
+    const [rawAccount, rawHost, rawPort, rawKind] = record.fields;
     const account = rawAccount.trim();
     const host = rawHost.trim();
     const kind = rawKind.trim();
     const port = /^\d+$/.test(rawPort.trim()) ? Number(rawPort.trim()) : Number.NaN;
-    const sortOrder = /^\d+$/.test(rawSortOrder.trim()) ? Number(rawSortOrder.trim()) : Number.NaN;
     let valid = true;
 
     if (!account || /[\u0000-\u001f\u007f]/.test(account)) {
@@ -157,10 +155,6 @@ function validateCsv(source) {
       errors.push(`CSV line ${record.line}: unsupported actor kind "${kind}".`);
       valid = false;
     }
-    if (!Number.isSafeInteger(sortOrder) || sortOrder < 0) {
-      errors.push(`CSV line ${record.line}: sort_order must be a non-negative integer.`);
-      valid = false;
-    }
     if (!valid) continue;
 
     const identity = JSON.stringify([host, port, account]);
@@ -170,14 +164,7 @@ function validateCsv(source) {
     } else {
       identities.set(identity, record.line);
     }
-    const order = JSON.stringify([kind, sortOrder]);
-    const orderLine = orders.get(order);
-    if (orderLine) {
-      errors.push(`CSV line ${record.line}: ${kind} sort_order ${sortOrder} duplicates line ${orderLine}.`);
-    } else {
-      orders.set(order, record.line);
-    }
-    actors.push({ account, host, port, kind, sortOrder });
+    actors.push({ account, host, port, kind });
   }
 
   if (errors.length) throw new Error(`Actor import validation failed:\n${errors.join("\n")}`);
@@ -212,7 +199,10 @@ async function importIntoDatabase() {
       if (actorCount !== 0) {
         throw new Error(`Actor import requires an empty actors table; this installation already contains ${actorCount} ${actorCount === 1 ? "actor" : "actors"}.`);
       }
+      const nextSortOrderByKind = new Map();
       for (const actor of pendingActors) {
+        const sortOrder = nextSortOrderByKind.get(actor.kind) || 0;
+        nextSortOrderByKind.set(actor.kind, sortOrder + 1);
         const sequencerRole = actor.kind === "sequencer"
           ? "Primary"
           : actor.kind === "backup-sequencer"
@@ -227,7 +217,7 @@ async function importIntoDatabase() {
           actor.account,
           CLASS_NAMES[actor.kind],
           sequencerRole,
-          actor.sortOrder,
+          sortOrder,
         );
       }
     });

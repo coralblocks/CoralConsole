@@ -5,7 +5,7 @@ import { writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 
 const INTERNAL_DATABASE_MODE = "--internal-database-mode";
-const CSV_HEADER = ["account", "host", "port", "kind", "sort_order"];
+const CSV_HEADER = ["account", "host", "port", "kind"];
 const projectRoot = resolve(import.meta.dirname, "..");
 
 function csvField(value) {
@@ -27,7 +27,7 @@ async function exportFromDatabase() {
   try {
     sqlite.pragma("busy_timeout = 5000");
     const actors = sqlite.prepare(`
-      SELECT account, host, port, kind, sort_order AS sortOrder
+      SELECT account, host, port, kind
       FROM actors
       ORDER BY
         CASE kind
@@ -53,7 +53,6 @@ async function exportFromDatabase() {
       actor.host,
       actor.port,
       actor.kind,
-      actor.sortOrder,
     ])];
     process.stdout.write(`${lines.map((line) => line.map(csvField).join(",")).join("\n")}\n`);
     process.stderr.write(`Exported ${actors.length} ${actors.length === 1 ? "actor" : "actors"}.\n`);
