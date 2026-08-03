@@ -25,8 +25,7 @@ deployment.
   and Disconnected counts.
 - Filterable Actor Map organized by system layer and actor type.
 - Automatic actor discovery from a host/IP address and REST admin port.
-- Server-side monitoring that polls each actor with `actorStatus` and `list`
-  over a dedicated persistent connection.
+- Server-side monitoring over a dedicated persistent connection for each actor.
 - One home-page browser refresh request retrieves current information for the
   complete topology, regardless of the number of actors.
 - Dedicated actor pages with complete status fields and manual REST admin
@@ -52,8 +51,8 @@ directly.
 
 Separately, the server monitors every actor at the configured actor polling
 interval. For each actor, it calls `actorStatus` to update connectivity and
-operational state, then `list` to update the available admin actions. These calls reuse
-a dedicated persistent connection per actor.
+operational state and retrieves recent actor logs over a dedicated persistent
+connection.
 
 The browser and server timers are independent, but server-side throttling
 consolidates their work. A browser refresh receives the current stored topology
