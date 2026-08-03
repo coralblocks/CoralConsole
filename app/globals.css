@@ -281,6 +281,9 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .admin-heading > span { background: var(--actor-soft); border-radius: 6px; color: var(--muted); font-family: var(--font-plex-mono), monospace; font-size: 7px; padding: 6px 7px; }
 .admin-block form { display: grid; }
 .admin-block label, .add-modal label { font-size: 9px; font-weight: 800; margin: 12px 0 6px; text-transform: uppercase; }
+.add-modal .actor-host-label { text-transform: none; }
+.add-modal .actor-host-label > span { font-weight: 400; }
+.add-modal .actor-host-label strong { font-weight: 800; }
 .admin-block label:first-child { margin-top: 0; }
 .admin-block label span { color: var(--muted); font-size: 7px; font-weight: 500; margin-left: 4px; }
 .admin-block input, .admin-block select, .add-modal input { appearance: none; background: white; border: 1px solid var(--line); border-radius: 9px; color: var(--ink); height: 43px; padding: 0 12px; width: 100%; }

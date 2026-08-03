@@ -86,7 +86,7 @@ export function AddActorDialog({ open, onClose, onDiscovered, preferredKind = nu
           ))}
         </div>
         <form onSubmit={submit}>
-          <label htmlFor="add-actor-host">IP address or host (used by the CoralConsole server, not this browser)</label>
+          <label className="actor-host-label" htmlFor="add-actor-host">IP ADDRESS OR HOST <span>(used by the CoralConsole <strong>server</strong>, not this browser)</span></label>
           <input id="add-actor-host" value={host} onChange={(event) => setHost(event.target.value)} placeholder="10.42.0.10" autoFocus />
           <label htmlFor="add-actor-port">REST admin port</label>
           <input id="add-actor-port" value={port} onChange={(event) => setPort(event.target.value)} inputMode="numeric" placeholder="30001" />
