@@ -28,7 +28,9 @@ One process-level scheduler owns actor polling independently of browser tabs. Ea
 - Node.js 22 is the minimum supported runtime.
 - SQLite with `better-sqlite3`, Drizzle schema, generated SQL migrations, WAL mode, foreign keys, and a five-second busy timeout.
 - One installation owns one topology and one SQLite file. Never run multiple application processes against the same file.
-- `Dockerfile` is the canonical release package; `docker-compose.yml` is the reference private deployment.
+- GitHub Releases distribute a source-only `coralconsole-<version>.tar.gz` plus SHA-256 checksum. CoralConsole images are never published to or pulled from a Docker registry; every installation builds private local images from the packaged source.
+- Each freshly extracted installation folder receives a stable random `COMPOSE_PROJECT_NAME` in its ignored `.env`. That generated Docker namespace isolates its containers, images, network, and Compose-prefixed data volume from other folders, including folders with the same basename. Users choose only bind/public/internal ports, and every suggested or manually entered port is bind-checked before acceptance.
+- `Dockerfile` and `docker-compose.yml` define standard mode, which is built and started by `install.sh`. `Dockerfile.dev` and `docker-compose.dev.yml` retain the optional hot-reload development mode. Both modes are alternatives within one installation and share its ports and database; never run two application processes against that SQLite file.
 - The reference Compose deployment has two containers: the bridge-networked application is published only on a loopback-only internal port, while a minimal host-network ingress owns the public port. The ingress removes browser-supplied forwarding headers, captures the TCP peer address, and passes that validated address to the application in a private internal header. Linux host networking is required; Docker Desktop 4.34 or newer must have host networking enabled.
 - `better-sqlite3` may compile from source on Linux ARM64. Keep Python 3, `make`, and `g++` in the Docker dependency-build stage only; do not add compilers to the final runtime stage. Keep all Docker stages on Debian Trixie so the runtime provides the glibc and libstdc++ versions required by the packaged ARM64 native module.
 - The persistent database is `/data/coralconsole.db` in Docker and `.data/coralconsole.db` in local development unless `DATABASE_PATH` overrides it.
@@ -94,10 +96,12 @@ The optional `shouldLog` boolean defaults to `true` at the actor. Omit it for di
 ## Commands and validation
 
 - `npm run dev` — run the Next.js development server.
+- `./install.sh` — validate a native Linux Docker host, create this folder's private configuration, suggest and validate ports, build the local standard image, and start CoralConsole.
 - `npm run build` — produce the standalone Node.js build.
 - `npm test` — build, start the standalone server with a temporary SQLite database, exercise APIs, restart, and verify persistence.
 - `npm run lint` — run ESLint.
-- `npm run version:set -- A.B.C` — validate and set the shared CoralConsole application version in `package.json` and `package-lock.json`.
+- `./scripts/set-version.sh [A.B.C]` — from a clean `main` exactly synchronized with `origin/main`, interactively suggest patch, minor, major, or custom next versions when omitted, update `package.json` and `package-lock.json`, commit, create the annotated `vA.B.C` tag, and atomically push `main` plus the tag. `npm run version:set -- [A.B.C]` remains the local manifest-only primitive used by that workflow.
+- `npm run release:package` — from a clean tagged `main`, create the source release archive and SHA-256 checksum under `dist/releases/` for manual GitHub Release upload.
 - `npm run actors:export -- [output.csv]` — export the running Compose installation's actor identities and per-kind order to a new CSV file.
 - `npm run actors:import -- <input.csv>` — import a validated actor CSV into a running Compose installation only when its actors table is empty.
 - `npm run db:generate` — generate a migration after an intentional schema change.
@@ -107,7 +111,7 @@ The optional `shouldLog` boolean defaults to `true` at the actor. Omit it for di
 - `npm run docker:backup` — create and verify a timestamped online SQLite backup without stopping the application.
 - `npm run docker:dev:start` / `npm run docker:dev:stop` — run or stop the bind-mounted Next.js development container with hot reload and the shared Docker data volume.
 - `npm run docker:dev:rebuild` — rebuild development dependencies after package or `Dockerfile.dev` changes.
-- `npm run docker:release` — build the current source into the production image and replace development mode with the production container while preserving the data volume.
+- `npm run docker:release` — build the current source into the standard image and replace development mode with the standard container while preserving the data volume.
 - `npm run docker:status` / `npm run docker:logs` — inspect the reference container.
 - `./scripts/git-merge-to-main.sh` — interactively merge the current clean feature branch into an up-to-date `main` and push `origin/main`; never run this helper unless the user explicitly asks for the merge.
 
@@ -115,7 +119,7 @@ Use the existing npm lockfile. Commit schema changes and their generated migrati
 
 Use a fast path for isolated, predictably low-risk presentation tweaks such as changing a single font size, color, spacing value, or short piece of static copy. Make the focused edit, inspect the exact diff, perform only the targeted check needed for the affected UI, and commit promptly. Do not automatically run the full build, API persistence suite, Docker rebuild, and exhaustive browser workflow for these changes. Escalate to broader validation when the tweak affects behavior, data, APIs, schemas, deployment, responsive structure, shared layout logic, or has a meaningful chance of unpredictable results.
 
-Prefer `docker:dev:start` during iterative UI work so source edits hot-reload without production image rebuilds. Rebuild the development image only when its dependencies or Dockerfile change. Run `docker:release` once when approved source needs to become the production container; ordinary production restarts with unchanged source use `docker:start` and do not rebuild.
+Standard mode is the installation default. Prefer `docker:dev:start` during iterative UI work so source edits hot-reload without standard-image rebuilds. Rebuild the development image only when its dependencies or Dockerfile change. Run `docker:release` once when approved source needs to become the standard container; ordinary standard restarts with unchanged source use `docker:start` and do not rebuild.
 
 The Next.js development server accepts browser origins on RFC 1918 private networks and `.local` hostnames so the bind-mounted Docker development app can be tested from another workstation. Use the comma-separated `CORAL_DEV_ALLOWED_ORIGINS` setting only for additional development hostnames. This allowlist does not affect production.
 
@@ -125,7 +129,7 @@ The raw TCP mock actor in the integration suite must handle `ECONNRESET` and `EP
 
 - Work directly on `main` and push completed changes to `origin/main` after validation.
 - Do not create pull requests or temporary branches unless the user explicitly requests them for a specific change.
-- The current internal-deployment work uses `feature/internal-deployment` because the user explicitly requested a new branch.
+- Use a dedicated feature branch when the user explicitly requests one, as with large packaging and installation changes.
 - Before committing, inspect the exact diff and avoid staging unrelated or sensitive files.
 - Use short, descriptive commit messages and keep the working tree clean after pushing.
 
@@ -172,7 +176,7 @@ The raw TCP mock actor in the integration suite must handle `ECONNRESET` and `EP
 
 - This version has no application authentication or roles. Network reachability equals full operator access.
 - Default Docker binding is localhost. Document private LAN, VPN, firewall, TLS, and authenticated reverse-proxy requirements; never imply that public exposure is safe.
-- Lifecycle helpers must preserve `coralconsole-data` by default. Never put `down -v`, `volume rm`, or volume pruning in ordinary start/stop scripts.
+- Lifecycle helpers operate only on their own installation folder and require its generated `.env`; they never discover or select other CoralConsole installations. They must preserve the Compose-prefixed `coralconsole-data` volume by default. Never put `down -v`, `volume rm`, or volume pruning in ordinary start/stop scripts.
 - Backup helpers must use SQLite's online backup API, verify integrity, avoid copying a live database file directly, and never apply automatic retention deletion.
 - Keep the application’s internal port bound to loopback. The trusted ingress header is an internal handoff and must never be exposed directly to remote clients.
 - Enable `CORAL_TRUST_PROXY` only for a custom non-Compose deployment behind a trusted proxy that overwrites forwarding headers. The reference Compose ingress deliberately ignores those headers and records its TCP peer.

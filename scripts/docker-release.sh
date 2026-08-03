@@ -3,21 +3,15 @@ set -eu
 
 project_dir=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 cd "$project_dir"
+. "$project_dir/scripts/docker-common.sh"
 
-if ! command -v docker >/dev/null 2>&1; then
-  echo "Docker is not installed. Install Docker Desktop or Docker Engine first." >&2
-  exit 1
-fi
+coral_require_environment
+coral_require_docker
 
-if ! docker info >/dev/null 2>&1; then
-  echo "Docker is installed but is not running. Start Docker and try again." >&2
-  exit 1
-fi
-
-echo "Building the production image from the current source..."
+echo "Building the standard image from the current source..."
 docker compose build coralconsole
 docker compose up -d --no-build --wait coralconsole coralconsole-ingress
 docker compose ps coralconsole coralconsole-ingress
 
-echo "Production mode is running from the newly built coralconsole:local image."
-echo "Database storage remains in the coralconsole-data Docker volume."
+echo "Standard mode is running from this installation's newly built local image."
+echo "Database storage remains in this installation's private Docker volume."

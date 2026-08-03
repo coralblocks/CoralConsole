@@ -81,7 +81,100 @@ CSV list of configured actors. Import requires an installation with no actors.
 
 ## Installation
 
-**Under Construction**
+CoralConsole is distributed as source code in a GitHub Release archive. It does
+not publish or download a CoralConsole application image from a Docker
+registry. Each installation builds its own private local image.
+
+1. Download `coralconsole-A.B.C.tar.gz` and
+   `coralconsole-A.B.C.tar.gz.sha256` from the matching GitHub Release.
+2. Verify and extract the archive on the Linux host:
+
+   ```bash
+   sha256sum --check coralconsole-A.B.C.tar.gz.sha256
+   tar -xzf coralconsole-A.B.C.tar.gz
+   cd coralconsole-A.B.C
+   ```
+
+3. Run the installer:
+
+   ```bash
+   ./install.sh
+   ```
+
+The installer requires Docker Engine and Docker Compose v2. It checks Docker,
+suggests available ports, validates every accepted or custom port, creates a
+private configuration for that folder, builds CoralConsole, and starts its
+standard runtime. Defaults are `127.0.0.1` for the bind address, `3000` for the
+web port, and `39000` for the loopback-only application port.
+
+The first build may download the official Node base image and npm dependencies.
+Node.js, npm, Python, and a compiler are not required on the host itself.
+
+To run multiple CoralConsoles on one machine, extract the release separately
+for each installation and choose different public and internal ports. Each
+folder receives its own containers, local images, network, SQLite volume, and
+configuration. Installations on different machines may use the same defaults.
+
+### Runtime modes
+
+Installation builds and starts **standard mode**, the optimized standalone
+server intended for normal operation. After editing source, rebuild and
+relaunch that mode with:
+
+```bash
+./scripts/docker-release.sh
+```
+
+The package also retains an optional **development mode** with source mounts
+and hot reload:
+
+```bash
+./scripts/docker-dev-start.sh
+```
+
+Its development image is built only on first use. Standard and development
+modes are alternatives within one installation: they use the same ports and
+database and are never run simultaneously. Use `./scripts/docker-dev-stop.sh` to
+stop development mode, or `./scripts/docker-release.sh` to build the current
+source and return to standard mode.
+
+CoralConsole has no application authentication. Read
+[DEPLOYMENT.md](./DEPLOYMENT.md) before making it reachable from another
+machine.
+
+## Creating a release
+
+For maintainers, choose the next application version interactively:
+
+```bash
+./scripts/set-version.sh
+```
+
+The command requires a clean `main` branch that exactly matches `origin/main`.
+It then shows the current version, recommends the next patch, offers minor and
+major increments, and accepts a custom `A.B.C` version. For automation or a
+version already decided in advance, pass it directly:
+
+```bash
+./scripts/set-version.sh 1.4.0
+```
+
+After selection, the script updates `package.json` and `package-lock.json`,
+commits them, creates the matching annotated `vA.B.C` tag, and atomically pushes
+both `main` and the tag to `origin`. It aborts before changing files if the
+branch is dirty, ahead of, behind, or diverged from `origin/main`, or if the tag
+already exists.
+
+After the version commit and tag are pushed, run:
+
+```bash
+npm run release:package
+```
+
+This command only creates the source archive and SHA-256 checksum under
+`dist/releases/`. It never creates a GitHub Release, uploads files, pushes a
+tag, or publishes a Docker image. Upload both generated files manually to the
+matching GitHub Release.
 
 ## License
 
