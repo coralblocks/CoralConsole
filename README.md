@@ -67,6 +67,18 @@ one-shot connections and are recorded in the audit history.
 One CoralConsole installation owns one topology and one database. Every browser
 connected to that installation sees the same actors and settings.
 
+## Export and import actors
+
+Export actors from one CoralConsole installation and import them into another:
+
+```bash
+npm run actors:export -- coralconsole-actors.csv
+npm run actors:import -- coralconsole-actors.csv
+```
+
+This is useful when installing a fresh CoralConsole version or keeping a handy
+CSV list of configured actors. Import requires an installation with no actors.
+
 ## Installation
 
 **Under Construction**
