@@ -28,7 +28,7 @@ services:
     labels:
       org.coralconsole.installation: ${COMPOSE_PROJECT_NAME:-coralconsole}
     environment:
-      CORAL_INGRESS_BIND_ADDRESS: ${CORAL_BIND_ADDRESS:-127.0.0.1}
+      CORAL_INGRESS_BIND_ADDRESS: ${CORAL_BIND_ADDRESS:-0.0.0.0}
       CORAL_INGRESS_PORT: ${CORAL_PORT:-3000}
       CORAL_UPSTREAM_HOST: 127.0.0.1
       CORAL_UPSTREAM_PORT: ${CORAL_INTERNAL_PORT:-39000}

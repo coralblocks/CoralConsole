@@ -1,4 +1,4 @@
-const bindAddress = process.env.CORAL_INGRESS_BIND_ADDRESS?.trim() || "127.0.0.1";
+const bindAddress = process.env.CORAL_INGRESS_BIND_ADDRESS?.trim() || "0.0.0.0";
 const host = bindAddress === "0.0.0.0"
   ? "127.0.0.1"
   : bindAddress === "::"

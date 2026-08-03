@@ -159,7 +159,7 @@ find_available_port() {
 }
 
 choose_bind_address() {
-  bind_default=127.0.0.1
+  bind_default=0.0.0.0
   while :; do
     chosen_bind=$(prompt_value "Bind address" "$bind_default")
     if ! valid_bind_address "$chosen_bind"; then
@@ -281,9 +281,10 @@ start_standard_mode() {
 
   docker compose ps coralconsole coralconsole-ingress
   public_endpoint=$(docker compose exec -T coralconsole-ingress node -e '
-    const host = process.env.CORAL_INGRESS_BIND_ADDRESS || "127.0.0.1";
+    const host = process.env.CORAL_INGRESS_BIND_ADDRESS || "0.0.0.0";
     const port = process.env.CORAL_INGRESS_PORT || "3000";
-    process.stdout.write(`${host}:${port}`);
+    const displayHost = host === "0.0.0.0" ? "<server-address>" : host;
+    process.stdout.write(`${displayHost}:${port}`);
   ')
   echo "CoralConsole standard mode is available at http://$public_endpoint"
   echo "Its SQLite database is stored in this installation's private Docker volume."

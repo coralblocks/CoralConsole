@@ -106,8 +106,13 @@ CoralConsole image is published to or downloaded from a Docker registry.
 The installer requires Docker Engine and Docker Compose v2. It checks Docker,
 suggests available ports, validates every accepted or custom port, creates a
 private configuration for that folder, loads the bundled image, and starts its
-standard runtime. Defaults are `127.0.0.1` for the bind address, `3000` for the
+standard runtime. Defaults are `0.0.0.0` for the bind address, `3000` for the
 web port, and `39000` for the loopback-only application port.
+The default bind makes CoralConsole reachable through every IPv4 interface on
+the host and assumes the host is inside a trusted private network. Choose
+`127.0.0.1` during installation when access should be limited to the host, an
+SSH tunnel, or a local reverse proxy. With the default bind, open
+`http://<server-address>:3000` from another machine on the private network.
 
 The package contains the complete source and a prebuilt standard Docker image.
 Installation loads that image locally and performs no application build,

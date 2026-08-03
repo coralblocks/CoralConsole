@@ -117,7 +117,7 @@ case "\${1:-}" in
         exit 0
         ;;
       build|ps|stop) exit 0 ;;
-      exec) printf '127.0.0.1:3000'; exit 0 ;;
+      exec) printf '<server-address>:3000'; exit 0 ;;
     esac
     ;;
 esac
@@ -195,8 +195,10 @@ test("Compose keeps standard and development images private to the generated pro
   assert.equal((compose.match(/network_mode: host/g) || []).length, 2);
   assert.match(compose, /HOSTNAME: 127\.0\.0\.1/);
   assert.match(compose, /PORT: \$\{CORAL_INTERNAL_PORT:-39000\}/);
+  assert.match(compose, /CORAL_INGRESS_BIND_ADDRESS: \$\{CORAL_BIND_ADDRESS:-0\.0\.0\.0\}/);
   assert.doesNotMatch(compose, /ports:/);
   assert.match(installer, /COMPOSE_PROJECT_NAME=\$CORAL_PROJECT_NAME/);
+  assert.match(installer, /bind_default=0\.0\.0\.0/);
   assert.match(installer, /coral_load_release_image/);
   assert.doesNotMatch(installer, /docker compose build/);
   assert.doesNotMatch(installer, /docker compose[^\n]*docker-compose\.dev\.yml[^\n]*build/);
@@ -230,6 +232,8 @@ test("fresh installation folders receive independent Docker namespaces and avail
     assert.match(firstEnvironment.COMPOSE_PROJECT_NAME, /^coralconsole-[0-9a-f]{12}$/);
     assert.match(secondEnvironment.COMPOSE_PROJECT_NAME, /^coralconsole-[0-9a-f]{12}$/);
     assert.notEqual(firstEnvironment.COMPOSE_PROJECT_NAME, secondEnvironment.COMPOSE_PROJECT_NAME);
+    assert.equal(firstEnvironment.CORAL_BIND_ADDRESS, "0.0.0.0");
+    assert.equal(secondEnvironment.CORAL_BIND_ADDRESS, "0.0.0.0");
     assert.equal(firstEnvironment.CORAL_PORT, "3001");
     assert.equal(firstEnvironment.CORAL_INTERNAL_PORT, "39001");
     assert.equal(secondEnvironment.CORAL_PORT, "3000");
@@ -240,8 +244,8 @@ test("fresh installation folders receive independent Docker namespaces and avail
     assert.match(calls, /load --input .*\.coralconsole\/release-image\.tar/);
     assert.match(calls, /tag coralconsole-release:9\.8\.7-linux-amd64 coralconsole-[0-9a-f]{12}:local/);
     assert.match(calls, /run --rm --network host coralconsole-[0-9a-f]{12}:local/);
-    assert.match(calls, /127\.0\.0\.1 3000/);
-    assert.match(calls, /127\.0\.0\.1 3001/);
+    assert.match(calls, /0\.0\.0\.0 3000/);
+    assert.match(calls, /0\.0\.0\.0 3001/);
     assert.doesNotMatch(calls, /compose build/);
     assert.match(calls, /compose up -d --no-build --wait coralconsole coralconsole-ingress/);
     assert.match(first.stdout, /standard mode is available/i);

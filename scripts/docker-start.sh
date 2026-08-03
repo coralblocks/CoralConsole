@@ -23,9 +23,10 @@ fi
 docker compose ps coralconsole coralconsole-ingress
 
 public_endpoint=$(docker compose exec -T coralconsole-ingress node -e '
-  const host = process.env.CORAL_INGRESS_BIND_ADDRESS || "127.0.0.1";
+  const host = process.env.CORAL_INGRESS_BIND_ADDRESS || "0.0.0.0";
   const port = process.env.CORAL_INGRESS_PORT || "3000";
-  process.stdout.write(`${host}:${port}`);
+  const displayHost = host === "0.0.0.0" ? "<server-address>" : host;
+  process.stdout.write(`${displayHost}:${port}`);
 ')
 echo "CoralConsole is available at http://$public_endpoint"
 

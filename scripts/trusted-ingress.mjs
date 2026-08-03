@@ -156,7 +156,7 @@ export function createTrustedIngress({
 }
 
 async function start() {
-  const bindAddress = process.env.CORAL_INGRESS_BIND_ADDRESS?.trim() || "127.0.0.1";
+  const bindAddress = process.env.CORAL_INGRESS_BIND_ADDRESS?.trim() || "0.0.0.0";
   const port = numericPort(process.env.CORAL_INGRESS_PORT, 3_000, "CORAL_INGRESS_PORT");
   const upstreamHost = process.env.CORAL_UPSTREAM_HOST?.trim() || "127.0.0.1";
   const upstreamPort = numericPort(process.env.CORAL_UPSTREAM_PORT, 39_000, "CORAL_UPSTREAM_PORT");
