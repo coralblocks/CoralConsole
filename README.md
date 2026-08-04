@@ -126,7 +126,7 @@ CSV list of configured actors. Import requires an installation with no actors.
 CoralConsole can add either or both of two lightweight protections during
 installation. An ingress allowlist limits connections to selected IPv4 or IPv6
 addresses and CIDR ranges, while an optional shared access key places a simple
-gate in front of every page and API except the health check. Both are off by
+gate in front of every page and API, except the health check. Both are off by
 default.
 
 The access key is shown once by the installer; only its hash is kept in `.env`.
