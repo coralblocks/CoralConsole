@@ -119,7 +119,7 @@ Export actors from one CoralConsole installation and import them into another:
 This is useful when installing a fresh CoralConsole version or keeping a handy
 CSV list of configured actors. Import requires an installation with no actors.
 
-## Network and access protection
+## Network and Access Protection
 
 CoralConsole can add either or both of two lightweight protections during
 installation. An ingress allowlist limits connections to selected IPv4 or IPv6
