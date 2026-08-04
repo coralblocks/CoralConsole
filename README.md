@@ -92,9 +92,6 @@ Docker Engine and Docker Compose v2 are required.
 Follow the prompts to choose the bind address and ports. The defaults make
 CoralConsole available at `http://<server-address>:3000` on the local network.
 
-To run multiple CoralConsoles on one machine, extract the release separately
-for each installation and choose different ports.
-
 ## Operational Scripts
 
 - `./scripts/docker-stop.sh` stops CoralConsole while preserving its database.
