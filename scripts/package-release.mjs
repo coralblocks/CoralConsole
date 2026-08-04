@@ -86,7 +86,7 @@ async function verifyArchive(archivePath, releaseDirectoryName, architecture, re
       "AGENTS.md",
       "LICENSE",
       "scripts/docker-start.sh",
-      "scripts/change_config.sh",
+      "scripts/change-config.sh",
       "scripts/docker-stop.sh",
       "scripts/docker-release.sh",
       "scripts/docker-dev-start.sh",
@@ -126,7 +126,7 @@ async function verifyArchive(archivePath, releaseDirectoryName, architecture, re
     const executablePaths = [
       "install.sh",
       "scripts/docker-start.sh",
-      "scripts/change_config.sh",
+      "scripts/change-config.sh",
       "scripts/docker-stop.sh",
       "scripts/docker-release.sh",
       "scripts/docker-dev-start.sh",

@@ -176,7 +176,7 @@ async function createInstallFolder(path) {
   await cp(join(projectRoot, "install.sh"), join(path, "install.sh"));
   await chmod(join(path, "install.sh"), 0o755);
   await mkdir(join(path, "scripts"), { recursive: true });
-  for (const scriptName of ["docker-common.sh", "docker-start.sh", "change_config.sh"]) {
+  for (const scriptName of ["docker-common.sh", "docker-start.sh", "change-config.sh"]) {
     await cp(join(projectRoot, "scripts", scriptName), join(path, "scripts", scriptName));
     await chmod(join(path, "scripts", scriptName), 0o755);
   }
@@ -218,7 +218,7 @@ function runInstaller(installDirectory, binDirectory, input, extraEnvironment = 
 
 function runConfigEditor(installDirectory, binDirectory, input, extraEnvironment = {}) {
   const logPath = join(installDirectory, "docker-calls.log");
-  const result = spawnSync("/bin/sh", ["./scripts/change_config.sh"], {
+  const result = spawnSync("/bin/sh", ["./scripts/change-config.sh"], {
     cwd: installDirectory,
     input,
     encoding: "utf8",
@@ -341,7 +341,7 @@ test("fresh installation folders receive independent Docker namespaces and avail
     assert.match(first.stdout, /standard mode is available/i);
     assert.match(first.stderr, /0\.0\.0\.0 grants full CoralConsole operator access to the entire network that can reach this port/);
     assert.equal(
-      (first.stderr.match(/you can change it later by editing the \.env file or running \.\/scripts\/change_config\.sh/g) || []).length,
+      (first.stderr.match(/you can change it later by editing the \.env file or running \.\/scripts\/change-config\.sh/g) || []).length,
       5,
     );
   } finally {
@@ -580,7 +580,7 @@ async function createReleaseRepository(root) {
   const executableFiles = [
     "install.sh",
     "scripts/docker-start.sh",
-    "scripts/change_config.sh",
+    "scripts/change-config.sh",
     "scripts/docker-stop.sh",
     "scripts/docker-release.sh",
     "scripts/docker-dev-start.sh",

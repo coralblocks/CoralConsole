@@ -104,7 +104,7 @@ CORAL_ACCESS_KEY_HASH=
 
 Native Linux can bind the ingress to a specific host address as shown above. Docker Desktop host networking cannot bind a container process to a specific host interface; use `CORAL_BIND_ADDRESS=0.0.0.0` there and enforce the intended private-network scope with the host firewall.
 
-Run `./scripts/change_config.sh` to change the bind address, public port, internal loopback port, client allowlist, or shared access-key hash after installation. Each prompt shows the current `.env` value as its default; press Enter to keep it, or enter `-` to clear the optional allowlist or access-key hash. The helper validates the complete configuration, briefly recreates a running standard installation when needed, and leaves a stopped installation stopped. The public and internal ports must remain different.
+Run `./scripts/change-config.sh` to change the bind address, public port, internal loopback port, client allowlist, or shared access-key hash after installation. Each prompt shows the current `.env` value as its default; press Enter to keep it, or enter `-` to clear the optional allowlist or access-key hash. The helper validates the complete configuration, briefly recreates a running standard installation when needed, and leaves a stopped installation stopped. The public and internal ports must remain different.
 
 ## Optional network and access controls
 
