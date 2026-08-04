@@ -103,6 +103,8 @@ async function verifyArchive(archivePath, releaseDirectoryName, architecture, re
       "scripts/actors-import.sh",
       "scripts/migrate.mjs",
       "scripts/package-release.mjs",
+      "scripts/package-local-linux-amd64.sh",
+      "scripts/package-local-linux-arm64.sh",
       "drizzle/meta/_journal.json",
     ];
     for (const relativePath of requiredPaths) {
@@ -136,6 +138,8 @@ async function verifyArchive(archivePath, releaseDirectoryName, architecture, re
       "scripts/docker-dev-logs.sh",
       "scripts/actors-export.sh",
       "scripts/actors-import.sh",
+      "scripts/package-local-linux-amd64.sh",
+      "scripts/package-local-linux-arm64.sh",
     ];
     for (const relativePath of executablePaths) {
       const metadata = await stat(join(releaseRoot, relativePath));
@@ -161,7 +165,9 @@ async function verifyArchive(archivePath, releaseDirectoryName, architecture, re
 
 function usage() {
   process.stdout.write("Usage: npm run release:package -- [amd64|arm64]\n");
+  process.stdout.write("       node scripts/package-release.mjs --local [amd64|arm64]\n");
   process.stdout.write("Omit the architecture to package for the Docker Engine's native architecture.\n");
+  process.stdout.write("Local mode packages a clean committed checkout without requiring a release tag.\n");
 }
 
 let archivePath;
@@ -171,12 +177,15 @@ let removeArchiveOnFailure = false;
 let removeChecksumOnFailure = false;
 
 try {
-  const requestedArgument = process.argv[2];
-  if (requestedArgument === "--help" || requestedArgument === "-h") {
+  const argumentsList = process.argv.slice(2);
+  if (argumentsList.includes("--help") || argumentsList.includes("-h")) {
     usage();
     process.exit(0);
   }
-  if (process.argv.length > 3) throw new Error("Pass at most one target architecture.");
+  const localMode = argumentsList[0] === "--local";
+  const remainingArguments = localMode ? argumentsList.slice(1) : argumentsList;
+  if (remainingArguments.length > 1) throw new Error("Pass at most one target architecture.");
+  const requestedArgument = remainingArguments[0];
 
   requireTool("git");
   requireTool("tar");
@@ -193,20 +202,28 @@ try {
   }
 
   const branch = run("git", ["branch", "--show-current"]);
-  if (branch && branch !== "main") throw new Error(`Release packages must be created from main, not ${branch}.`);
+  if (!localMode && branch && branch !== "main") {
+    throw new Error(`Release packages must be created from main, not ${branch}.`);
+  }
   if (run("git", ["status", "--porcelain", "--untracked-files=all"])) {
-    throw new Error("Release packages require a clean Git worktree, including no untracked files.");
+    throw new Error(`${localMode ? "Local test" : "Release"} packages require a clean Git worktree, including no untracked files.`);
   }
 
-  const tag = `v${version}`;
   const headCommit = run("git", ["rev-parse", "HEAD"]);
-  let tagCommit;
-  try {
-    tagCommit = run("git", ["rev-parse", `${tag}^{commit}`]);
-  } catch {
-    throw new Error(`Required release tag ${tag} does not exist.`);
+  let sourceRef = headCommit;
+  let packageLabel = `${version}-local-${headCommit.slice(0, 12)}`;
+  if (!localMode) {
+    const tag = `v${version}`;
+    let tagCommit;
+    try {
+      tagCommit = run("git", ["rev-parse", `${tag}^{commit}`]);
+    } catch {
+      throw new Error(`Required release tag ${tag} does not exist.`);
+    }
+    if (tagCommit !== headCommit) throw new Error(`Release tag ${tag} does not point to HEAD.`);
+    sourceRef = tag;
+    packageLabel = version;
   }
-  if (tagCommit !== headCommit) throw new Error(`Release tag ${tag} does not point to HEAD.`);
 
   const enginePlatform = run("docker", ["info", "--format", "{{.OSType}}/{{.Architecture}}"]);
   const [engineOs, engineArchitectureValue] = enginePlatform.split("/");
@@ -217,11 +234,11 @@ try {
     throw new Error(`Unsupported release architecture '${architecture}'. Choose amd64 or arm64.`);
   }
   if (architecture !== engineArchitecture) {
-    throw new Error(`Cross-architecture release builds are not supported. Use a native Linux ${architecture} Docker Engine or the GitHub Release Packages workflow.`);
+    throw new Error(`Cross-architecture package builds are not supported. Use a native Linux ${architecture} Docker Engine${localMode ? " or connect this script to one with a remote Docker context" : " or the GitHub Release Packages workflow"}.`);
   }
 
-  const outputDirectory = join(projectRoot, "dist", "releases");
-  const releaseDirectoryName = `coralconsole-${version}`;
+  const outputDirectory = join(projectRoot, "dist", localMode ? "local-packages" : "releases");
+  const releaseDirectoryName = `coralconsole-${packageLabel}`;
   const archiveName = `${releaseDirectoryName}-linux-${architecture}.tar.gz`;
   archivePath = join(outputDirectory, archiveName);
   checksumPath = `${archivePath}.sha256`;
@@ -235,8 +252,8 @@ try {
     });
   }
 
-  const releaseImage = `coralconsole-release:${version}-linux-${architecture}`;
-  process.stdout.write(`Building ${releaseImage} from the tagged source...\n`);
+  const releaseImage = `coralconsole-release:${packageLabel}-linux-${architecture}`;
+  process.stdout.write(`Building ${releaseImage} from ${localMode ? `committed source ${headCommit.slice(0, 12)}` : "the tagged source"}...\n`);
   run("docker", [
     "build",
     "--network", "host",
@@ -256,7 +273,7 @@ try {
     "--format=tar",
     `--prefix=${releaseDirectoryName}/`,
     `--output=${sourceArchive}`,
-    tag,
+    sourceRef,
   ]);
   run("tar", ["-xf", sourceArchive, "-C", stagingRoot]);
   await rm(sourceArchive, { force: true });
@@ -281,7 +298,9 @@ try {
 
   process.stdout.write(`Created ${archivePath}\n`);
   process.stdout.write(`Created ${checksumPath}\n`);
-  process.stdout.write("Upload both files to the matching GitHub Release. No Docker registry was used.\n");
+  process.stdout.write(localMode
+    ? "Upload both files directly to the matching Linux test server. This is a local test package, not a release asset.\n"
+    : "Upload both files to the matching GitHub Release. No Docker registry was used.\n");
 } catch (error) {
   if (removeArchiveOnFailure && archivePath) await rm(archivePath, { force: true });
   if (removeChecksumOnFailure && checksumPath) await rm(checksumPath, { force: true });

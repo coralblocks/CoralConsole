@@ -39,6 +39,32 @@ CoralConsole images are never pulled from or pushed to a Docker registry. The re
 
 Maintainers do not cross-compile these images. A tag-triggered GitHub Actions workflow builds the AMD64 and ARM64 packages on matching native Linux runners and creates a draft GitHub Release for review and publication.
 
+### Build a local test package without GitHub
+
+A Git tag and GitHub Release are not required for server testing. From a clean committed checkout on a contributor workstation, run one of:
+
+```bash
+./scripts/package-local-linux-arm64.sh
+./scripts/package-local-linux-amd64.sh
+```
+
+The requested architecture must match the connected Docker Engine's native Linux architecture. This is intentional: the image contains architecture-specific native modules, so QEMU/buildx emulation is not accepted for installable packages. To produce both files, run the ARM64 script against a native ARM64 Docker Engine and the AMD64 script against a native AMD64 Docker Engine. Docker contexts and `DOCKER_HOST` are supported by the Docker CLI, so the second engine may be remote; for example:
+
+```bash
+DOCKER_HOST=ssh://builder@amd64-builder ./scripts/package-local-linux-amd64.sh
+```
+
+Local packages are written to `dist/local-packages/` with the application version and current 12-character Git commit in the filename, for example `coralconsole-1.5.4-local-37aa29f12345-linux-arm64.tar.gz`. The packager also creates the matching `.sha256`, embeds the complete committed source and prebuilt image, verifies the archive, excludes local state, and refuses to overwrite an existing output. These artifacts are deliberately labeled as local tests and are not GitHub Release assets.
+
+Upload the archive and checksum to the matching test server, then use the normal installation flow:
+
+```bash
+sha256sum --check coralconsole-1.5.4-local-37aa29f12345-linux-arm64.tar.gz.sha256
+tar -xzf coralconsole-1.5.4-local-37aa29f12345-linux-arm64.tar.gz
+cd coralconsole-1.5.4-local-37aa29f12345
+./install.sh
+```
+
 ## Folder-local lifecycle
 
 Every command below operates only on the installation folder containing it:

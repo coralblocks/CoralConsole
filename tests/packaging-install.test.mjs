@@ -251,6 +251,19 @@ test("Compose keeps standard and development images private to the generated pro
   assert.doesNotMatch(releaseWorkflow, /docker (?:push|login)/);
 });
 
+test("local Linux package wrappers select their native architecture", async () => {
+  const [amd64Script, arm64Script, amd64Metadata, arm64Metadata] = await Promise.all([
+    readFile(join(projectRoot, "scripts/package-local-linux-amd64.sh"), "utf8"),
+    readFile(join(projectRoot, "scripts/package-local-linux-arm64.sh"), "utf8"),
+    stat(join(projectRoot, "scripts/package-local-linux-amd64.sh")),
+    stat(join(projectRoot, "scripts/package-local-linux-arm64.sh")),
+  ]);
+  assert.match(amd64Script, /package-release\.mjs --local amd64/);
+  assert.match(arm64Script, /package-release\.mjs --local arm64/);
+  assert.notEqual(amd64Metadata.mode & 0o111, 0);
+  assert.notEqual(arm64Metadata.mode & 0o111, 0);
+});
+
 test("fresh installation folders receive independent Docker namespaces and available port defaults", async () => {
   const root = await mkdtemp(join(tmpdir(), "coralconsole-install-test-"));
   try {
@@ -457,6 +470,8 @@ async function createReleaseRepository(root) {
     "scripts/docker-dev-logs.sh",
     "scripts/actors-export.sh",
     "scripts/actors-import.sh",
+    "scripts/package-local-linux-amd64.sh",
+    "scripts/package-local-linux-arm64.sh",
   ];
 
   for (const [relativePath, contents] of files) {
@@ -557,7 +572,7 @@ test("release packaging embeds a prebuilt architecture-specific image and checks
       },
     });
     assert.notEqual(crossArchitectureResult.status, 0);
-    assert.match(crossArchitectureResult.stderr, /Cross-architecture release builds are not supported/);
+    assert.match(crossArchitectureResult.stderr, /Cross-architecture package builds are not supported/);
     await assert.rejects(
       readFile(join(root, "dist", "releases", "coralconsole-9.8.7-linux-arm64.tar.gz")),
       /ENOENT/,
@@ -613,6 +628,61 @@ test("release packaging accepts the detached tagged checkout used by GitHub Acti
       (await stat(join(root, "dist", "releases", "coralconsole-9.8.7-linux-amd64.tar.gz"))).isFile(),
       true,
     );
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("local Linux packaging creates an installable commit-labeled archive without a release tag", async () => {
+  const root = await mkdtemp(join(tmpdir(), "coralconsole-package-local-"));
+  try {
+    const { fakeBin, logPath } = await createReleaseRepository(root);
+    execFileSync("git", ["tag", "-d", "v9.8.7"], { cwd: root, stdio: "ignore" });
+    execFileSync("git", ["switch", "-c", "local-package-test"], { cwd: root, stdio: "ignore" });
+    const commit = execFileSync("git", ["rev-parse", "--short=12", "HEAD"], { cwd: root, encoding: "utf8" }).trim();
+
+    const result = spawnSync(process.execPath, ["scripts/package-release.mjs", "--local", "amd64"], {
+      cwd: root,
+      encoding: "utf8",
+      env: {
+        ...process.env,
+        PATH: `${fakeBin}:${process.env.PATH}`,
+        FAKE_RELEASE_DOCKER_LOG: logPath,
+      },
+    });
+    assert.equal(result.status, 0, result.stderr);
+    assert.match(result.stdout, /local test package, not a release asset/i);
+
+    const packageLabel = `9.8.7-local-${commit}`;
+    const archivePath = join(root, "dist", "local-packages", `coralconsole-${packageLabel}-linux-amd64.tar.gz`);
+    const checksumPath = `${archivePath}.sha256`;
+    const archive = await readFile(archivePath);
+    const checksum = createHash("sha256").update(archive).digest("hex");
+    assert.equal(await readFile(checksumPath, "utf8"), `${checksum}  ${basename(archivePath)}\n`);
+
+    const listing = execFileSync("tar", ["-tzf", archivePath], { encoding: "utf8" });
+    assert.match(listing, new RegExp(`^coralconsole-${packageLabel}/install\\.sh$`, "m"));
+    assert.match(listing, new RegExp(`^coralconsole-${packageLabel}/\\.coralconsole/release-image\\.tar$`, "m"));
+    assert.match(listing, new RegExp(`^coralconsole-${packageLabel}/scripts/package-local-linux-amd64\\.sh$`, "m"));
+    assert.doesNotMatch(listing, /(?:^|\/)\.env$/m);
+
+    const dockerCalls = await readFile(logPath, "utf8");
+    assert.match(
+      dockerCalls,
+      new RegExp(`build --network host --platform linux/amd64 --tag coralconsole-release:${packageLabel}-linux-amd64 \\.`),
+    );
+
+    await writeFile(join(root, "README.md"), "dirty local package\n");
+    const dirtyResult = spawnSync(process.execPath, ["scripts/package-release.mjs", "--local", "amd64"], {
+      cwd: root,
+      encoding: "utf8",
+      env: {
+        ...process.env,
+        PATH: `${fakeBin}:${process.env.PATH}`,
+      },
+    });
+    assert.notEqual(dirtyResult.status, 0);
+    assert.match(dirtyResult.stderr, /Local test packages require a clean Git worktree/);
   } finally {
     await rm(root, { recursive: true, force: true });
   }
