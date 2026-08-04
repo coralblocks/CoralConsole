@@ -531,9 +531,9 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .actor-list-table thead { background: color-mix(in srgb, var(--actor-soft) 62%, white); }
 .actor-list-table th { color: color-mix(in srgb, var(--actor-color) 54%, var(--ink)); font-family: var(--font-plex-mono), monospace; font-size: 13px; font-weight: 800; letter-spacing: .08em; padding: 15px 12px; text-align: left; text-transform: uppercase; }
 .actor-list-col-name { width: 14%; }
-.actor-list-col-class { width: auto; }
-.actor-list-col-host { width: 17ch; }
-.actor-list-col-port { width: 8ch; }
+.actor-list-col-class { width: 26%; }
+.actor-list-col-host { width: 15%; }
+.actor-list-col-port { width: 9%; }
 .actor-list-col-status { width: 12%; }
 .actor-list-col-edit { width: 142px; }
 .actor-list-col-remove { width: 88px; }
@@ -570,6 +570,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 @media (max-width: 1000px) {
   .actor-list-main { padding-inline: clamp(18px, 3vw, 30px); }
   .actor-list-title > p:last-child { font-size: 11px; }
+  .actor-list-col-class { width: 23%; }
   .actor-list-table th { font-size: 12px; padding: 12px 7px; white-space: nowrap; }
   .actor-list-table td { font-size: 12px; padding: 9px 7px; }
   .actor-list-table code, .actor-list-table input { font-size: 11px; }
@@ -1057,8 +1058,6 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   .actor-list-notice { border-radius: 13px; font-size: 15px; padding: 15px 19px; }
   .actor-list-table-wrap { border-radius: 19px; margin: 0 16px 16px; }
   .actor-list-table th { font-size: 16px; padding: 20px 16px; }
-  .actor-list-col-host { width: 19ch; }
-  .actor-list-col-port { width: 9ch; }
   .actor-list-col-edit { width: 185px; }
   .actor-list-col-remove { width: 118px; }
   .actor-list-table th:first-child, .actor-list-table td:first-child { padding-left: 40px; }
