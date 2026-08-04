@@ -95,27 +95,6 @@ CoralConsole available at `http://<server-address>:3000` on the local network.
 To run multiple CoralConsoles on one machine, extract the release separately
 for each installation and choose different ports.
 
-## Local Test Packages
-
-You can build the same self-contained Linux package format without creating a
-Git tag or GitHub Release. From a clean committed checkout, run the script that
-matches the connected Docker Engine:
-
-```bash
-./scripts/package-local-linux-arm64.sh
-./scripts/package-local-linux-amd64.sh
-```
-
-Each script writes a commit-labeled `.tar.gz` and SHA-256 checksum under
-`dist/local-packages/`. Upload both files to the matching Linux test server,
-verify the checksum, extract the archive, and run `./install.sh` normally.
-
-Packages are built only on a native Linux Docker Engine of the requested
-architecture because CoralConsole contains native dependencies. An ARM64
-workstation can build the ARM64 package directly; use an AMD64 workstation,
-server, or remote Docker context for the AMD64 package. The scripts stop with a
-clear error instead of using cross-architecture emulation.
-
 ## Operational Scripts
 
 - `./scripts/docker-stop.sh` stops CoralConsole while preserving its database.
