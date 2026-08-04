@@ -125,21 +125,11 @@ CoralConsole can add either or both of two lightweight protections during
 installation. An ingress allowlist limits connections to selected IPv4 or IPv6
 addresses and CIDR ranges, while an optional shared access key places a simple
 gate in front of every page and API except the health check. Both are off by
-default, so existing private-network installations continue to behave as they
-do today.
+default.
 
 The access key is shown once by the installer; only its hash is kept in `.env`.
-It creates a signed, HttpOnly browser session and is shared by all operators—no
-usernames or roles are involved. The audit log therefore continues to record
-source IP rather than a user identity.
-
-These controls complement normal network practices. An allowlist identifies a
-network peer, not a person, and NAT, proxies, DHCP, IPv6 privacy addresses, or
-Docker Desktop networking can change the address CoralConsole sees. Use HTTPS
-at a reverse proxy if the shared key crosses anything other than a trusted
-private segment; plain HTTP does not encrypt it. Per-user attribution would
-still require a future user-authentication system. See
-[DEPLOYMENT.md](DEPLOYMENT.md) for configuration details.
+It creates a signed, HttpOnly browser session and is shared by all operators. No
+usernames or roles are involved. The audit log records the source IP of the requests.
 
 ## License
 
