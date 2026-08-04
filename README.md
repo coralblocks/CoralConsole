@@ -100,6 +100,8 @@ for each installation and choose different ports.
 - `./scripts/docker-stop.sh` stops CoralConsole while preserving its database.
 - `./scripts/docker-start.sh` starts CoralConsole from the existing local image
   without rebuilding it.
+- `./scripts/change_config.sh` updates the installed network and access settings,
+  using the current `.env` values as defaults.
 - `./scripts/build-site.sh` builds the current source into the local image
   without starting, stopping, or replacing the running containers.
 - `./scripts/docker-release.sh` builds the current source and deploys the new

@@ -118,6 +118,7 @@ Contributor and maintainer commands below run only on a supported development wo
 Installed-server commands require Docker Engine and Docker Compose only; they must never launch host Node.js or npm:
 
 - `./install.sh` — validate a native Linux Docker host and matching release asset, load its prebuilt image, create this folder's private configuration, suggest and validate ports, and start CoralConsole without a registry pull or application build.
+- `./scripts/change_config.sh` — interactively update the installed bind address, public/internal ports, client allowlist, and shared access-key hash using current `.env` values as defaults; validate changes before atomically replacing `.env`, recreate running standard containers, and leave a stopped installation stopped.
 - `./scripts/actors-export.sh [output.csv]` — export the running Compose installation's actor identities and per-kind order to a new host CSV while Node runs inside the application container.
 - `./scripts/actors-import.sh <input.csv>` — import a validated actor CSV into a running Compose installation only when its actors table is empty, with validation and database access inside the application container.
 - `./scripts/docker-start.sh` / `./scripts/docker-stop.sh` / `./scripts/docker-restart.sh` — start, stop, or restart the reference containers while preserving the named volume.

@@ -123,10 +123,16 @@ case "\${1:-}" in
     exit 0
     ;;
   compose)
-    case "\${2:-}" in
+    compose_command=\${2:-}
+    compose_option=\${3:-}
+    if [ "$compose_command" = "--env-file" ]; then
+      compose_command=\${4:-}
+      compose_option=\${5:-}
+    fi
+    case "$compose_command" in
       version) echo "Docker Compose version v2.30.0"; exit 0 ;;
       config)
-        case "\${3:-}" in
+        case "$compose_option" in
           --images) echo "fake-coralconsole:local" ;;
           --quiet) ;;
           --environment) sed -n '/^COMPOSE_PROJECT_NAME=/p' .env ;;
@@ -144,7 +150,15 @@ case "\${1:-}" in
         fi
         exit 0
         ;;
-      build|ps|stop) exit 0 ;;
+      ps)
+        case "$*" in
+          *--status*running*-q*)
+            if [ -n "\${FAKE_INSTALL_RUNNING:-}" ]; then echo "running-coralconsole"; fi
+            ;;
+        esac
+        exit 0
+        ;;
+      build|stop) exit 0 ;;
       exec) printf '<server-address>:3000'; exit 0 ;;
     esac
     ;;
@@ -162,7 +176,10 @@ async function createInstallFolder(path) {
   await cp(join(projectRoot, "install.sh"), join(path, "install.sh"));
   await chmod(join(path, "install.sh"), 0o755);
   await mkdir(join(path, "scripts"), { recursive: true });
-  await cp(join(projectRoot, "scripts/docker-common.sh"), join(path, "scripts/docker-common.sh"));
+  for (const scriptName of ["docker-common.sh", "docker-start.sh", "change_config.sh"]) {
+    await cp(join(projectRoot, "scripts", scriptName), join(path, "scripts", scriptName));
+    await chmod(join(path, "scripts", scriptName), 0o755);
+  }
   await mkdir(join(path, ".coralconsole"), { recursive: true });
   await Promise.all([
     writeFile(join(path, ".coralconsole", "release-image.tar"), "fake image\n"),
@@ -184,6 +201,24 @@ async function createInstallFolder(path) {
 function runInstaller(installDirectory, binDirectory, input, extraEnvironment = {}) {
   const logPath = join(installDirectory, "docker-calls.log");
   const result = spawnSync("/bin/sh", ["./install.sh"], {
+    cwd: installDirectory,
+    input,
+    encoding: "utf8",
+    env: {
+      ...process.env,
+      ...extraEnvironment,
+      PATH: `${binDirectory}:${process.env.PATH}`,
+      FAKE_DOCKER_LOG: logPath,
+      FAKE_DOCKER_IMAGE_STATE: join(dirname(binDirectory), "fake-image-state"),
+      FAKE_VOLUME_STATE: join(dirname(binDirectory), "fake-volume-state"),
+    },
+  });
+  return { ...result, logPath };
+}
+
+function runConfigEditor(installDirectory, binDirectory, input, extraEnvironment = {}) {
+  const logPath = join(installDirectory, "docker-calls.log");
+  const result = spawnSync("/bin/sh", ["./scripts/change_config.sh"], {
     cwd: installDirectory,
     input,
     encoding: "utf8",
@@ -305,6 +340,10 @@ test("fresh installation folders receive independent Docker namespaces and avail
     assert.match(calls, /compose up -d --no-build --wait coralconsole coralconsole-ingress/);
     assert.match(first.stdout, /standard mode is available/i);
     assert.match(first.stderr, /0\.0\.0\.0 grants full CoralConsole operator access to the entire network that can reach this port/);
+    assert.equal(
+      (first.stderr.match(/you can change it later by editing the \.env file or running \.\/scripts\/change_config\.sh/g) || []).length,
+      5,
+    );
   } finally {
     await rm(root, { recursive: true, force: true });
   }
@@ -335,6 +374,90 @@ test("installer can independently configure a client allowlist and generated acc
     const calls = await readFile(result.logPath, "utf8");
     assert.match(calls, /CORAL_ALLOWED_CLIENTS=127\.0\.0\.1,10\.20\.0\.0\/16,2001:db8::\/32/);
     assert.match(calls, /scripts\/hash-access-key\.mjs/);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("configuration editor uses current defaults, applies all supported values, and safely clears optional controls", async () => {
+  const root = await mkdtemp(join(tmpdir(), "coralconsole-change-config-"));
+  try {
+    const binDirectory = await createFakeDockerBin(root);
+    const installDirectory = join(root, "coralconsole");
+    await createInstallFolder(installDirectory);
+
+    const installed = runInstaller(installDirectory, binDirectory, "\n\n\n\n\n");
+    assert.equal(installed.status, 0, installed.stderr);
+    const originalEnvironment = await readFile(join(installDirectory, ".env"), "utf8");
+    await writeFile(installed.logPath, "");
+
+    const unchanged = runConfigEditor(
+      installDirectory,
+      binDirectory,
+      "\n\n\n\n\n",
+      { FAKE_INSTALL_RUNNING: "1" },
+    );
+    assert.equal(unchanged.status, 0, unchanged.stderr);
+    assert.match(unchanged.stderr, /Bind address \[0\.0\.0\.0\]:/);
+    assert.match(unchanged.stderr, /Public web port \[3000\]:/);
+    assert.match(unchanged.stderr, /Internal loopback port \[39000\]:/);
+    assert.match(unchanged.stdout, /No configuration changes were requested/);
+    assert.equal(await readFile(join(installDirectory, ".env"), "utf8"), originalEnvironment);
+    assert.doesNotMatch(await readFile(unchanged.logPath, "utf8"), /compose up/);
+
+    await writeFile(unchanged.logPath, "");
+    const changed = runConfigEditor(
+      installDirectory,
+      binDirectory,
+      "127.0.0.1\n4100\n39100\n10.20.0.0/16, 2001:db8::/32\ngenerate\n",
+      { FAKE_INSTALL_RUNNING: "1" },
+    );
+    assert.equal(changed.status, 0, changed.stderr);
+    const changedEnvironment = parseEnvironment(await readFile(join(installDirectory, ".env"), "utf8"));
+    assert.equal(changedEnvironment.CORAL_BIND_ADDRESS, "127.0.0.1");
+    assert.equal(changedEnvironment.CORAL_PORT, "4100");
+    assert.equal(changedEnvironment.CORAL_INTERNAL_PORT, "39100");
+    assert.equal(changedEnvironment.CORAL_ALLOWED_CLIENTS, "10.20.0.0/16,2001:db8::/32");
+    assert.equal(changedEnvironment.CORAL_ACCESS_KEY_HASH, "a".repeat(64));
+    assert.equal(changedEnvironment.CORAL_TRUST_PROXY, "false");
+    assert.match(changed.stdout, /shared access key \(shown once\)/i);
+    assert.match(changed.stdout, /\n[0-9a-f]{64}\n/);
+    assert.equal((await stat(join(installDirectory, ".env"))).mode & 0o777, 0o600);
+    const changedCalls = await readFile(changed.logPath, "utf8");
+    assert.match(changedCalls, /compose stop coralconsole-ingress coralconsole/);
+    assert.match(changedCalls, /127\.0\.0\.1 4100/);
+    assert.match(changedCalls, /127\.0\.0\.1 39100/);
+    assert.match(changedCalls, /compose up -d --no-build --wait coralconsole coralconsole-ingress/);
+
+    await writeFile(changed.logPath, "");
+    const cleared = runConfigEditor(
+      installDirectory,
+      binDirectory,
+      "\n\n\n-\n-\n",
+      { FAKE_INSTALL_RUNNING: "1" },
+    );
+    assert.equal(cleared.status, 0, cleared.stderr);
+    const clearedEnvironment = parseEnvironment(await readFile(join(installDirectory, ".env"), "utf8"));
+    assert.equal(clearedEnvironment.CORAL_ALLOWED_CLIENTS, "");
+    assert.equal(clearedEnvironment.CORAL_ACCESS_KEY_HASH, "");
+    const clearedCalls = await readFile(cleared.logPath, "utf8");
+    assert.doesNotMatch(clearedCalls, /compose stop/);
+    assert.match(clearedCalls, /compose up -d --no-build --wait coralconsole coralconsole-ingress/);
+
+    const environmentBeforeRejectedChange = await readFile(join(installDirectory, ".env"), "utf8");
+    await writeFile(cleared.logPath, "");
+    const rejected = runConfigEditor(
+      installDirectory,
+      binDirectory,
+      "\n4200\n\n\n\n",
+      { FAKE_BUSY_PORTS: "4200", FAKE_INSTALL_RUNNING: "1" },
+    );
+    assert.notEqual(rejected.status, 0);
+    assert.match(rejected.stderr, /Public port 4200 is already in use/);
+    assert.equal(await readFile(join(installDirectory, ".env"), "utf8"), environmentBeforeRejectedChange);
+    const rejectedCalls = await readFile(rejected.logPath, "utf8");
+    assert.match(rejectedCalls, /compose stop coralconsole-ingress coralconsole/);
+    assert.match(rejectedCalls, /compose up -d --no-build --wait coralconsole coralconsole-ingress/);
   } finally {
     await rm(root, { recursive: true, force: true });
   }
@@ -457,6 +580,7 @@ async function createReleaseRepository(root) {
   const executableFiles = [
     "install.sh",
     "scripts/docker-start.sh",
+    "scripts/change_config.sh",
     "scripts/docker-stop.sh",
     "scripts/docker-release.sh",
     "scripts/docker-dev-start.sh",

@@ -64,7 +64,7 @@ check_prerequisites() {
     fail "The selected Docker Engine must run Linux containers."
   fi
 
-  for required_file in Dockerfile Dockerfile.dev docker-compose.yml docker-compose.dev.yml package.json package-lock.json scripts/docker-common.sh; do
+  for required_file in Dockerfile Dockerfile.dev docker-compose.yml docker-compose.dev.yml package.json package-lock.json scripts/docker-common.sh scripts/change_config.sh; do
     if [ ! -f "$required_file" ]; then
       fail "This release is incomplete: $required_file is missing. Extract a fresh CoralConsole release archive."
     fi
@@ -75,7 +75,7 @@ check_prerequisites() {
 prompt_value() {
   label=$1
   default_value=$2
-  printf '%s [%s]: ' "$label" "$default_value" >&2
+  printf '%s [%s] (you can change it later by editing the .env file or running ./scripts/change_config.sh): ' "$label" "$default_value" >&2
   IFS= read -r entered_value || entered_value=
   if [ -n "$entered_value" ]; then
     printf '%s\n' "$entered_value"
@@ -208,7 +208,7 @@ validate_allowed_clients() {
 
 choose_allowed_clients() {
   CORAL_CHOSEN_ALLOWED_CLIENTS=
-  if ! prompt_yes_no "Configure an IP/CIDR client allowlist"; then
+  if ! prompt_yes_no "Configure an IP/CIDR client allowlist (you can change it later by editing the .env file or running ./scripts/change_config.sh)"; then
     return 0
   fi
 
@@ -231,7 +231,7 @@ choose_allowed_clients() {
 choose_access_key() {
   CORAL_CHOSEN_ACCESS_KEY_HASH=
   CORAL_GENERATED_ACCESS_KEY=
-  if ! prompt_yes_no "Generate a random shared access key"; then
+  if ! prompt_yes_no "Generate a random shared access key (you can change it later by editing the .env file or running ./scripts/change_config.sh)"; then
     return 0
   fi
 
