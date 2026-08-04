@@ -31,7 +31,13 @@ export function mutationAllowed(request: Request) {
     const requestUrl = new URL(request.url);
     const expectedHost = request.headers.get("x-forwarded-host") || request.headers.get("host") || requestUrl.host;
     const expectedProtocol = request.headers.get("x-forwarded-proto") || requestUrl.protocol.replace(":", "");
-    return originUrl.host === expectedHost && originUrl.protocol === `${expectedProtocol}:`;
+    const protocolMatches = originUrl.protocol === `${expectedProtocol}:`
+      || (
+        process.env.CORAL_TRUSTED_INGRESS === "true"
+        && expectedProtocol === "http"
+        && originUrl.protocol === "https:"
+      );
+    return originUrl.host === expectedHost && protocolMatches;
   } catch {
     return false;
   }

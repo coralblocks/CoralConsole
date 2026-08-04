@@ -39,6 +39,20 @@ button, input, select { font: inherit; }
 button, a { -webkit-tap-highlight-color: transparent; }
 button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible { outline: 3px solid rgba(36, 200, 192, 0.38); outline-offset: 2px; }
 
+.access-gate-shell { align-items: center; display: flex; justify-content: center; min-height: 100vh; padding: 32px 20px; }
+.access-gate-card { background: rgba(255, 254, 249, .96); border: 1px solid rgba(16, 43, 38, .12); border-radius: 22px; box-shadow: var(--shadow); display: grid; gap: 26px; max-width: 460px; padding: 34px; width: 100%; }
+.access-gate-card .brand { pointer-events: none; }
+.access-gate-icon { align-items: center; background: var(--coral-soft); border: 1px solid color-mix(in srgb, var(--coral) 25%, transparent); border-radius: 16px; color: #a43e37; display: flex; height: 58px; justify-content: center; width: 58px; }
+.access-gate-icon svg { height: 28px; width: 28px; }
+.access-gate-card .eyebrow { margin-bottom: 8px; }
+.access-gate-card h1 { font-size: 30px; letter-spacing: -.045em; line-height: 1.05; margin: 0; }
+.access-gate-copy { color: var(--muted); font-size: 14px; line-height: 1.55; margin: 12px 0 0; }
+.access-gate-form { display: grid; gap: 10px; }
+.access-gate-form label { color: var(--ink); font-family: var(--font-plex-mono), monospace; font-size: 10px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+.access-gate-form input { background: white; border: 1px solid var(--line); border-radius: 10px; color: var(--ink); min-height: 48px; padding: 0 13px; width: 100%; }
+.access-gate-feedback { color: #a43e37; font-size: 12px; min-height: 18px; }
+.access-gate-form .button svg { height: 17px; width: 17px; }
+
 .console-shell {
   background:
     radial-gradient(circle at 4% 0%, color-mix(in srgb, var(--topology-color, var(--paper)) 21%, transparent), transparent 27rem),

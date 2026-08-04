@@ -99,6 +99,12 @@ case "\${1:-}" in
     ;;
   tag) exit 0 ;;
   run)
+    case "$*" in
+      *scripts/hash-access-key.mjs*)
+        echo "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        exit 0
+        ;;
+    esac
     previous=
     last=
     for argument in "$@"; do
@@ -223,6 +229,8 @@ test("Compose keeps standard and development images private to the generated pro
   assert.match(compose, /HOSTNAME: 127\.0\.0\.1/);
   assert.match(compose, /PORT: \$\{CORAL_INTERNAL_PORT:-39000\}/);
   assert.match(compose, /CORAL_INGRESS_BIND_ADDRESS: \$\{CORAL_BIND_ADDRESS:-0\.0\.0\.0\}/);
+  assert.match(compose, /CORAL_ALLOWED_CLIENTS: \$\{CORAL_ALLOWED_CLIENTS:-\}/);
+  assert.match(compose, /CORAL_ACCESS_KEY_HASH: \$\{CORAL_ACCESS_KEY_HASH:-\}/);
   assert.doesNotMatch(compose, /ports:/);
   assert.match(installer, /COMPOSE_PROJECT_NAME=\$CORAL_PROJECT_NAME/);
   assert.match(installer, /bind_default=0\.0\.0\.0/);
@@ -267,6 +275,8 @@ test("fresh installation folders receive independent Docker namespaces and avail
     assert.equal(secondEnvironment.CORAL_BIND_ADDRESS, "0.0.0.0");
     assert.equal(firstEnvironment.CORAL_PORT, "3001");
     assert.equal(firstEnvironment.CORAL_INTERNAL_PORT, "39001");
+    assert.equal(firstEnvironment.CORAL_ALLOWED_CLIENTS, "");
+    assert.equal(firstEnvironment.CORAL_ACCESS_KEY_HASH, "");
     assert.equal(secondEnvironment.CORAL_PORT, "3000");
     assert.equal(secondEnvironment.CORAL_INTERNAL_PORT, "39000");
     assert.equal((await stat(join(firstDirectory, ".env"))).mode & 0o777, 0o600);
@@ -281,6 +291,37 @@ test("fresh installation folders receive independent Docker namespaces and avail
     assert.doesNotMatch(calls, /compose build/);
     assert.match(calls, /compose up -d --no-build --wait coralconsole coralconsole-ingress/);
     assert.match(first.stdout, /standard mode is available/i);
+    assert.match(first.stderr, /0\.0\.0\.0 grants full CoralConsole operator access to the entire network that can reach this port/);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("installer can independently configure a client allowlist and generated access key", async () => {
+  const root = await mkdtemp(join(tmpdir(), "coralconsole-install-security-"));
+  try {
+    const binDirectory = await createFakeDockerBin(root);
+    const installDirectory = join(root, "coralconsole");
+    await createInstallFolder(installDirectory);
+
+    const result = runInstaller(
+      installDirectory,
+      binDirectory,
+      "\n\n\ny\n127.0.0.1, 10.20.0.0/16, 2001:db8::/32\ny\n",
+    );
+    assert.equal(result.status, 0, result.stderr);
+    const environmentSource = await readFile(join(installDirectory, ".env"), "utf8");
+    const environment = parseEnvironment(environmentSource);
+    assert.equal(environment.CORAL_ALLOWED_CLIENTS, "127.0.0.1,10.20.0.0/16,2001:db8::/32");
+    assert.equal(environment.CORAL_ACCESS_KEY_HASH, "a".repeat(64));
+    assert.doesNotMatch(environmentSource, /CORAL_GENERATED_ACCESS_KEY/);
+    assert.match(result.stdout, /shared access key \(shown once\)/i);
+    assert.match(result.stdout, /\n[0-9a-f]{64}\n/);
+    assert.match(result.stdout, /Only its hash was written to \.env/);
+
+    const calls = await readFile(result.logPath, "utf8");
+    assert.match(calls, /CORAL_ALLOWED_CLIENTS=127\.0\.0\.1,10\.20\.0\.0\/16,2001:db8::\/32/);
+    assert.match(calls, /scripts\/hash-access-key\.mjs/);
   } finally {
     await rm(root, { recursive: true, force: true });
   }

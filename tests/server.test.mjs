@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
@@ -236,13 +237,14 @@ async function startMockActorServer(initialActorAccounts = ["SEQ"], reportedName
   };
 }
 
-async function startServer(databasePath, port) {
+async function startServer(databasePath, port, { accessKeyHash = "" } = {}) {
   const upstreamPort = await availablePort();
   const child = spawn(process.execPath, [join(projectRoot, ".next/standalone/server.js")], {
     cwd: projectRoot,
     env: {
       ...process.env,
       DATABASE_PATH: databasePath,
+      CORAL_ACCESS_KEY_HASH: accessKeyHash,
       CORAL_TRUSTED_INGRESS: "true",
       HOSTNAME: "127.0.0.1",
       PORT: String(upstreamPort),
@@ -280,6 +282,7 @@ async function startServer(databasePath, port) {
       CORAL_INGRESS_PORT: String(port),
       CORAL_UPSTREAM_HOST: "127.0.0.1",
       CORAL_UPSTREAM_PORT: String(upstreamPort),
+      CORAL_ALLOWED_CLIENTS: "",
     },
     stdio: ["ignore", "pipe", "pipe"],
   });
@@ -303,6 +306,142 @@ async function startServer(databasePath, port) {
   child.kill("SIGTERM");
   throw new Error(`Trusted ingress did not become ready:\n${output}`);
 }
+
+test("optional access key gates pages and APIs while health remains public", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "coralconsole-access-test-"));
+  const databasePath = join(directory, "coralconsole.db");
+  const port = await availablePort();
+  const accessKey = "6c9a58a91cfb490d8c25f5db57b4a5df";
+  const accessKeyHash = createHash("sha256").update(accessKey, "utf8").digest("hex");
+  let server;
+
+  try {
+    server = await startServer(databasePath, port, { accessKeyHash });
+
+    const health = await fetch(`${server.baseUrl}/api/health`);
+    assert.equal(health.status, 200);
+
+    const protectedPage = await fetch(`${server.baseUrl}/audit?outcome=success`, { redirect: "manual" });
+    assert.equal(protectedPage.status, 307);
+    const gateLocation = new URL(protectedPage.headers.get("location"), server.baseUrl);
+    assert.equal(gateLocation.pathname, "/access");
+    assert.equal(gateLocation.searchParams.get("next"), "/audit?outcome=success");
+
+    const protectedApi = await fetch(`${server.baseUrl}/api/settings`);
+    assert.equal(protectedApi.status, 401);
+    assert.deepEqual(await protectedApi.json(), { error: "A valid CoralConsole access session is required." });
+
+    const gate = await fetch(`${server.baseUrl}${gateLocation.pathname}${gateLocation.search}`);
+    assert.equal(gate.status, 200);
+    const gateHtml = await gate.text();
+    assert.match(gateHtml, /Enter the access key/);
+    assert.match(gateHtml, /Protected console/);
+
+    const crossOriginLogin = await fetch(`${server.baseUrl}/api/access/login`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Origin: "https://untrusted.example",
+      },
+      body: JSON.stringify({ accessKey }),
+    });
+    assert.equal(crossOriginLogin.status, 403);
+    assert.equal(crossOriginLogin.headers.get("set-cookie"), null);
+
+    const crossSiteLogin = await fetch(`${server.baseUrl}/api/access/login`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Origin: server.baseUrl,
+        "Sec-Fetch-Site": "cross-site",
+      },
+      body: JSON.stringify({ accessKey }),
+    });
+    assert.equal(crossSiteLogin.status, 403);
+    assert.equal(crossSiteLogin.headers.get("set-cookie"), null);
+
+    const wrongLogin = await fetch(`${server.baseUrl}/api/access/login`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Origin: server.baseUrl,
+      },
+      body: JSON.stringify({ accessKey: "incorrect" }),
+    });
+    assert.equal(wrongLogin.status, 401);
+    assert.equal(wrongLogin.headers.get("set-cookie"), null);
+
+    const login = await fetch(`${server.baseUrl}/api/access/login`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Origin: server.baseUrl,
+      },
+      body: JSON.stringify({ accessKey: ` ${accessKey} ` }),
+    });
+    assert.equal(login.status, 200);
+    assert.deepEqual(await login.json(), { authenticated: true });
+    const setCookie = login.headers.get("set-cookie");
+    assert.ok(setCookie);
+    assert.match(setCookie, /^coral-console-session=/);
+    assert.match(setCookie, /HttpOnly/i);
+    assert.match(setCookie, /SameSite=Strict/i);
+    assert.doesNotMatch(setCookie, /Secure/i);
+    const sessionCookie = setCookie.split(";", 1)[0];
+
+    const tlsProxyLogin = await fetch(`${server.baseUrl}/api/access/login`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Origin: server.baseUrl.replace("http://", "https://"),
+      },
+      body: JSON.stringify({ accessKey }),
+    });
+    assert.equal(tlsProxyLogin.status, 200);
+    assert.match(tlsProxyLogin.headers.get("set-cookie"), /Secure/i);
+
+    const settings = await fetch(`${server.baseUrl}/api/settings`, {
+      headers: { Cookie: sessionCookie },
+    });
+    assert.equal(settings.status, 200);
+
+    const presence = await fetch(`${server.baseUrl}/api/presence`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Cookie: sessionCookie,
+        Origin: server.baseUrl,
+      },
+      body: JSON.stringify({ viewerId: "access-test-viewer", active: true }),
+    });
+    assert.equal(presence.status, 200);
+
+    const authenticatedPage = await fetch(`${server.baseUrl}/audit`, {
+      headers: { Cookie: sessionCookie },
+      redirect: "manual",
+    });
+    assert.equal(authenticatedPage.status, 200);
+
+    const externalReturn = await fetch(`${server.baseUrl}/access?next=%2F%2Fevil.example`, {
+      headers: { Cookie: sessionCookie },
+      redirect: "manual",
+    });
+    assert.equal(externalReturn.status, 307);
+    assert.equal(new URL(externalReturn.headers.get("location"), server.baseUrl).pathname, "/");
+
+    const [cookieName, cookieValue] = sessionCookie.split("=");
+    const [cookieVersion, cookieSignature] = cookieValue.split(".");
+    const tamperedSignature = `${cookieSignature.startsWith("A") ? "B" : "A"}${cookieSignature.slice(1)}`;
+    const tamperedCookie = `${cookieName}=${cookieVersion}.${tamperedSignature}`;
+    const tampered = await fetch(`${server.baseUrl}/api/settings`, {
+      headers: { Cookie: tamperedCookie },
+    });
+    assert.equal(tampered.status, 401);
+  } finally {
+    if (server) await stopServer(server);
+    await rm(directory, { recursive: true, force: true });
+  }
+});
 
 async function stopChild(child) {
   if (child.exitCode !== null) return;

@@ -4,7 +4,9 @@ CoralConsole is designed as one Node.js process, one SQLite database, and one to
 
 ## Security boundary
 
-CoralConsole intentionally has no login or role system in this version. Any person who can reach the URL can add or remove actors and execute the admin actions exposed by those actors. Treat network access as full operator access.
+CoralConsole has no usernames, roles, or per-user permissions. By default, any person who can reach the URL can add or remove actors and execute the admin actions exposed by those actors. Treat unprotected network access as full operator access.
+
+The reference deployment offers two independent, optional defenses. `CORAL_ALLOWED_CLIENTS` restricts the TCP peers accepted by the trusted ingress, and `CORAL_ACCESS_KEY_HASH` enables a shared-key gate for the application. Both are empty and disabled by default for compatibility with existing installations. The installer offers to configure either one during a fresh installation.
 
 - Keep the service on a private LAN, VPN, or zero-trust network.
 - Do not publish port 3000 directly to the public internet.
@@ -27,7 +29,7 @@ cd coralconsole-A.B.C
 
 Use the `linux-amd64` asset on x86-64 servers and the `linux-arm64` asset on ARM64 servers. Do not use GitHub's automatically generated **Source code** archives; they do not contain the prebuilt image.
 
-The host needs only Docker Engine and Docker Compose v2. The installer checks the daemon, loads the package's prebuilt image, prepares a private Docker namespace for that folder, suggests and validates available ports, writes the ignored `.env`, starts both services, and waits for their health checks. It does not run `apt-get`, npm, an application build, or a Docker-registry pull. Every installed-server command uses shell and Docker; Node.js and npm always run inside a CoralConsole container or Docker build, never as host prerequisites.
+The host needs only Docker Engine and Docker Compose v2. The installer checks the daemon, loads the package's prebuilt image, prepares a private Docker namespace for that folder, warns about the reachability of the selected bind address, suggests and validates available ports, optionally configures a client allowlist and generated shared access key, writes the ignored `.env`, starts both services, and waits for their health checks. It does not run `apt-get`, npm, an application build, or a Docker-registry pull. Every installed-server command uses shell and Docker; Node.js and npm always run inside a CoralConsole container or Docker build, never as host prerequisites.
 
 The generated `COMPOSE_PROJECT_NAME` in `.env` is internal Docker plumbing. It keeps the folder's containers, images, and volume independent even when another installation has the same final directory name. It is not an installation label in CoralConsole and normally should not be edited.
 
@@ -68,6 +70,8 @@ COMPOSE_PROJECT_NAME=coralconsole-a1b2c3d4e5f6
 CORAL_BIND_ADDRESS=10.20.30.40
 CORAL_PORT=3000
 CORAL_INTERNAL_PORT=39000
+CORAL_ALLOWED_CLIENTS=10.20.30.0/24,2001:db8:1234::/48
+CORAL_ACCESS_KEY_HASH=
 ```
 
 `CORAL_PORT` belongs to the host-network ingress. The application also uses host networking but binds `CORAL_INTERNAL_PORT` only on `127.0.0.1`; that internal listener must not be made remotely reachable.
@@ -75,6 +79,36 @@ CORAL_INTERNAL_PORT=39000
 Native Linux can bind the ingress to a specific host address as shown above. Docker Desktop host networking cannot bind a container process to a specific host interface; use `CORAL_BIND_ADDRESS=0.0.0.0` there and enforce the intended private-network scope with the host firewall.
 
 After changing either port in `.env`, run `./scripts/docker-start.sh` to recreate the affected services with the new values. The public and internal ports must remain different.
+
+## Optional network and access controls
+
+The two controls are independent. Either variable may remain empty while the other is enabled, and leaving both empty preserves the open private-network behavior.
+
+### Ingress client allowlist
+
+`CORAL_ALLOWED_CLIENTS` is a comma-separated list of exact IPv4 or IPv6 addresses and CIDR ranges:
+
+```dotenv
+CORAL_ALLOWED_CLIENTS=10.20.30.0/24,10.21.4.18,2001:db8:1234::/48
+```
+
+The trusted ingress validates the complete list at startup and refuses to start if an entry is malformed. It compares each request's normalized `socket.remoteAddress` before opening any connection to the application. A nonmatching HTTP request receives a plain `403 Forbidden`; a nonmatching WebSocket upgrade socket is destroyed. Browser-supplied forwarding headers are never consulted. Empty or unset means that all TCP peers are accepted, as in earlier releases.
+
+An allowlist controls network addresses, not human identity. If a NAT or reverse proxy sits in front of CoralConsole, the ingress normally sees that intermediary; allow the proxy address and enforce workstation-level policy at the proxy, or connect clients directly through the intended private network. DHCP leases and IPv6 privacy addresses can change over time. Docker Desktop's VM/backend networking can also obscure the original peer, so use host or upstream firewall controls rather than depending on address attribution there.
+
+### Shared access key
+
+`CORAL_ACCESS_KEY_HASH` enables one installation-wide key when it contains a lowercase, 64-character SHA-256 hash. The fresh installer can generate a strong random key, displays it once, and stores only its hash in `.env`. Keep the displayed key in the customer's approved secret manager. To prepare a compatible hash later without host Node.js, pipe the key on standard input—not as a command-line argument—to this command while CoralConsole is running:
+
+```bash
+docker compose exec -T coralconsole node scripts/hash-access-key.mjs
+```
+
+Put the returned hash in `.env`, then run `./scripts/docker-start.sh`. Changing the hash invalidates previously issued sessions; clearing it disables the gate. When enabled, an operator pastes the shared key into a minimal gate page and receives a signed, HttpOnly, SameSite session cookie. Every page and API requires that session except `GET /api/health`, which remains unauthenticated for container checks. The ingress allowlist still applies to remote health requests.
+
+This is deliberately a shared secret, not user authentication: it provides no usernames, roles, reset workflow, or per-user audit attribution. Admin-action audit rows continue to contain the trusted source IP only. Per-user accountability requires a future authentication system or an authenticated upstream proxy with its own identity-aware logs.
+
+The key and session cookie are bearer credentials. Direct HTTP sends the key without transport encryption; terminate TLS at a trusted reverse proxy whenever traffic crosses an untrusted segment. A TLS proxy should preserve the browser-facing `Host`, proxy normal requests and upgrades, and prevent a separate plain-HTTP path from bypassing TLS.
 
 ## Runtime modes
 
@@ -84,7 +118,7 @@ Development mode is optional contributor tooling. `./scripts/docker-dev-start.sh
 
 ### Audit source IP
 
-The reference deployment does not trust IP-related HTTP headers from browsers. `coralconsole-ingress` owns the public listener, removes `Forwarded`, every `X-Forwarded-*` header, `X-Real-IP`, and its private handoff header, then records the peer address from the accepted TCP socket. It forwards that validated address to the loopback-only application port.
+The reference deployment does not trust IP-related HTTP headers from browsers. `coralconsole-ingress` owns the public listener, removes `Forwarded`, every `X-Forwarded-*` header, `X-Real-IP`, and its private handoff header, then records the peer address from the accepted TCP socket. It uses that same address for the optional ingress allowlist and forwards the validated value to the loopback-only application port.
 
 With a direct private-LAN connection to a native Linux deployment, this is normally the workstation address seen by the CoralConsole server. A network proxy or source NAT in front of CoralConsole necessarily changes the TCP peer to that intermediary. Docker Desktop adds a VM/backend networking layer and should be treated as a development environment rather than relied on for production-grade workstation attribution. DHCP reassignment and IPv6 privacy addresses can also change a workstation's address over time, so correlate audit timestamps with company DHCP/IPAM records. An IP is useful evidence but is not a substitute for future authenticated user identity.
 
@@ -160,4 +194,4 @@ Migrations run automatically on container startup. Do not run multiple CoralCons
 
 ## Reverse proxy notes
 
-Proxy normal HTTP requests and WebSocket upgrades to the public ingress at `http://127.0.0.1:3000`. Do not proxy to `CORAL_INTERNAL_PORT`. Preserve the original host and scheme. Apply the customer's authentication, TLS, access logs, and request-size policy at the proxy. CoralConsole adds baseline content, frame, referrer, and permissions security headers itself.
+Proxy normal HTTP requests and WebSocket upgrades to the public ingress at `http://127.0.0.1:3000`. Do not proxy to `CORAL_INTERNAL_PORT`. Preserve the browser-facing `Host`; same-host HTTPS origins are recognized across this trusted TLS-to-loopback-HTTP hop so CoralConsole's CSRF checks remain active and access sessions receive a `Secure` cookie. Apply the customer's authentication, TLS, access logs, and request-size policy at the proxy. When `CORAL_ALLOWED_CLIENTS` is enabled here, include the proxy's TCP address; the ingress cannot recover individual workstation addresses from stripped forwarding headers. CoralConsole adds baseline content, frame, referrer, and permissions security headers itself.

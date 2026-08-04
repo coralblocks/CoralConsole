@@ -1,7 +1,12 @@
 import type { CSSProperties } from "react";
 import type { Metadata } from "next";
 import { IBM_Plex_Mono, Manrope } from "next/font/google";
-import { headers } from "next/headers";
+import { cookies, headers } from "next/headers";
+import {
+  ACCESS_SESSION_COOKIE,
+  accessControlEnabled,
+  validAccessSession,
+} from "@/lib/access-control";
 import { getSettings } from "@/lib/repository";
 import { ConsoleFooter } from "./console-chrome";
 import ViewerPresence from "./viewer-presence";
@@ -41,12 +46,17 @@ export async function generateMetadata(): Promise<Metadata> {
   };
 }
 
-export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
-  const themeStyle = { "--topology-color": getSettings().backgroundColor } as CSSProperties;
+export default async function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
+  const cookieStore = await cookies();
+  const authenticated = !accessControlEnabled()
+    || validAccessSession(cookieStore.get(ACCESS_SESSION_COOKIE)?.value);
+  const themeStyle = {
+    "--topology-color": authenticated ? getSettings().backgroundColor : "#ff8d84",
+  } as CSSProperties;
 
   return (
     <html lang="en">
-      <body suppressHydrationWarning className={`${manrope.variable} ${plexMono.variable}`} style={themeStyle}><ViewerPresence />{children}<ConsoleFooter /></body>
+      <body suppressHydrationWarning className={`${manrope.variable} ${plexMono.variable}`} style={themeStyle}>{authenticated ? <ViewerPresence /> : null}{children}{authenticated ? <ConsoleFooter /> : null}</body>
     </html>
   );
 }

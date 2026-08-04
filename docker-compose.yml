@@ -16,6 +16,7 @@ services:
       DATABASE_PATH: /data/coralconsole.db
       CORAL_TRUST_PROXY: ${CORAL_TRUST_PROXY:-false}
       CORAL_TRUSTED_INGRESS: "true"
+      CORAL_ACCESS_KEY_HASH: ${CORAL_ACCESS_KEY_HASH:-}
     volumes:
       - coralconsole-data:/data
 
@@ -32,6 +33,7 @@ services:
       CORAL_INGRESS_PORT: ${CORAL_PORT:-3000}
       CORAL_UPSTREAM_HOST: 127.0.0.1
       CORAL_UPSTREAM_PORT: ${CORAL_INTERNAL_PORT:-39000}
+      CORAL_ALLOWED_CLIENTS: ${CORAL_ALLOWED_CLIENTS:-}
     command: ["node", "scripts/trusted-ingress.mjs"]
     depends_on:
       coralconsole:

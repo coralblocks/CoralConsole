@@ -84,6 +84,19 @@ prompt_value() {
   fi
 }
 
+prompt_yes_no() {
+  yes_no_label=$1
+  while :; do
+    printf '%s [y/N]: ' "$yes_no_label" >&2
+    IFS= read -r yes_no_value || yes_no_value=
+    case "$yes_no_value" in
+      y|Y|yes|YES|Yes) return 0 ;;
+      ""|n|N|no|NO|No) return 1 ;;
+      *) echo "Enter y or n." >&2 ;;
+    esac
+  done
+}
+
 valid_bind_address() {
   case "$1" in
     ""|*[!A-Za-z0-9._:-]*) return 1 ;;
@@ -160,6 +173,7 @@ find_available_port() {
 
 choose_bind_address() {
   bind_default=0.0.0.0
+  echo "Network access warning: binding to 0.0.0.0 grants full CoralConsole operator access to the entire network that can reach this port." >&2
   while :; do
     chosen_bind=$(prompt_value "Bind address" "$bind_default")
     if ! valid_bind_address "$chosen_bind"; then
@@ -181,6 +195,60 @@ choose_bind_address() {
       fail "Docker could not test ports on $chosen_bind. Confirm that Linux host networking is available."
     fi
   done
+}
+
+validate_allowed_clients() {
+  validate_clients_value=$1
+  docker run --rm --network none \
+    -e "CORAL_ALLOWED_CLIENTS=$validate_clients_value" \
+    "$PORT_PROBE_IMAGE" \
+    node --input-type=module -e \
+    'import { createClientAllowlist } from "./scripts/trusted-ingress.mjs"; createClientAllowlist(process.env.CORAL_ALLOWED_CLIENTS);'
+}
+
+choose_allowed_clients() {
+  CORAL_CHOSEN_ALLOWED_CLIENTS=
+  if ! prompt_yes_no "Configure an IP/CIDR client allowlist"; then
+    return 0
+  fi
+
+  while :; do
+    printf '%s' "Allowed client IPs/CIDRs (comma-separated): " >&2
+    IFS= read -r allowed_clients_value || allowed_clients_value=
+    allowed_clients_value=$(printf '%s' "$allowed_clients_value" | tr -d '[:space:]')
+    if [ -z "$allowed_clients_value" ]; then
+      echo "Enter at least one IPv4 or IPv6 address or CIDR range." >&2
+      continue
+    fi
+    if validate_allowed_clients "$allowed_clients_value"; then
+      CORAL_CHOSEN_ALLOWED_CLIENTS=$allowed_clients_value
+      return 0
+    fi
+    echo "The client allowlist is invalid. Correct the entries and try again." >&2
+  done
+}
+
+choose_access_key() {
+  CORAL_CHOSEN_ACCESS_KEY_HASH=
+  CORAL_GENERATED_ACCESS_KEY=
+  if ! prompt_yes_no "Generate a random shared access key"; then
+    return 0
+  fi
+
+  echo "The shared key is not encrypted by plain HTTP; use a trusted TLS proxy outside a private segment." >&2
+  CORAL_GENERATED_ACCESS_KEY=$(od -An -N32 -tx1 /dev/urandom | tr -d ' \n')
+  if ! CORAL_CHOSEN_ACCESS_KEY_HASH=$(printf '%s' "$CORAL_GENERATED_ACCESS_KEY" | \
+    docker run --rm -i --network none "$PORT_PROBE_IMAGE" node scripts/hash-access-key.mjs); then
+    fail "The bundled image could not hash the generated access key."
+  fi
+  case "$CORAL_CHOSEN_ACCESS_KEY_HASH" in
+    ""|*[!0-9a-f]*)
+      fail "The bundled image could not hash the generated access key."
+      ;;
+  esac
+  if [ "${#CORAL_CHOSEN_ACCESS_KEY_HASH}" -ne 64 ]; then
+    fail "The bundled image returned an invalid access-key hash."
+  fi
 }
 
 choose_port() {
@@ -248,6 +316,8 @@ write_environment() {
     echo "CORAL_BIND_ADDRESS=$CORAL_CHOSEN_BIND"
     echo "CORAL_PORT=$CORAL_CHOSEN_PUBLIC_PORT"
     echo "CORAL_INTERNAL_PORT=$CORAL_CHOSEN_INTERNAL_PORT"
+    echo "CORAL_ALLOWED_CLIENTS=$CORAL_CHOSEN_ALLOWED_CLIENTS"
+    echo "CORAL_ACCESS_KEY_HASH=$CORAL_CHOSEN_ACCESS_KEY_HASH"
     echo "CORAL_TRUST_PROXY=false"
     echo "CORAL_DEV_ALLOWED_ORIGINS="
     echo "DATABASE_PATH=.data/coralconsole.db"
@@ -316,8 +386,17 @@ CORAL_CHOSEN_PUBLIC_PORT=$(choose_port "Public web port" "$CORAL_CHOSEN_BIND" "$
 internal_suggestion=$(find_available_port 127.0.0.1 39000 "$CORAL_CHOSEN_PUBLIC_PORT") ||
   fail "An available internal loopback port could not be found."
 CORAL_CHOSEN_INTERNAL_PORT=$(choose_port "Internal loopback port" 127.0.0.1 "$internal_suggestion" "$CORAL_CHOSEN_PUBLIC_PORT")
+choose_allowed_clients
+choose_access_key
 write_environment
 echo "Created this installation's private configuration in .env."
+if [ -n "$CORAL_GENERATED_ACCESS_KEY" ]; then
+  echo
+  echo "CoralConsole shared access key (shown once):"
+  echo "$CORAL_GENERATED_ACCESS_KEY"
+  echo "Store this key in the installation's approved secret manager. Only its hash was written to .env."
+  echo
+fi
 
 while ! start_standard_mode; do
   if [ "$START_FAILURE_KIND" = image ]; then
